@@ -17,6 +17,8 @@ pub const PUBLIC_LAUNCHER_API: &[(&str, &[&str])] = &[
     ("playtime", &["GET", "HEAD"]),
     ("loginqueue", &["POST", "DELETE"]),
     ("gameticket", &["POST"]),
+    ("oauthstart", &["POST"]),
+    ("oauthfinish", &["POST"]),
 ];
 
 /// The backend's admin and launcher APIs, metrics and probes: never from off this machine, but for
@@ -352,7 +354,13 @@ pub fn classify(method: &str, target: &str, headers: &HeaderMap, is_upgrade: boo
     let content = !wrapped && under(&canonical, "/content");
     let class = if is_upgrade {
         LimitClass::Ws
-    } else if canonical == "/dainty/api/register" {
+    } else if [
+        "/dainty/api/register",
+        "/dainty/api/oauthstart",
+        "/dainty/api/oauthfinish",
+    ]
+    .contains(&canonical.as_str())
+    {
         LimitClass::Register
     } else if canonical == "/account/api/oauth/token" {
         LimitClass::Token
@@ -617,6 +625,8 @@ mod tests {
             ("POST", "LoginQueue", true),
             ("DELETE", "LoginQueue", true),
             ("POST", "GameTicket", true),
+            ("POST", "OAuthStart", true),
+            ("POST", "OAuthFinish", true),
             ("POST", "CreateInvite", false),
             ("GET", "InviteCodes", false),
             ("DELETE", "InviteCode/ABCD-EFGH-JKMN", false),

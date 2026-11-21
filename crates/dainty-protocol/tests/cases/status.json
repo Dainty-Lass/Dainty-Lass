@@ -15580,5 +15580,180 @@
       "limited": false
     },
     "text": "{\"name\":\"Minimum\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false}"
+  },
+  {
+    "input": {
+      "name": "SignIn",
+      "online": true,
+      "signIn": {
+        "provider": "discord",
+        "name": "Discord",
+        "required": true
+      }
+    },
+    "expected": {
+      "name": "SignIn",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false,
+      "signIn": {
+        "provider": "discord",
+        "name": "Discord",
+        "required": true
+      }
+    },
+    "text": "{\"name\":\"SignIn\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"signIn\":{\"provider\":\"discord\",\"name\":\"Discord\",\"required\":true}}"
+  },
+  {
+    "input": {
+      "name": "SignIn",
+      "online": true,
+      "signIn": {
+        "provider": "my-sso",
+        "name": "  Our\u0007 SSO  "
+      }
+    },
+    "expected": {
+      "name": "SignIn",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false,
+      "signIn": {
+        "provider": "my-sso",
+        "name": "Our SSO",
+        "required": false
+      }
+    },
+    "text": "{\"name\":\"SignIn\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false,\"signIn\":{\"provider\":\"my-sso\",\"name\":\"Our SSO\",\"required\":false}}"
+  },
+  {
+    "input": {
+      "name": "SignIn",
+      "online": true,
+      "signIn": {
+        "provider": "Discord",
+        "name": "Discord"
+      }
+    },
+    "expected": {
+      "name": "SignIn",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false
+    },
+    "text": "{\"name\":\"SignIn\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false}"
+  },
+  {
+    "input": {
+      "name": "SignIn",
+      "online": true,
+      "signIn": {
+        "provider": "discord"
+      }
+    },
+    "expected": {
+      "name": "SignIn",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false
+    },
+    "text": "{\"name\":\"SignIn\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false}"
+  },
+  {
+    "input": {
+      "name": "SignIn",
+      "online": true,
+      "signIn": {
+        "provider": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "name": "Long"
+      }
+    },
+    "expected": {
+      "name": "SignIn",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false
+    },
+    "text": "{\"name\":\"SignIn\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false}"
+  },
+  {
+    "input": {
+      "name": "SignIn",
+      "online": true,
+      "signIn": "discord"
+    },
+    "expected": {
+      "name": "SignIn",
+      "online": true,
+      "version": "",
+      "commit": "",
+      "sourceUrl": null,
+      "registration": null,
+      "playersOnline": 0,
+      "players": [],
+      "instances": [],
+      "uptimeSeconds": 0,
+      "game": null,
+      "gameData": "unknown",
+      "chat": false,
+      "contentPort": null,
+      "limited": false
+    },
+    "text": "{\"name\":\"SignIn\",\"online\":true,\"version\":\"\",\"commit\":\"\",\"sourceUrl\":null,\"registration\":null,\"playersOnline\":0,\"players\":[],\"instances\":[],\"uptimeSeconds\":0,\"game\":null,\"gameData\":\"unknown\",\"chat\":false,\"contentPort\":null,\"limited\":false}"
   }
 ]

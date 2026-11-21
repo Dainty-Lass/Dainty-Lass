@@ -600,6 +600,24 @@ store_trait! {
         fn create(&self, tx: &mut Tx<'_>, record: &AuthIdentityRecord) -> bool;
         /// Unlinks the account's identities; returns how many.
         fn delete_for_account(&self, tx: &mut Tx<'_>, account: &AccountId) -> u64;
+        /// The identity with that subject at `provider` (`discord`, or a host's own OAuth provider).
+        fn find_for_provider(
+            &self,
+            conn: &mut AnyConnection,
+            provider: &str,
+            subject: &str,
+        ) -> Option<AuthIdentityRecord>;
+        /// Links the identity at `provider`; false when the subject or the account is linked there already.
+        fn create_for_provider(&self, tx: &mut Tx<'_>, provider: &str, record: &AuthIdentityRecord) -> bool;
+        /// The account's identity at `provider`.
+        fn find_account_at_provider(
+            &self,
+            conn: &mut AnyConnection,
+            provider: &str,
+            account: &AccountId,
+        ) -> Option<AuthIdentityRecord>;
+        /// Unlinks the account's identities at every provider (erasure); returns how many.
+        fn delete_every_provider_for_account(&self, tx: &mut Tx<'_>, account: &AccountId) -> u64;
     }
 }
 
@@ -1391,7 +1409,7 @@ impl IdentityRow {
     }
 }
 
-const IDENTITIES: &str = "SELECT * FROM auth_identities WHERE provider = 'discord'";
+const IDENTITIES: &str = "SELECT * FROM auth_identities WHERE provider = ?";
 
 impl AuthIdentityRepository for SqlAuthIdentities {
     fn find_by_provider_subject(
@@ -1399,15 +1417,12 @@ impl AuthIdentityRepository for SqlAuthIdentities {
         conn: &mut AnyConnection,
         subject: &str,
     ) -> RepoResult<Option<AuthIdentityRecord>> {
-        sql(format!("{IDENTITIES} AND provider_subject = ?"))
-            .t(subject)
-            .first::<IdentityRow>(conn)?
-            .map(IdentityRow::decode)
-            .transpose()
+        self.find_for_provider(conn, "discord", subject)
     }
 
     fn find_by_account(&self, conn: &mut AnyConnection, account: &AccountId) -> RepoResult<Option<AuthIdentityRecord>> {
         sql(format!("{IDENTITIES} AND account_id = ?"))
+            .t("discord")
             .t(account.to_string())
             .first::<IdentityRow>(conn)?
             .map(IdentityRow::decode)
@@ -1415,10 +1430,37 @@ impl AuthIdentityRepository for SqlAuthIdentities {
     }
 
     fn create(&self, tx: &mut Tx<'_>, record: &AuthIdentityRecord) -> RepoResult<bool> {
+        self.create_for_provider(tx, "discord", record)
+    }
+
+    fn delete_for_account(&self, tx: &mut Tx<'_>, account: &AccountId) -> RepoResult<u64> {
+        Ok(count(
+            sql("DELETE FROM auth_identities WHERE provider = 'discord' AND account_id = ?")
+                .t(account.to_string())
+                .run(tx.conn())?,
+        ))
+    }
+
+    fn find_for_provider(
+        &self,
+        conn: &mut AnyConnection,
+        provider: &str,
+        subject: &str,
+    ) -> RepoResult<Option<AuthIdentityRecord>> {
+        sql(format!("{IDENTITIES} AND provider_subject = ?"))
+            .t(provider)
+            .t(subject)
+            .first::<IdentityRow>(conn)?
+            .map(IdentityRow::decode)
+            .transpose()
+    }
+
+    fn create_for_provider(&self, tx: &mut Tx<'_>, provider: &str, record: &AuthIdentityRecord) -> RepoResult<bool> {
         let conn = tx.conn();
         let linked = sql(
-            "SELECT CAST(1 AS BIGINT) AS n FROM auth_identities WHERE provider = 'discord' AND (provider_subject = ? OR account_id = ?)",
+            "SELECT CAST(1 AS BIGINT) AS n FROM auth_identities WHERE provider = ? AND (provider_subject = ? OR account_id = ?)",
         )
+        .t(provider)
         .t(&*record.provider_subject)
         .t(record.account.to_string())
         .exists(conn)?;
@@ -1426,9 +1468,9 @@ impl AuthIdentityRepository for SqlAuthIdentities {
             return Ok(false);
         }
         sql(
-            "INSERT INTO auth_identities (provider, provider_subject, account_id, provider_username, \
-             provider_avatar_url, linked_at) VALUES ('discord', ?, ?, ?, ?, ?)",
+            "INSERT INTO auth_identities (provider, provider_subject, account_id, provider_username,              provider_avatar_url, linked_at) VALUES (?, ?, ?, ?, ?, ?)",
         )
+        .t(provider)
         .t(&*record.provider_subject)
         .t(record.account.to_string())
         .t(&*record.provider_username)
@@ -1438,9 +1480,23 @@ impl AuthIdentityRepository for SqlAuthIdentities {
         Ok(true)
     }
 
-    fn delete_for_account(&self, tx: &mut Tx<'_>, account: &AccountId) -> RepoResult<u64> {
+    fn find_account_at_provider(
+        &self,
+        conn: &mut AnyConnection,
+        provider: &str,
+        account: &AccountId,
+    ) -> RepoResult<Option<AuthIdentityRecord>> {
+        sql(format!("{IDENTITIES} AND account_id = ?"))
+            .t(provider)
+            .t(account.to_string())
+            .first::<IdentityRow>(conn)?
+            .map(IdentityRow::decode)
+            .transpose()
+    }
+
+    fn delete_every_provider_for_account(&self, tx: &mut Tx<'_>, account: &AccountId) -> RepoResult<u64> {
         Ok(count(
-            sql("DELETE FROM auth_identities WHERE provider = 'discord' AND account_id = ?")
+            sql("DELETE FROM auth_identities WHERE account_id = ?")
                 .t(account.to_string())
                 .run(tx.conn())?,
         ))

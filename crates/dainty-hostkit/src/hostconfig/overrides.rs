@@ -15,12 +15,15 @@ use crate::services::service_environment;
 pub const GENERIC: [&str; 6] = ["PORT", "BIND_HOST", "NODE_ENV", "LOG_LEVEL", "MY_IP", "BACKEND_URL"];
 
 /// What decides who may connect or what a public server allows, besides the secrets: redacted like a secret.
-const SAFETY: [&str; 5] = [
+const SAFETY: [&str; 8] = [
     "DAINTY_SERVER_MODE",
     "APPROVED_EXECUTABLE_SHA256",
     "DAINTY_XP_MULTIPLIER",
     "DAINTY_REWARD_MULTIPLIER",
     "REGISTRATION_MODE",
+    "DAINTY_OAUTH_GUILD_IDS",
+    "DAINTY_OAUTH_REQUIRED",
+    "DAINTY_OAUTH_PRESET",
 ];
 const SECRET_SUFFIXES: [&str; 6] = ["_SECRET", "_KEY", "_KEYS", "_TOKEN", "_PASSWORD", "_B64"];
 

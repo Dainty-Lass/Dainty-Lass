@@ -7,6 +7,7 @@ pub mod connector;
 pub mod epic_install;
 pub mod hostapi;
 pub mod http;
+pub mod oauth_redirect;
 pub mod pinned;
 pub mod regionping;
 pub mod relay;

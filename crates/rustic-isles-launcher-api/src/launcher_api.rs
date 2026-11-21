@@ -145,6 +145,8 @@ pub enum Refusal {
     UsernameInvalid,
     /// The username is taken.
     UsernameTaken,
+    /// Accounts are made only through the server's OAuth sign-in.
+    OAuthRequired,
 }
 
 impl Refusal {
@@ -157,6 +159,7 @@ impl Refusal {
             Self::RegistrationClosed => "registration_closed",
             Self::UsernameInvalid => "username_invalid",
             Self::UsernameTaken => "username_taken",
+            Self::OAuthRequired => "oauth_required",
         }
     }
 
@@ -169,6 +172,7 @@ impl Refusal {
             Self::RegistrationClosed => "This server is not taking registrations.",
             Self::UsernameInvalid => "A username is 3 to 16 characters: letters, digits and underscore.",
             Self::UsernameTaken => "That name is taken.",
+            Self::OAuthRequired => "This server makes new accounts only through its sign-in.",
         }
     }
 
@@ -310,6 +314,9 @@ pub async fn register(call: Call) -> Response {
     if mode == RegistrationMode::None {
         return Refusal::RegistrationClosed.response(StatusCode::BAD_REQUEST);
     }
+    if crate::oauth::provider(&shared).is_some_and(|p| p.required) {
+        return Refusal::OAuthRequired.response(StatusCode::FORBIDDEN);
+    }
     let body = match util::read_json(&mut request).await {
         Ok(body) => body,
         Err(page) => return page,
@@ -329,10 +336,54 @@ pub async fn register(call: Call) -> Response {
     if mode == RegistrationMode::InviteCode && !is_invite_code(&code) {
         return Refusal::InviteInvalid.response(StatusCode::UNAUTHORIZED);
     }
+    let made = match create_account(&shared, &store, &username, mode, code, None).await {
+        Ok(made) => made,
+        Err(page) => return page,
+    };
+    let response = util::ok(&object(vec![("UUK", Value::from(made.key))]));
+    util::with_header(response, "x-dainty-account-id", &made.account.to_string())
+}
+
+/// An identity linked to a new account in the same write (`oauth.rs`).
+#[derive(Debug, Clone)]
+pub struct LinkIdentity {
+    /// `auth_identities.provider`.
+    pub provider: String,
+    /// The provider's id for the user.
+    pub subject: String,
+    /// Their name there.
+    pub username: String,
+    /// Discord's avatar URL.
+    pub avatar_url: Option<String>,
+}
+
+/// A new account and its key.
+#[derive(Debug, Clone)]
+pub struct Made {
+    /// The game account.
+    pub account: AccountId,
+    /// Its userId.
+    pub user_id: UserId,
+    /// The account key, shown once.
+    pub key: String,
+}
+
+const LINKED: &str = "auth_identities: the identity was linked";
+
+/// Makes the launcher and game accounts and the key, spending the invite under `INVITECODE` and linking `link`;
+/// a refusal or failure is the page to answer.
+pub async fn create_account(
+    shared: &Shared,
+    store: &IslesStore,
+    username: &str,
+    mode: RegistrationMode,
+    code: String,
+    link: Option<LinkIdentity>,
+) -> Result<Made, Response> {
     let key = make_account_key();
     let Ok(secret) = rustic_isles_auth::hashes::read_secret(shared.settings().raw("API_KEY_HASH_SECRET")) else {
         tracing::error!("[launcher-api] registration failed: API_KEY_HASH_SECRET must contain at least 32 characters.");
-        return util::empty(StatusCode::INTERNAL_SERVER_ERROR);
+        return Err(util::empty(StatusCode::INTERNAL_SERVER_ERROR));
     };
     let hash = rustic_isles_auth::hashes::user_key_hash(secret, &key);
     let account = AccountId::new(&shared.node().node);
@@ -343,12 +394,13 @@ pub async fn register(call: Call) -> Response {
     let normalized = username.to_lowercase();
     let now = iso(now_ms());
     let spent_at = now.clone();
+    let linked_at = now.clone();
     let record = LauncherAccountRecord {
         account: account.clone(),
         user_id: user_id.clone(),
         email: None,
         display_name_normalized: normalized.clone(),
-        display_name: username.clone(),
+        display_name: username.to_owned(),
         password_hash: None,
         status: OperationalStatus::Active,
         approval_status: Some(ApprovalStatus::Approved),
@@ -370,7 +422,7 @@ pub async fn register(call: Call) -> Response {
     let game = AccountRecord {
         id: account.clone(),
         user_id: user_id.clone(),
-        name: username.clone(),
+        name: username.to_owned(),
         notes: 0,
     };
     let invite = mode == RegistrationMode::InviteCode;
@@ -392,25 +444,46 @@ pub async fn register(call: Call) -> Response {
                 // Rolls the account and the spent use back
                 return Err(RepoError::Data(TAKEN.to_owned()));
             }
+            if let Some(link) = link {
+                let identity = rustic_isles_store::repo::auth::AuthIdentityRecord {
+                    provider_subject: link.subject,
+                    account: id.clone(),
+                    provider_username: link.username,
+                    provider_avatar_url: link.avatar_url,
+                    linked_at,
+                };
+                if !repos
+                    .auth_identities
+                    .create_for_provider(tx, &link.provider, &identity)?
+                {
+                    return Err(RepoError::Data(LINKED.to_owned()));
+                }
+            }
             repos.api_keys.insert_user_key_hash(tx, &id, &hash)?;
             Ok(Registered::Done)
         })
         .await;
     match written {
         Ok(Registered::Done) => {}
-        Ok(Registered::Taken) => return Refusal::UsernameTaken.response(StatusCode::CONFLICT),
-        Ok(Registered::InviteInvalid) => return Refusal::InviteInvalid.response(StatusCode::UNAUTHORIZED),
-        Err(e) if is_unique_violation(&e) => return Refusal::UsernameTaken.response(StatusCode::CONFLICT),
+        Ok(Registered::Taken) => return Err(Refusal::UsernameTaken.response(StatusCode::CONFLICT)),
+        Ok(Registered::InviteInvalid) => return Err(Refusal::InviteInvalid.response(StatusCode::UNAUTHORIZED)),
+        // Signed in twice at once: the other request made the account
+        Err(RepoError::Data(text)) if text == LINKED => {
+            return Err(json(
+                StatusCode::CONFLICT,
+                &object(vec![("error", Value::from("oauth_linked"))]),
+            ));
+        }
+        Err(e) if is_unique_violation(&e) => return Err(Refusal::UsernameTaken.response(StatusCode::CONFLICT)),
         Err(e) => {
             tracing::error!("[launcher-api] registration failed: {e}");
-            return util::empty(StatusCode::INTERNAL_SERVER_ERROR);
+            return Err(util::empty(StatusCode::INTERNAL_SERVER_ERROR));
         }
     }
     tracing::info!("[launcher-api] {username} registered as {user_id}");
-    announce(&shared, &account, &key, &username).await;
-    LauncherApiState::of(&shared).forget_status();
-    let response = util::ok(&object(vec![("UUK", Value::from(key))]));
-    util::with_header(response, "x-dainty-account-id", &account.to_string())
+    announce(shared, &account, &key, username).await;
+    LauncherApiState::of(shared).forget_status();
+    Ok(Made { account, user_id, key })
 }
 
 /// `GET /dainty/api/GetUserInfo`: the key holder's account.
@@ -441,11 +514,18 @@ pub async fn get_user_info(call: Call) -> Response {
         );
     }
     announce(&call.shared, &holder.account, &key, &holder.username).await;
-    let body = object(vec![
+    let mut body = object(vec![
         ("UserId", Value::from(holder.user_id.clone())),
         ("Username", Value::from(holder.username.clone())),
         ("IsAdmin", Value::Bool(holder.admin)),
     ]);
+    // Only with sign-in set up, so the body stays Node's otherwise
+    if let Some(provider) = crate::oauth::provider(&call.shared)
+        && let Some(linked) = crate::oauth::is_linked(&store, &provider.id, &holder.account).await
+        && let Value::Object(body) = &mut body
+    {
+        body.insert("OAuthLinked".into(), Value::Bool(linked));
+    }
     util::with_header(util::ok(&body), "x-dainty-account-id", &holder.account.to_string())
 }
 
@@ -892,6 +972,9 @@ async fn status_body(shared: &Arc<Shared>, store: &IslesStore, state: &LauncherA
     }
     if let (Some(minimum), Value::Object(body)) = (min_launcher_version(settings), &mut body) {
         body.insert("minLauncherVersion".into(), Value::from(minimum));
+    }
+    if let (Some(provider), Value::Object(body)) = (crate::oauth::provider(shared), &mut body) {
+        body.insert("signIn".into(), crate::oauth::status_entry(&provider));
     }
     body
 }

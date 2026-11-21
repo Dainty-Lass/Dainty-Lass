@@ -8,16 +8,23 @@ use dainty_protocol::account::{RegisterRequest, UsernameCheck, check_username, e
 use dainty_protocol::status::limited_view;
 use serde_json::{Value, json};
 
+use tokio_util::sync::CancellationToken;
+
 use super::Controller;
 use super::platform::TEXT_FILTER;
+use super::stored::StoredServer;
 use super::stored::edit;
 use crate::bridge::types::{ActionResult, ErrorCode, LauncherError, NoticeCode, RegisterOutcome};
-use crate::net::hostapi;
+use crate::net::hostapi::{self, OAuthFinishRequest};
+use crate::net::oauth_redirect::{self, RedirectError};
 use crate::platform::keystore::{Backup, KeyStoreError, backup_text, write_private};
+use crate::platform::links;
 use crate::platform::log;
 
 /// The biggest key file `import_key_file` reads.
 pub const MAX_KEY_FILE_BYTES: u64 = 8192;
+/// How long `sign_in` waits for the browser to come back; the server forgets the sign-in after five minutes.
+const SIGN_IN_WAIT: std::time::Duration = std::time::Duration::from_secs(5 * 60);
 
 fn storage_error(error: &KeyStoreError) -> LauncherError {
     LauncherError::new(match error {
@@ -50,16 +57,25 @@ impl Controller {
                 return RegisterOutcome::Err(error);
             }
         };
-        let (slot, pin, saved_key) = (server.slot(), server.pin().map(str::to_owned), key.clone());
-        if self
-            .with_keys(move |keys| keys.save(&slot, &saved_key, pin.as_deref()))
-            .await
-            .is_err()
-        {
-            let error = LauncherError::new(ErrorCode::KeyStorageUnavailable);
+        if let Err(error) = self.keep_new_key(&server, key, username).await {
             self.finish(Err(error.clone()));
             return RegisterOutcome::Err(error);
         }
+        log::info(format!("registered {username} on {}:{}", server.host, server.port));
+        self.confirm_account().await;
+        self.poll_once().await;
+        self.finish(Ok(()));
+        RegisterOutcome::Ok {
+            username: username.to_owned(),
+        }
+    }
+
+    /// Saves a key the server just made for `username`, in this server's slot.
+    async fn keep_new_key(&self, server: &StoredServer, key: String, username: &str) -> Result<(), LauncherError> {
+        let (slot, pin) = (server.slot(), server.pin().map(str::to_owned));
+        self.with_keys(move |keys| keys.save(&slot, &key, pin.as_deref()))
+            .await
+            .map_err(|_| LauncherError::new(ErrorCode::KeyStorageUnavailable))?;
         let id = server.id();
         let name = username.to_owned();
         self.edit_settings(|map| {
@@ -69,13 +85,125 @@ impl Controller {
         })
         .await;
         self.key_present();
-        log::info(format!("registered {username} on {}:{}", server.host, server.port));
+        Ok(())
+    }
+
+    /// `sign_in`: the server's OAuth sign-in (`docs/oauth.md`). The provider's page opens in the browser, which comes
+    /// back to this launcher on loopback; the server trades the code and answers the account key, of the account
+    /// linked to that sign-in or a new one named `username` (empty: the provider's name). The player cancels with
+    /// `cancel_task`.
+    pub async fn sign_in(&self, username: &str) -> RegisterOutcome {
+        let username = username.trim();
+        if !username.is_empty() {
+            let check = check_username(username);
+            if check != UsernameCheck::Ok {
+                return RegisterOutcome::Err(LauncherError::with_detail(ErrorCode::UsernameInvalid, check.as_str()));
+            }
+        }
+        let Some(server) = self.server() else {
+            return RegisterOutcome::Err(LauncherError::new(ErrorCode::ServerUnreachable));
+        };
+        if let Err(error) = self.begin_busy() {
+            return RegisterOutcome::Err(error);
+        }
+        let cancel = CancellationToken::new();
+        self.lock().sign_in_cancel = Some(cancel.clone());
+        let result = self.sign_in_steps(&server, username, &cancel).await;
+        self.lock().sign_in_cancel = None;
+        let name = match result {
+            Ok(name) => name,
+            Err(error) => {
+                self.finish(Err(error.clone()));
+                return RegisterOutcome::Err(error);
+            }
+        };
+        log::info(format!("signed in as {name} on {}:{}", server.host, server.port));
         self.confirm_account().await;
         self.poll_once().await;
         self.finish(Ok(()));
-        RegisterOutcome::Ok {
-            username: username.to_owned(),
+        RegisterOutcome::Ok { username: name }
+    }
+
+    /// `link_sign_in`: links the server's OAuth sign-in to the account the stored key holds, so signing in later
+    /// gets it back on another PC. The key stays as it is.
+    pub async fn link_sign_in(&self) -> ActionResult {
+        let Some(server) = self.server() else {
+            return ActionResult::err(ErrorCode::ServerUnreachable);
+        };
+        let Some(key) = self.load_key().await else {
+            return ActionResult::err(ErrorCode::KeyInvalid);
+        };
+        if let Err(error) = self.begin_busy() {
+            return ActionResult::Err(error);
         }
+        let cancel = CancellationToken::new();
+        self.lock().sign_in_cancel = Some(cancel.clone());
+        let result = match self.browser_round(&server, &cancel).await {
+            Ok(request) => hostapi::oauth_link(&server.endpoint(), &key, &request).await,
+            Err(error) => Err(error),
+        };
+        self.lock().sign_in_cancel = None;
+        if result.is_ok() {
+            log::info(format!("linked the sign-in on {}:{}", server.host, server.port));
+            let mut state = self.lock();
+            state.oauth_linked = Some(true);
+            state.notice = Some(NoticeCode::OauthLinked);
+        }
+        self.finish(result)
+    }
+
+    async fn sign_in_steps(
+        &self,
+        server: &StoredServer,
+        username: &str,
+        cancel: &CancellationToken,
+    ) -> Result<String, LauncherError> {
+        let mut request = self.browser_round(server, cancel).await?;
+        request.username = (!username.is_empty()).then(|| username.to_owned());
+        request.invite_code = server.code.clone().unwrap_or_default();
+        let (key, name) = hostapi::oauth_finish(&server.endpoint(), &request).await?;
+        self.keep_new_key(server, key, &name).await?;
+        Ok(name)
+    }
+
+    /// Starts a sign-in, opens the provider's page and waits for the browser: the request to finish it with.
+    async fn browser_round(
+        &self,
+        server: &StoredServer,
+        cancel: &CancellationToken,
+    ) -> Result<OAuthFinishRequest, LauncherError> {
+        let endpoint = server.endpoint();
+        let start = hostapi::oauth_start(&endpoint).await?;
+        let Some(url) = links::check_oauth(&start.authorize_url, &start.provider) else {
+            log::warn(format!(
+                "{}:{} sent a sign-in address it may not",
+                server.host, server.port
+            ));
+            return Err(LauncherError::new(ErrorCode::OauthBadUrl));
+        };
+        let listener = oauth_redirect::bind()
+            .await
+            .map_err(|_| LauncherError::new(ErrorCode::OauthPortBusy))?;
+        self.platform()
+            .open_url(&url)
+            .map_err(|_| LauncherError::new(ErrorCode::OauthFailed))?;
+        let code = oauth_redirect::wait(listener, &start.state, self.language(), cancel, SIGN_IN_WAIT)
+            .await
+            .map_err(|error| {
+                LauncherError::new(match error {
+                    RedirectError::PortBusy => ErrorCode::OauthPortBusy,
+                    RedirectError::Denied => ErrorCode::OauthDenied,
+                    RedirectError::TimedOut => ErrorCode::OauthExpired,
+                    RedirectError::Cancelled => ErrorCode::Cancelled,
+                })
+            })?;
+        Ok(OAuthFinishRequest {
+            state: start.state,
+            code,
+            ticket: start.ticket,
+            username: None,
+            invite_code: String::new(),
+        })
     }
 
     fn key_present(&self) {

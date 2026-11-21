@@ -175,6 +175,10 @@ pub(crate) struct State {
     pub(crate) task: Option<TaskProgress>,
     pub(crate) verify_abort: Option<Abort>,
     pub(crate) runtime_cancel: Option<CancellationToken>,
+    /// Ends `sign_in`'s wait for the browser.
+    pub(crate) sign_in_cancel: Option<CancellationToken>,
+    /// Whether the account is linked to the server's sign-in, as `GetUserInfo` last said.
+    pub(crate) oauth_linked: Option<bool>,
     pub(crate) last_error: Option<LauncherError>,
     pub(crate) notice: Option<NoticeCode>,
     pub(crate) update_ready: bool,
@@ -244,6 +248,8 @@ impl State {
             task: None,
             verify_abort: None,
             runtime_cancel: None,
+            sign_in_cancel: None,
+            oauth_linked: None,
             last_error: None,
             notice: None,
             update_ready: false,
@@ -539,6 +545,7 @@ impl Controller {
             username: current.as_deref().and_then(|id| stored.username(id)).map(str::to_owned),
             has_key,
             offer_backup: has_key && current.as_deref().is_some_and(|id| !stored.backup_offered(id)),
+            oauth_linked: state.oauth_linked.filter(|_| has_key),
         };
         Snapshot {
             phase: self.phase_of(state, server.as_ref()),

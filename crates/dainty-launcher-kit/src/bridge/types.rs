@@ -242,6 +242,28 @@ pub enum ErrorCode {
     ServerTimedOut,
     /// The secure connection to the server failed, though not on the certificate's fingerprint.
     ServerTlsFailed,
+    /// The server has no OAuth sign-in.
+    OauthUnavailable,
+    /// The sign-in provider refused or did not answer the server.
+    OauthFailed,
+    /// The sign-in took too long or was already used; start again.
+    OauthExpired,
+    /// The sign-in account is not in the Discord server (or group) the host requires.
+    OauthNotMember,
+    /// Another program holds the port the browser comes back to (61190).
+    OauthPortBusy,
+    /// The provider's name can't be a game name: the player picks one.
+    OauthUsernameNeeded,
+    /// The server makes new accounts only through its sign-in.
+    OauthRequired,
+    /// The player declined at the sign-in page.
+    OauthDenied,
+    /// The server sent a sign-in address the launcher does not open.
+    OauthBadUrl,
+    /// That sign-in account is linked to another account on this server.
+    OauthLinkedElsewhere,
+    /// This account is linked to another sign-in account already.
+    OauthAccountHasLink,
 }
 
 /// A notice the page shows after an action succeeds, by catalog key.
@@ -267,6 +289,8 @@ pub enum NoticeCode {
     InstallDone,
     /// The game repair finished.
     RepairDone,
+    /// The account was linked to the server's sign-in.
+    OauthLinked,
 }
 
 /// A failed command's answer: the code and optional words for the `{detail}` placeholder.

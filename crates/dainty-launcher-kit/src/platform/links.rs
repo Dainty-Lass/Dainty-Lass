@@ -133,6 +133,23 @@ pub fn check(text: &str, source: Option<&str>) -> Option<Url> {
     allowed.then_some(url)
 }
 
+/// The sign-in page `OAuthStart` named: `https`, no user or password, and for the Discord preset only
+/// `discord.com` itself, so a server can't send the player's browser elsewhere in Discord's name.
+#[must_use]
+pub fn check_oauth(text: &str, provider: &str) -> Option<Url> {
+    if !fits(text, MAX_URL) {
+        return None;
+    }
+    let url = Url::parse(text).ok()?;
+    if url.scheme() != "https" || !url.username().is_empty() || url.password().is_some() || url.host_str().is_none() {
+        return None;
+    }
+    if provider == "discord" && (url.host_str() != Some("discord.com") || has_explicit_port(text)) {
+        return None;
+    }
+    Some(url)
+}
+
 // Url drops a default port, so `:443` is only visible in the text.
 fn has_explicit_port(text: &str) -> bool {
     let rest = text.split_once("://").map_or(text, |(_, rest)| rest);
@@ -196,6 +213,24 @@ fn spawn_detached<S: AsRef<std::ffi::OsStr>>(program: &str, args: &[S]) -> io::R
 mod tests {
     use super::*;
     use crate::bridge::spec::EXTERNAL_TARGETS;
+
+    #[test]
+    fn oauth_pages() {
+        let discord = "https://discord.com/oauth2/authorize?client_id=1";
+        assert!(check_oauth(discord, "discord").is_some());
+        for refused in [
+            "http://discord.com/oauth2/authorize",
+            "https://discord.com.evil.example/oauth2/authorize",
+            "https://evil.example/?discord.com",
+            "https://user@discord.com/oauth2/authorize",
+            "https://discord.com:8443/oauth2/authorize",
+            "javascript:alert(1)",
+        ] {
+            assert!(check_oauth(refused, "discord").is_none(), "{refused}");
+        }
+        assert!(check_oauth("https://sso.example/authorize", "my-sso").is_some());
+        assert!(check_oauth("http://sso.example/authorize", "my-sso").is_none());
+    }
 
     fn target(name: &str) -> ExternalTarget {
         serde_json::from_value(serde_json::json!(name)).unwrap()

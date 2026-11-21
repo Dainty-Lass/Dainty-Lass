@@ -1352,7 +1352,7 @@ async fn seams() {
 }
 
 #[test]
-fn this_half_registers_its_48_rows() {
+fn this_half_registers_its_50_rows() {
     let mut public = rustic_isles::Handlers::new();
     rustic_isles_launcher_api::register_public(&mut public);
     let mut admin = rustic_isles::Handlers::new();
@@ -1367,7 +1367,7 @@ fn this_half_registers_its_48_rows() {
                 && r.when != rustic_isles::When::Rifts
         })
         .collect();
-    assert_eq!(reforged.len(), 70);
+    assert_eq!(reforged.len(), 72);
     let (mut p, mut a) = (0, 0);
     for row in &reforged {
         let in_public = public.contains(row.service, row.method, row.path);
@@ -1379,7 +1379,7 @@ fn this_half_registers_its_48_rows() {
             a += 1;
         }
     }
-    assert_eq!((p, a), (48, 22));
+    assert_eq!((p, a), (50, 22));
 }
 
 #[tokio::test]

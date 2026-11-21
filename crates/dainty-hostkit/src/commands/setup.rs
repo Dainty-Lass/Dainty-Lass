@@ -85,6 +85,14 @@ pub trait SetupEnv {
             .map_err(|e| HostError::message(format!("could not read the Discord bot token from stdin: {e}")))?;
         Ok(line.trim().to_owned())
     }
+    /// The OAuth client secret, one line from stdin, for the same reason.
+    fn read_oauth_client_secret(&self) -> Result<String, HostError> {
+        let mut line = String::new();
+        std::io::stdin()
+            .read_line(&mut line)
+            .map_err(|e| HostError::message(format!("could not read the OAuth client secret from stdin: {e}")))?;
+        Ok(line.trim().to_owned())
+    }
 }
 
 /// The real machine.
@@ -223,6 +231,22 @@ pub fn run_with(
     } else {
         None
     };
+    if args.discord_bot_token && args.oauth_client_secret {
+        return Err(HostError::message(
+            "--discord-bot-token and --oauth-client-secret both read stdin: run setup once for each",
+        ));
+    }
+    let oauth_secret = if args.oauth_client_secret {
+        let secret = env.read_oauth_client_secret()?;
+        if secret.is_empty() || secret.len() > 512 || secret.chars().any(|c| c.is_whitespace() || c.is_control()) {
+            return Err(HostError::message(
+                "the OAuth client secret on stdin must be one line without spaces (Discord: OAuth2 > Client Secret)",
+            ));
+        }
+        Some(secret)
+    } else {
+        None
+    };
 
     let is_release = crate::selfupdate::read_manifest(&p.repo)?.is_some();
     if !is_release && !args.skip_install && env.require_checkout_sources() {
@@ -269,6 +293,11 @@ pub fn run_with(
         set_provided_secret(&p.config, "DISCORD_BOT_TOKEN", &token)?;
         sec.discord_bot_token = token;
         out("- Discord bot token: kept in secrets.env");
+    }
+    if let Some(secret) = oauth_secret {
+        set_provided_secret(&p.config, "DAINTY_OAUTH_CLIENT_SECRET", &secret)?;
+        sec.oauth_client_secret = secret;
+        out("- OAuth client secret: kept in secrets.env");
     }
     for moved in crate::winports::move_lent_ports(&mut config, &env.excluded_tcp_ports()) {
         out(&moved.line());
@@ -354,6 +383,17 @@ pub fn run_with(
         out(
             "- warning: [discord] is on but has no token: run dainty-host setup --discord-bot-token, the token on stdin",
         );
+    }
+    if config.oauth.is_some() {
+        out(&format!(
+            "- OAuth sign-in: the provider's application must list {} as its redirect",
+            crate::hostconfig::oauth::REDIRECT_URI
+        ));
+        if sec.oauth_client_secret.trim().is_empty() {
+            out(
+                "- warning: [oauth] is off until its client secret is set: run dainty-host setup --oauth-client-secret, the secret on stdin",
+            );
+        }
     }
 
     if config.mode == ServerMode::Public {

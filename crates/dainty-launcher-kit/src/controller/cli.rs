@@ -218,6 +218,17 @@ pub const fn error_text(code: ErrorCode) -> &'static str {
         ErrorCode::ServerRefused => "the server's address refused the connection",
         ErrorCode::ServerTimedOut => "the server did not answer in time",
         ErrorCode::ServerTlsFailed => "the secure connection to the server failed",
+        ErrorCode::OauthUnavailable => "the server has no sign-in",
+        ErrorCode::OauthFailed => "the sign-in provider refused or did not answer",
+        ErrorCode::OauthExpired => "the sign-in took too long; start again",
+        ErrorCode::OauthNotMember => "the sign-in account is not in the server's required group",
+        ErrorCode::OauthPortBusy => "another program holds port 61190, which the sign-in comes back to",
+        ErrorCode::OauthUsernameNeeded => "pick a name: the sign-in's name can't be used",
+        ErrorCode::OauthRequired => "the server makes new accounts only through its sign-in",
+        ErrorCode::OauthDenied => "the sign-in was declined",
+        ErrorCode::OauthBadUrl => "the server sent a sign-in address the launcher does not open",
+        ErrorCode::OauthLinkedElsewhere => "that sign-in account is linked to another account on this server",
+        ErrorCode::OauthAccountHasLink => "this account is linked to another sign-in account already",
     }
 }
 

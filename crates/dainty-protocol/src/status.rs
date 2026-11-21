@@ -157,6 +157,43 @@ pub struct StatusEconomy {
     pub refused: Vec<String>,
 }
 
+/// The server's OAuth sign-in (`signIn`): a provider the launcher offers as "Continue with {name}".
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[serde(rename_all = "camelCase")]
+pub struct StatusSignIn {
+    /// The provider's id: `discord`, or the host's own (a lower-case slug).
+    pub provider: String,
+    /// The name the button shows, at most 32 characters.
+    pub name: String,
+    /// New accounts are made only this way; the name-and-invite form is off.
+    pub required: bool,
+}
+
+/// Longest provider id the launcher takes.
+pub const SIGN_IN_PROVIDER_MAX: usize = 32;
+
+/// Whether `text` is a provider id: 1 to 32 bytes of lower-case ASCII letters, digits and `-`.
+#[must_use]
+pub fn is_provider_id(text: &str) -> bool {
+    (1..=SIGN_IN_PROVIDER_MAX).contains(&text.len())
+        && text
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+}
+
+fn parse_sign_in(val: Option<&Value>) -> Option<StatusSignIn> {
+    let obj = val?.as_object()?;
+    let provider = obj.get("provider")?.as_str().filter(|p| is_provider_id(p))?.to_owned();
+    let name = clean_text(obj.get("name"), 32)?;
+    let required = obj.get("required").and_then(Value::as_bool).unwrap_or(false);
+    Some(StatusSignIn {
+        provider,
+        name,
+        required,
+    })
+}
+
 /// Public server status, camelCase on the wire; every field is sanitized by [`parse_server_status`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(ts_rs::TS))]
@@ -201,6 +238,10 @@ pub struct ServerStatus {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", ts(optional))]
     pub min_launcher_version: Option<String>,
+    /// The OAuth sign-in it offers, when the host set one up; absent from Node's and older servers'.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", ts(optional))]
+    pub sign_in: Option<StatusSignIn>,
 }
 
 /// Cleans an optional JSON string value by stripping control/bidi characters, collapsing
@@ -611,5 +652,6 @@ pub fn parse_server_status(raw: &Value) -> Option<ServerStatus> {
             .and_then(Value::as_str)
             .filter(|text| crate::launcher_version::parse_launcher_version(text).is_some())
             .map(str::to_owned),
+        sign_in: parse_sign_in(obj.get("signIn")),
     })
 }

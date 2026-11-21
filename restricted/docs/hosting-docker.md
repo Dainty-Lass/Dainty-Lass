@@ -347,6 +347,10 @@ game module it asks; the containers here run each service on its own, so they do
 takes its settings and keeps the token (`docker compose run --rm -T host setup --discord-bot-token < discord-token.txt`,
 `-T` so the token arrives on stdin), for a server moved to a plain Linux host.
 
+**Signing in with Discord** ([hosting.md](hosting.md#signing-in-with-discord)) is the backend's, so it works here:
+`docker compose run --rm -T host setup --oauth-discord 123456789012345678 --oauth-client-secret < oauth-secret.txt`,
+then restart the stack.
+
 Never delete the `workspace` volume of a server that has players: a new certificate changes the fingerprint
 in every invite, and new secrets log everyone out.
 

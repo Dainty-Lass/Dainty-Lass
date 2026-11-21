@@ -1127,6 +1127,7 @@ mod tests {
             events: None,
             ports: None,
             discord: None,
+            oauth: None,
             switches: Default::default(),
             file: FileForm::default(),
         }

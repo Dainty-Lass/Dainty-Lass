@@ -11,6 +11,7 @@ use crate::cli::SetupArgs;
 use crate::commands::setup::SetupEnv;
 use crate::error::HostError;
 use crate::hostconfig::discord::DiscordConfig;
+use crate::hostconfig::oauth::OAuthConfig;
 use crate::hostconfig::{
     DEFAULT_MONGO_URI, DEFAULT_PERFORMANCE, HostConfig, LinuxOptions, Multipliers, PerformanceOptions, Platform,
     Registration, ServerMode, game_ports, is_dns_name, is_ipv4, is_public_ipv4, is_tailscale_ipv4, is_valid_share_url,
@@ -623,7 +624,59 @@ pub fn host_config_from_args(
     let mut parsed = HostConfig::from_json(&Value::Object(doc))?.written_over(existing);
     let _ = linux_options(&parsed);
     parsed.discord = discord_from_args(args, parsed.discord.take())?;
+    parsed.oauth = oauth_from_args(args, parsed.oauth.take())?;
     Ok(parsed)
+}
+
+/// `[oauth]` with setup's options over settings.toml's; untouched when none is given.
+pub fn oauth_from_args(args: &SetupArgs, existing: Option<OAuthConfig>) -> Result<Option<OAuthConfig>, HostError> {
+    if args.oauth_required && args.oauth_optional {
+        return Err(HostError::message(
+            "--oauth-required and --oauth-optional say opposite things: pass one",
+        ));
+    }
+    if args.no_oauth {
+        let others = args.oauth_discord.is_some()
+            || args.oauth_client_secret
+            || !args.oauth_guilds.is_empty()
+            || args.oauth_required
+            || args.oauth_optional;
+        if others {
+            return Err(HostError::message("--no-oauth turns sign-in off: pass it alone"));
+        }
+        return Ok(None);
+    }
+    let given =
+        args.oauth_discord.is_some() || !args.oauth_guilds.is_empty() || args.oauth_required || args.oauth_optional;
+    if !given {
+        return Ok(existing);
+    }
+    let mut table = match (&args.oauth_discord, existing) {
+        (Some(id), Some(prev)) if matches!(prev.preset, crate::hostconfig::oauth::Preset::Discord { .. }) => {
+            let mut table = prev.to_json();
+            table["clientId"] = json!(id);
+            table
+        }
+        (Some(id), _) => json!({"preset": "discord", "clientId": id}),
+        (None, Some(prev)) => prev.to_json(),
+        (None, None) => {
+            return Err(HostError::message(
+                "--oauth-guild, --oauth-required and --oauth-optional need sign-in set up: add --oauth-discord <client id>",
+            ));
+        }
+    };
+    if let Value::Object(map) = &mut table {
+        if !args.oauth_guilds.is_empty() {
+            map.insert("guildIds".into(), json!(args.oauth_guilds));
+        }
+        if args.oauth_required {
+            map.insert("required".into(), json!(true));
+        }
+        if args.oauth_optional {
+            map.insert("required".into(), json!(false));
+        }
+    }
+    OAuthConfig::from_json(&table).map(Some)
 }
 
 /// `[discord]` with setup's options over settings.toml's; untouched when none is given. A token turns the bot on.
@@ -737,5 +790,61 @@ mod tests {
             ..SetupArgs::default()
         };
         assert!(discord_from_args(&bad, None).is_err());
+    }
+
+    #[test]
+    fn oauth_options_lay_over_settings_toml() {
+        use crate::hostconfig::oauth::Preset;
+        let none = SetupArgs::default();
+        assert_eq!(oauth_from_args(&none, None).unwrap(), None);
+        let on = SetupArgs {
+            oauth_discord: Some("123".into()),
+            oauth_guilds: vec!["7".into()],
+            oauth_required: true,
+            ..SetupArgs::default()
+        };
+        let made = oauth_from_args(&on, None).unwrap().unwrap();
+        assert_eq!(made.client_id, "123");
+        assert_eq!(
+            made.preset,
+            Preset::Discord {
+                guild_ids: vec!["7".into()]
+            }
+        );
+        assert!(made.required);
+        assert_eq!(oauth_from_args(&none, Some(made.clone())).unwrap(), Some(made.clone()));
+        let optional = SetupArgs {
+            oauth_optional: true,
+            ..SetupArgs::default()
+        };
+        let relaxed = oauth_from_args(&optional, Some(made.clone())).unwrap().unwrap();
+        assert!(!relaxed.required);
+        assert_eq!(relaxed.preset, made.preset, "the rest is kept");
+        assert!(oauth_from_args(&optional, None).is_err(), "nothing to relax");
+        let off = SetupArgs {
+            no_oauth: true,
+            ..SetupArgs::default()
+        };
+        assert_eq!(oauth_from_args(&off, Some(made)).unwrap(), None);
+        for bad in [
+            SetupArgs {
+                no_oauth: true,
+                oauth_required: true,
+                ..SetupArgs::default()
+            },
+            SetupArgs {
+                oauth_required: true,
+                oauth_optional: true,
+                oauth_discord: Some("1".into()),
+                ..SetupArgs::default()
+            },
+            SetupArgs {
+                oauth_discord: Some("1".into()),
+                oauth_guilds: vec!["my-server".into()],
+                ..SetupArgs::default()
+            },
+        ] {
+            assert!(oauth_from_args(&bad, None).is_err(), "{bad:?}");
+        }
     }
 }

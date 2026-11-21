@@ -60,6 +60,7 @@ const TOP: &[Field] = &[
     ("logs", "logs", false),
     ("events", "events", false),
     ("discord", "discord", false),
+    ("oauth", "oauth", false),
     ("ports", "ports", false),
 ];
 
@@ -95,7 +96,9 @@ fn is_peer_list(prefix: &str, json: &str) -> bool {
 }
 
 fn is_string_list(prefix: &str, json: &str) -> bool {
-    (prefix == "remote." && json == "localOverrides") || (prefix == "discord." && json == "guildIds")
+    (prefix == "remote." && json == "localOverrides")
+        || (prefix == "discord." && json == "guildIds")
+        || (prefix == "oauth." && (json == "guildIds" || json == "scopes"))
 }
 
 const SPLIT: &[Field] = &[
@@ -122,6 +125,21 @@ const DISCORD: &[Field] = &[
     ("applicationId", "application_id", false),
     ("guildIds", "guild_ids", false),
     ("dashboardUrl", "dashboard_url", false),
+];
+
+const OAUTH: &[Field] = &[
+    ("preset", "preset", false),
+    ("clientId", "client_id", false),
+    ("guildIds", "guild_ids", false),
+    ("required", "required", false),
+    ("providerId", "provider_id", false),
+    ("name", "name", false),
+    ("authorizeUrl", "authorize_url", false),
+    ("tokenUrl", "token_url", false),
+    ("userinfoUrl", "userinfo_url", false),
+    ("scopes", "scopes", false),
+    ("subjectField", "subject_field", false),
+    ("usernameField", "username_field", false),
 ];
 
 const LOGS: &[Field] = &[
@@ -329,6 +347,7 @@ fn table_fields(json_path: &str) -> Option<&'static [Field]> {
         "logs" => Some(LOGS),
         "events" => Some(EVENTS),
         "discord" => Some(DISCORD),
+        "oauth" => Some(OAUTH),
         "ports" => Some(PORTS),
         _ => None,
     }
@@ -594,7 +613,11 @@ fn patch(
             }
             (Some(v), None) if !top && json == "guildIds" && toml == "guild_ids" => {
                 table.remove(toml);
-                table.insert(toml, free_item(v, "discord.guild_ids")?);
+                table.insert(toml, free_item(v, &format!("{json_prefix}guild_ids"))?);
+            }
+            (Some(v), None) if !top && json_prefix == "oauth." && json == "scopes" => {
+                table.remove(toml);
+                table.insert(toml, free_item(v, "oauth.scopes")?);
             }
             (Some(Value::Object(values)), Some(sub)) if is_inline(&json_path) => {
                 let mut replacement = inline_table(values, sub, &json_path)?;
@@ -944,6 +967,33 @@ fn comment(path: &str) -> &'static str {
         }
         "discord.dashboard_url" => {
             "dainty-dash, asked whether signups are on (GET /api/public/signup). Left out: dashboard_url above."
+        }
+        "oauth" => {
+            "Players join with \"Continue with Discord\" (or your own provider) in the launcher (docs/oauth.md). On
+             https://discord.com/developers/applications make an application, add
+             http://127.0.0.1:61190/oauth/callback under OAuth2 > Redirects, and copy its client id here. The client
+             secret goes in secrets.env: dainty-host setup --oauth-client-secret reads it. Sign-in is off until it is set."
+        }
+        "oauth.preset" => "\"discord\", or \"custom\" for any OAuth 2.0 provider with PKCE and a JSON userinfo endpoint.",
+        "oauth.client_id" => "The application's client id (Discord: OAuth2 > Client ID).",
+        "oauth.guild_ids" => {
+            "Discord only: players must be in one of these Discord servers (ids, as strings). Left out: anyone with a
+             Discord account."
+        }
+        "oauth.required" => {
+            "true: new accounts are made only by signing in, so a name and invite code alone no longer make one.
+             Sign-up still follows registration above: \"invite\" asks for an invite code too."
+        }
+        "oauth.provider_id" => "custom: the id accounts are linked under, lower-case letters, digits and -.",
+        "oauth.name" => "custom: the name on the launcher's button (\"Continue with {name}\").",
+        "oauth.authorize_url" => "custom: the provider's authorization endpoint, https://.",
+        "oauth.token_url" => "custom: the provider's token endpoint, https://.",
+        "oauth.userinfo_url" => "custom: the endpoint that answers the signed-in user as JSON, https://.",
+        "oauth.scopes" => "custom: the scopes asked for. Left out: [\"openid\", \"profile\"].",
+        "oauth.subject_field" => "custom: the userinfo field with the user's stable id. Left out: \"sub\".",
+        "oauth.username_field" => {
+            "custom: the userinfo field with their name, the account's name unless they pick one. Left out:
+             \"preferred_username\"."
         }
         "split" => {
             "This server as one half of two (docs/split-roles.md): the metagame on one machine or container, the game

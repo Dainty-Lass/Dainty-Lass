@@ -84,7 +84,18 @@
     "game_revived": "Essa pasta é uma cópia do Dauntless Revived, que não roda aqui. Baixe o jogo.",
     "game_path_too_long": "O caminho da pasta do jogo é longo demais. Mova-a para um caminho mais curto ou baixe o jogo.",
     "launcher_too_old": "Este servidor exige o launcher {detail} ou mais recente.",
-    "launcher_update_failed": "O launcher não conseguiu se atualizar. Instale o launcher {detail} ou mais recente pela página do servidor e abra-o de novo."
+    "launcher_update_failed": "O launcher não conseguiu se atualizar. Instale o launcher {detail} ou mais recente pela página do servidor e abra-o de novo.",
+    "oauth_unavailable": "Este servidor não oferece entrada por conta externa.",
+    "oauth_failed": "A entrada não foi concluída. Tente de novo em um minuto.",
+    "oauth_expired": "A entrada demorou demais. Comece de novo.",
+    "oauth_not_member": "Essa conta não está no Discord (ou grupo) do servidor. Entre nele primeiro e tente de novo.",
+    "oauth_port_busy": "Outro programa está usando a porta 61190, para onde a entrada volta. Feche-o e tente de novo.",
+    "oauth_username_needed": "Escolha um nome para sua conta e entre de novo.",
+    "oauth_required": "Este servidor só cria contas novas pela entrada com conta externa.",
+    "oauth_denied": "A entrada foi cancelada no navegador.",
+    "oauth_bad_url": "O servidor enviou um endereço de entrada que o launcher não abre. Avise o host do servidor.",
+    "oauth_linked_elsewhere": "Essa conta já está vinculada a outro jogador neste servidor.",
+    "oauth_account_has_link": "Esta conta já está vinculada a outra conta de entrada."
   },
   "window": {
     "minimize": "Minimizar",

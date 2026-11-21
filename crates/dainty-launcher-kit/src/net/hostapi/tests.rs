@@ -234,6 +234,7 @@ async fn user_info_over_pinned_tls() {
             user_id: "u-1".to_owned(),
             username: "Spud".to_owned(),
             is_admin: true,
+            oauth_linked: None,
         })
     );
     let requests = server.requests();
@@ -385,4 +386,87 @@ async fn playtime_sends_the_key_and_reads_whole_seconds() {
             "{status} {body}"
         );
     }
+}
+
+#[test]
+fn oauth_replies() {
+    let ticket = "ab".repeat(32);
+    let start = json!({"provider": "discord", "authorizeUrl": "https://discord.com/oauth2/authorize?x=1",
+        "state": "0123456789abcdef0123", "ticket": ticket})
+    .to_string();
+    let read = parse::oauth_start_reply(200, start.as_bytes()).unwrap();
+    assert_eq!((read.provider.as_str(), read.ticket.len()), ("discord", 64));
+    let bad_state = start.replace("0123456789abcdef0123", "not-hex");
+    assert_eq!(
+        parse::oauth_start_reply(200, bad_state.as_bytes()).unwrap_err().code,
+        ErrorCode::ServerError
+    );
+    assert_eq!(
+        parse::oauth_start_reply(404, b"{}").unwrap_err().code,
+        ErrorCode::OauthUnavailable
+    );
+
+    let done = json!({"UUK": KEY, "Username": "foxtail", "Created": true}).to_string();
+    assert_eq!(
+        parse::oauth_finish_reply(200, done.as_bytes()).unwrap(),
+        (KEY.to_owned(), "foxtail".to_owned())
+    );
+    let refused = |status: u16, error: &str| {
+        parse::oauth_finish_reply(status, json!({"error": error}).to_string().as_bytes())
+            .unwrap_err()
+            .code
+    };
+    assert_eq!(refused(401, "oauth_expired"), ErrorCode::OauthExpired);
+    assert_eq!(refused(401, "invite_invalid"), ErrorCode::InviteInvalid);
+    assert_eq!(refused(403, "oauth_not_member"), ErrorCode::OauthNotMember);
+    assert_eq!(refused(403, "account_banned"), ErrorCode::AccountBanned);
+    assert_eq!(refused(400, "username_needed"), ErrorCode::OauthUsernameNeeded);
+    assert_eq!(refused(409, "username_taken"), ErrorCode::UsernameTaken);
+    assert_eq!(refused(502, "oauth_failed"), ErrorCode::OauthFailed);
+    assert_eq!(
+        parse::register_reply(403, br#"{"error":"oauth_required"}"#)
+            .unwrap_err()
+            .code,
+        ErrorCode::OauthRequired
+    );
+}
+
+#[test]
+fn oauth_finish_body() {
+    let body = OAuthFinishRequest {
+        state: "s".into(),
+        code: "c".into(),
+        ticket: "t".into(),
+        username: None,
+        invite_code: String::new(),
+    };
+    assert_eq!(
+        serde_json::to_string(&body).unwrap(),
+        r#"{"State":"s","Code":"c","Ticket":"t","InviteCode":""}"#
+    );
+}
+
+#[test]
+fn oauth_link_replies() {
+    assert_eq!(
+        parse::oauth_link_reply(200, br#"{"Linked":true,"Username":"x"}"#),
+        Ok(())
+    );
+    assert_eq!(
+        parse::oauth_link_reply(200, br#"{"UUK":"x"}"#).unwrap_err().code,
+        ErrorCode::ServerError
+    );
+    let code = |status: u16, body: &[u8]| parse::oauth_link_reply(status, body).unwrap_err().code;
+    assert_eq!(code(401, br#"{"error":"unauthorized"}"#), ErrorCode::KeyRejected);
+    assert_eq!(code(401, br#"{"error":"oauth_expired"}"#), ErrorCode::OauthExpired);
+    assert_eq!(
+        code(409, br#"{"error":"oauth_linked_elsewhere"}"#),
+        ErrorCode::OauthLinkedElsewhere
+    );
+    assert_eq!(
+        code(409, br#"{"error":"oauth_account_has_link"}"#),
+        ErrorCode::OauthAccountHasLink
+    );
+    let info = parse::parse_user_info(&json!({"UserId": "u", "Username": "n", "OAuthLinked": true})).unwrap();
+    assert_eq!(info.oauth_linked, Some(true));
 }

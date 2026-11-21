@@ -30,7 +30,7 @@ const fn r(
 }
 
 #[rustfmt::skip]
-pub(super) static TABLE: [RouteDef; 307] = [
+pub(super) static TABLE: [RouteDef; 309] = [
     r(B, Get, r"/", LauncherApi, Isles, Always), // B1
     r(B, Get, r"/health/live", LauncherApi, Isles, Always), // B2
     r(B, Get, r"/health/ready", LauncherApi, Isles, Always), // B3
@@ -221,6 +221,8 @@ pub(super) static TABLE: [RouteDef; 307] = [
     r(B, Post, r"/dainty/api/LoginQueue", LauncherApi, Isles, Always), // B176a: the login queue, not in Node
     r(B, Delete, r"/dainty/api/LoginQueue", LauncherApi, Isles, Always), // B176b
     r(B, Post, r"/dainty/api/GameTicket", LauncherApi, Isles, Always), // B176c: the game's one-time login, not in Node
+    r(B, Post, r"/dainty/api/OAuthStart", LauncherApi, Isles, Always), // B176d: OAuth sign-in, not in Node
+    r(B, Post, r"/dainty/api/OAuthFinish", LauncherApi, Isles, Always), // B176e
     r(B, Post, r"/dainty/api/CreateInvite", LauncherApi, Isles, Always), // B177
     r(B, Get, r"/dainty/api/InviteCodes", LauncherApi, Isles, Always), // B178
     r(B, Delete, r"/dainty/api/InviteCode/:code", LauncherApi, Isles, Always), // B179

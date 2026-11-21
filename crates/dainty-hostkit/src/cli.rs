@@ -298,6 +298,24 @@ pub struct SetupArgs {
     /// dainty-dash, which the bot asks whether signups are on (left out: settings.toml's dashboard_url).
     #[arg(long = "discord-dashboard-url")]
     pub discord_dashboard_url: Option<String>,
+    /// Players sign in to the launcher with Discord: the Discord application's client id (settings.toml's oauth table).
+    #[arg(long = "oauth-discord", value_name = "CLIENT_ID")]
+    pub oauth_discord: Option<String>,
+    /// Reads the OAuth application's client secret from stdin into secrets.env.
+    #[arg(long = "oauth-client-secret")]
+    pub oauth_client_secret: bool,
+    /// A Discord server (guild id) a player must be in to sign in; repeat for more. Replaces settings.toml's list.
+    #[arg(long = "oauth-guild")]
+    pub oauth_guilds: Vec<String>,
+    /// New accounts are made only by signing in.
+    #[arg(long = "oauth-required")]
+    pub oauth_required: bool,
+    /// Signing in is one way to make an account; a name and invite code still make one too.
+    #[arg(long = "oauth-optional")]
+    pub oauth_optional: bool,
+    /// Turns OAuth sign-in off (removes settings.toml's oauth table); the client secret stays in secrets.env.
+    #[arg(long = "no-oauth")]
+    pub no_oauth: bool,
     /// Words setup did not expect, refused with a hint to quote values with spaces.
     #[arg(trailing_var_arg = true, allow_hyphen_values = true, hide = true)]
     pub unexpected: Vec<String>,

@@ -277,6 +277,7 @@ mod tests {
             events: None,
             ports: None,
             discord: None,
+            oauth: None,
             file: FileForm::default(),
         };
         let mongo_uri = resolve_mongo_uri(&paths, Some(&cfg), None);

@@ -1963,6 +1963,7 @@ mod tests {
             events: None,
             ports: None,
             discord: None,
+            oauth: None,
             file: FileForm::default(),
         };
         save_host_config(&paths, &cfg).unwrap();
@@ -2080,6 +2081,7 @@ mod tests {
             events: None,
             ports: Some(ports),
             discord: None,
+            oauth: None,
             switches: Default::default(),
             file: FileForm::default(),
         };
@@ -2164,6 +2166,7 @@ mod tests {
             events: None,
             ports: Some(ports),
             discord: None,
+            oauth: None,
             switches: Default::default(),
             file: FileForm::default(),
         };

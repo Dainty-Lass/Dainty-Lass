@@ -178,6 +178,7 @@ fn fast_secrets() -> Result<Secrets, dainty_host::HostError> {
         jwt_public_key_b64: "h".repeat(64),
         admin_api_key: "i".repeat(64),
         discord_bot_token: String::new(),
+        oauth_client_secret: String::new(),
         operator_secret: "j".repeat(64),
         database_password: "l".repeat(64),
         dashboard_ingest_key: "l".repeat(64),

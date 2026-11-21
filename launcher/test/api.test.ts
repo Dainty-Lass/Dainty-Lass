@@ -114,6 +114,8 @@ const methodArgs: Record<keyof LauncherApi, unknown[]> = {
   switchServer: ["0123456789abcdef01234567"],
   removeSavedServer: ["0123456789abcdef01234567"],
   register: ["Slayer_42"],
+  signIn: [""],
+  linkSignIn: [],
   useExistingKey: ["DLK_test"],
   importKeyFile: [],
   saveKeyBackup: [],

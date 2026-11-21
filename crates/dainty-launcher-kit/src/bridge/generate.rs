@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 use dainty_protocol::invite::ServerMode;
 use dainty_protocol::status::{
     GameDataKind, InstanceKind, PlayerWhere, RegistrationMode, ServerStatus, StatusEconomy, StatusGame, StatusInstance,
-    StatusPlayer,
+    StatusPlayer, StatusSignIn,
 };
 use ts_rs::{Config, TS};
 
@@ -103,7 +103,7 @@ pub fn types_ts() -> String {
     out.push('\n');
     declare_all!(&mut out, cfg;
         ServerMode, PlayerWhere, InstanceKind, RegistrationMode, StatusPlayer, StatusInstance, GameDataKind,
-        StatusGame, StatusEconomy, ServerStatus,
+        StatusGame, StatusEconomy, StatusSignIn, ServerStatus,
         Language, GameLanguage, RuntimeProfile, Phase, ConnectProblem, GameProblem, ServerGame, Game,
         RuntimeState, ErrorCode, NoticeCode, LauncherError, TaskKind, TaskProgress, ServerInfo, SavedServerInfo,
         GameSource, DetectedGame, GameInfo, RevivedInfo, InstallMode, RuntimeFileInfo, RuntimeInfo, Settings,

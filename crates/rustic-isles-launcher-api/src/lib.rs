@@ -31,6 +31,7 @@ pub mod launcher_auth;
 pub mod logs;
 pub mod metrics;
 pub mod notices;
+pub mod oauth;
 pub mod observe;
 pub mod operations;
 pub mod playtime;
@@ -55,7 +56,7 @@ pub use state::{LauncherApiState, MatchmakingCandidates, MatchmakingPresence};
 
 use Method::{Delete, Get, Patch, Post, Put};
 
-/// The public half's 47 rows (§1.2), at the route table's exact paths.
+/// The public half's 47 rows (§1.2) and the OAuth sign-in's two, at the route table's exact paths.
 pub fn register_public(handlers: &mut Handlers) {
     let b = Service::Backend;
     let admin = |h: &mut Handlers, method: Method, path: &'static str, run: AdminHandler| {
@@ -72,6 +73,8 @@ pub fn register_public(handlers: &mut Handlers) {
         .on(b, Get, "/dainty/api/GetUserInfo", launcher_api::get_user_info)
         .on(b, Get, "/dainty/api/ServerStatus", launcher_api::server_status)
         .on(b, Post, "/dainty/api/GameTicket", launcher_api::game_ticket)
+        .on(b, Post, "/dainty/api/OAuthStart", oauth::start)
+        .on(b, Post, "/dainty/api/OAuthFinish", oauth::finish)
         .on(
             b,
             Get,
