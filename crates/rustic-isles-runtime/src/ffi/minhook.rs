@@ -9,12 +9,16 @@ use minhook::{MH_STATUS, MinHook};
 pub const MH_OK: i32 = MH_STATUS::MH_OK as i32;
 /// `MH_ERROR_ALREADY_INITIALIZED`.
 pub const MH_ERROR_ALREADY_INITIALIZED: i32 = MH_STATUS::MH_ERROR_ALREADY_INITIALIZED as i32;
+/// `MH_ERROR_ENABLED`: already enabled (a batch that failed got that far).
+pub const MH_ERROR_ENABLED: i32 = MH_STATUS::MH_ERROR_ENABLED as i32;
 /// `MH_UNKNOWN`: also what an export answers when it caught a panic.
 pub const MH_UNKNOWN: i32 = MH_STATUS::MH_UNKNOWN as i32;
 
 // The crate's own init panics on failure; calling it first, from the crate's linked copy, keeps the status instead.
 unsafe extern "system" {
     fn MH_Initialize() -> i32;
+    fn MH_QueueEnableHook(target: *mut c_void) -> i32;
+    fn MH_ApplyQueued() -> i32;
 }
 
 /// MinHook's status name, for the install lines.
@@ -62,6 +66,18 @@ pub fn create(target: usize, detour: usize) -> Result<usize, i32> {
 pub fn enable(target: usize) -> i32 {
     // SAFETY: only for a target `create` hooked
     status(unsafe { MinHook::enable_hook(target as *mut c_void) })
+}
+
+/// `MH_QueueEnableHook(target)`: enabled by the next [`apply_queued`].
+pub fn queue_enable(target: usize) -> i32 {
+    // SAFETY: only for a target `create` hooked; queuing patches nothing
+    unsafe { MH_QueueEnableHook(target as *mut c_void) }
+}
+
+/// `MH_ApplyQueued()`: every queued hook under one thread freeze.
+pub fn apply_queued() -> i32 {
+    // SAFETY: no arguments; MinHook patches only targets it created
+    unsafe { MH_ApplyQueued() }
 }
 
 /// `MH_RemoveHook(target)`, to roll back a hook that could not be enabled.
