@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! New here (DD21, DN10): what chat asks the rest of the server. The controller (DF3) implements [`ChatHost`]:

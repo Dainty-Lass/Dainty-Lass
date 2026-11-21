@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Who may join a hosted hunt or hub. A joiner's launcher gets a signed ticket; the joiner's transport hands it to the

@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Remote management (`docs/remote-management.md`, `docs/security/remote-management.md`, DD27, RM1–RM4):
 //! one controller (`DaintyLass Manager` or `reforged-host`) manages enrolled DaintyLass server installs

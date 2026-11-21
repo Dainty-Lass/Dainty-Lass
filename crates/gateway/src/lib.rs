@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The gateway: the only listener off loopback (TLS in public mode, plain HTTP inside a tailnet in private mode),

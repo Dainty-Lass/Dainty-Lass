@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The Guard pipe's `RGE1` messages from the hosted game server (spec-rd27-rifts-transport.md §3.4): an accepted

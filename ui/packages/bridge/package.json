@@ -4,7 +4,7 @@
   "description": "The launcher's Tauri bridge, its generated types taken from dainty-restricted at build time, and a browser stand-in for development",
   "type": "module",
   "private": true,
-  "license": "MIT",
+  "license": "MIT OR Apache-2.0",
   "exports": {
     ".": "./src/index.ts",
     "./types": "./src/generated/types.ts",

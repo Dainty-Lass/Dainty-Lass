@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The seam between the 1.14.7 module and the Rustic Rifts crates: the hooks the module calls, what it provides back,

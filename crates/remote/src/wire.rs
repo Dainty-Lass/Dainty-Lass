@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Wire messages for enrollment (`POST /__node/enroll`) and mTLS remote management
 //! (`POST /__node/remote`, `docs/remote-management.md` §§2–6, `docs/security/remote-management.md`).

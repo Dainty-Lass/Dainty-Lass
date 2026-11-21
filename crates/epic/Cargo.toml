@@ -5,7 +5,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 # Born MIT (DD26): written from Epic's documented manifest and chunk formats, from none of DR, Paradox or Reforged
-license = "MIT"
+license = "MIT OR Apache-2.0"
 repository.workspace = true
 publish.workspace = true
 

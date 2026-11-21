@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! `NodeService` adapters (`Service::Remote`) and pinned-TLS enrollment client
 //! (`POST /__node/enroll`, `docs/remote-management.md` §5, `docs/security/remote-management.md`).

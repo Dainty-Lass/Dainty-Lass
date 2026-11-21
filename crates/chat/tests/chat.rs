@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The chat plugin over real WebSockets on 127.0.0.1:0: login, rooms, room messages, direct messages to

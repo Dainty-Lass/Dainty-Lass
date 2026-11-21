@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Guard events from the hosted game server: `RGE1\t<type>\t<actor>\t<payload>` messages on an inbound named pipe.

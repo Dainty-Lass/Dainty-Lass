@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Sessions through the `Transport` API (spec §5.3 "Module sessions" and the API checks of "abi" that still apply

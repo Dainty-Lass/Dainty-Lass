@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The network harness's region ping check (DN12, `docker/network/test.sh`): the real `region_ping` against a node of the
 //! Docker harness as the home, from a machine whose latency to each node `netem` shapes. Ignored by default; the script

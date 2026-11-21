@@ -104,4 +104,4 @@ bun run lint
 
 ## Licence
 
-MIT ([LICENSE](LICENSE)), as the rest of dainty-lass.
+MIT OR Apache-2.0 ([LICENSE-MIT](LICENSE-MIT), [LICENSE-APACHE](LICENSE-APACHE)), as the rest of dainty-lass.

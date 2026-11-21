@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The client profiles compiled into the launcher (DE4). **A stand-in, to be replaced**: the 1.14.7 module
 //! (RU4, rustic-isles) serves its own profile through content (DD12), and once it does this table goes. Until

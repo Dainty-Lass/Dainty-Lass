@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The news the launcher shows: a host's own file (`CONTENT_NEWS_FILE`), or a file on GitHub (`CONTENT_NEWS_URL`)

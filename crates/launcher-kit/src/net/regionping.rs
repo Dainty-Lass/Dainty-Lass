@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Region ping (DN7, DD19): the joined server lists its network's nodes, the launcher times a few
 //! requests to each node's gateway and sends the regions, nearest first, back to the joined server,

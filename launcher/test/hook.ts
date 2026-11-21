@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Loads the isolation frame's two scripts as the frame does, in a realm of their own: nothing of the test's globals
 // is visible to them, so the hook can only rely on what commands.js gives it.
 import { readFileSync } from "node:fs"

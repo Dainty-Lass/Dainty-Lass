@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // The page's API (ui/packages/bridge/src/api.ts) against Tauri's IPC mocks, with every call put through the
 // isolation hook as the isolation frame would: what the page sends must be what the table allows.
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test"

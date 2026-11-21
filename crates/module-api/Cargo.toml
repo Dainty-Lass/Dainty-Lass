@@ -6,7 +6,7 @@ version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 # Born MIT (DD26): written here from nothing, from none of the upstream trees
-license = "MIT"
+license = "MIT OR Apache-2.0"
 repository.workspace = true
 publish = ["silentspud"]
 

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // The hook against the real generated table. Limits are read from the table, never restated, so a change to the
 // backend's spec moves the tests with it.
 import { describe, expect, test } from "bun:test"

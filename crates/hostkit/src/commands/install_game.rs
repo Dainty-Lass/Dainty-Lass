@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `reforged-host install-game` (DE6, DD22): installs Dauntless from the host's own Epic library for the game

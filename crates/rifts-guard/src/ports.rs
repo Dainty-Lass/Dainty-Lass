@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! What Guard reads and writes through: the hunts (realms'), the operations policy (isles'), time, ids and logs.

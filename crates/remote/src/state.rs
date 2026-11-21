@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Controller and managed-install state machines, certificate issuance from public keys,
 //! `DH6` guarded two-person approval, and offline backoff (`docs/remote-management.md` §§3–7).

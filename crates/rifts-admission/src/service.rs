@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The admission operations: a ticket for one's own seat, the launcher's join bootstrap, the host's one-time consume,

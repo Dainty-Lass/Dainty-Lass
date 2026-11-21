@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `RealmsHuntSessions` and `SqlGuardStore` over one `RealmsDb`: Guard's view of realms' hunts and hubs, and Guard

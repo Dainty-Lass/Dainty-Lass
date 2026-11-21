@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copies the generated command table from a dainty-restricted checkout: the bridge it is generated from is AGPL,
 // so the table is never committed here (RD27). Also refreshes ui's bridge types, which api.test.ts imports.
 import { copyFileSync, existsSync, mkdirSync } from "node:fs"

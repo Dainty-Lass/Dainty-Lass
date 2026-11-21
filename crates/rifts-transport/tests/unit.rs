@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The unit-level scenarios of the transport spec (§5.1): crypto, parsing, the lease, held signals and the roster,

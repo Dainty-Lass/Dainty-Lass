@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Where a [`TransportAbi`] comes from. The transport is linked in (umbrella spec D1): nothing is loaded from disk, so

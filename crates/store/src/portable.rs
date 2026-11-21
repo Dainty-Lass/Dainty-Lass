@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Raw SQL both engines run the same way, for what `MultiConnection`'s DSL can't express (DF7 spike):

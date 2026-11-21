@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `reforged-host legacy import <kind> [args]`: dainty-legacy's importers for old installs (Revived 1.4.4

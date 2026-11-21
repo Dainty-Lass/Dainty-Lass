@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The files and signals a transport reads (spec-rd27-rifts-transport.md §2.3, §2.9): the key=value parser, the ICE
