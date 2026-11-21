@@ -422,6 +422,7 @@ impl IslesModule {
                     game_args: Some(String::new()),
                     hunt_id: queue,
                     expected_players: users,
+                    gauntlet_level: None,
                     request_id: None,
                 };
                 (match_id, request, "director refused hunt launch")
@@ -441,6 +442,7 @@ impl IslesModule {
                     game_args: None,
                     hunt_id: RAMSGATE_HUNT.to_owned(),
                     expected_players: Vec::new(),
+                    gauntlet_level: None,
                     request_id: None,
                 };
                 (hub_id, request, "director refused hub launch")

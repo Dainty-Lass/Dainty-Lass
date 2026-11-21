@@ -1,7 +1,7 @@
 # Clean-Room Behaviour Specification: `crates/rustic-isles-gamedata` (RD27)
 
 > **Scope and purpose (RD27):** this is the clean-room behaviour specification for an MIT crate,
-> `rustic-isles-gamedata`: unit 3 of [`spec-rustic-isles-core.md`](spec-rustic-isles-core.md) §16. It answers the 29
+> `rustic-isles-gamedata`: unit 3 of [`spec-rustic-isles-core.md`](spec-rustic-isles-core.md) §16. It answers the 36
 > routes of the `game-data` area group (the stubs and static answers the 1.14.7 client asks for at login, in Ramsgate
 > and on the Gauntlet host, and the served progression config) and holds the eight backend game-data generators that
 > `reforged-host gamedata` runs. Its source is dainty-restricted's `modules/rustic-isles/crates/isles-core`
@@ -102,10 +102,10 @@ Every generator writes files with one writer whose bytes match V8's:
 
 ## 3. Routes
 
-### 3.1 The 29 rows
+### 3.1 The 36 rows
 
-All are the backend's (`Service::Backend`), registered at exactly these path strings (core Appendix A rows B26-B34,
-B36-B37, B40-B42, B45-B51, B62-B63, B82-B87). **Gate**: "game" is game auth first (§2); "open" is none. Core decides
+All are the backend's (`Service::Backend`), registered at exactly these path strings (core Appendix A rows B26-B34e,
+B36-B37, B40-B42, B45-B51b, B62-B63, B82-B87). **Gate**: "game" is game auth first (§2); "open" is none. Core decides
 matching, order, the Gauntlet-origin condition (core §4.2 `When::Gauntlet`) and the 404 fallthrough.
 
 | # | Method | Path | Gate | Answer |
@@ -118,7 +118,12 @@ matching, order, the Gauntlet-origin condition (core §4.2 `When::Gauntlet`) and
 | B31 | POST | `/account/migrate` | game | `{"migration_failed":false,"migration_finished":true}` |
 | B32 | POST | `/profile/update` | game | empty 200 |
 | B33 | POST | `/trials/leaderboards/all` | game, then body | §3.3 |
-| B34 | POST | `/trials/leaderboards/solo/individual` | game | envelope of `{}` |
+| B34 | POST | `/trials/leaderboards/solo/individual` | game, then body | the caller's solo line (§3.3a) |
+| B34a | POST | `/trials/leaderboards` | game server, then body | records a finished Trial (§3.3a) |
+| B34b | POST | `/trials/leaderboards/solo` | game, then body | a solo page (§3.3a) |
+| B34c | POST | `/trials/leaderboards/group` | game, then body | a group page (§3.3a) |
+| B34d | POST | `/trials/leaderboards/group/individual` | game, then body | the caller's group line (§3.3a) |
+| B34e | POST | `/^\/trials\/(.*)$/` | game, then body | any other Trials write: logged, envelope of `{}` (§3.3a) |
 | B36 | POST | `/motd/` | game | empty 204 |
 | B37 | GET | `/motd/trigger` | game | empty 404 (a 200 opened an empty popup in the client, 2026-10-15) |
 | B40 | GET | `/playertreatments` | game | §3.2 |
@@ -127,10 +132,12 @@ matching, order, the Gauntlet-origin condition (core §4.2 `When::Gauntlet`) and
 | B45 | GET | `/eventstats/` | game | `{"stats":[]}` |
 | B46 | GET | `/progression/config` | game | §3.7 |
 | B47 | GET | `/config` | game | Gauntlet config (§3.5) |
-| B48 | GET | `/^\/progression\/([^/]*)\/([^/]+)$/i` | game | Gauntlet progression (§3.5) |
+| B48 | GET | `/^\/progression\/([^/]*)\/([^/]+)$/i` | game, except level access (open) | Gauntlet progression (§3.5) |
 | B49 | GET | `/^\/rewards\/personal\/([^/]*)\/([^/]+)$/i` | game | envelope of `{}` |
 | B50 | GET | `/^\/rewards\/guild\/([^/]*)\/([^/]+)$/i` | game | envelope of `0` |
-| B51 | GET | `/^\/leaderboard\/get_leaderboard\//i` | game | envelope of `[]` |
+| B51 | GET | `/^\/leaderboard\/get_leaderboard\//i` | game | the Gauntlet board (§3.5) |
+| B51a | PUT | `/^\/(.*)$/` | game, then body | a Gauntlet write (§3.5) |
+| B51b | POST | `/^\/(.*)$/` | game, then body | the same handler |
 | B62 | GET | `/all/` | game | envelope of `{"messages":[]}` (the mailbox) |
 | B63 | GET | `/patchnotes/:language/:gameversion` | open | §3.6 (the login screen asks before there is a token) |
 | B82 | GET | `/game_tuning/seasonal_event_schedule` | open | §3.4 |
@@ -140,7 +147,7 @@ matching, order, the Gauntlet-origin condition (core §4.2 `When::Gauntlet`) and
 | B86 | GET | `/game_tuning/bounty_game_data_daily` | open | §3.4 |
 | B87 | GET | `/game_tuning/bounty_game_data_weekly` | open | §3.4 |
 
-Every JSON answer is 200 unless the row says otherwise. Request bodies are never read except by B33.
+Every JSON answer is 200 unless the row says otherwise. Request bodies are never read except by B33, B34-B34e, B51a and B51b.
 
 ### 3.2 Answers that read the version or a setting
 
@@ -158,7 +165,12 @@ core's reader gives as an object of strings); an array, scalar or absent body co
 `body.field ?? default` (absent or `null` take the default; anything else is echoed as given):
 `difficulty` 1, `page` 0, `page_size` 100, `trial_id` `""`. The answer is the envelope of:
 
-`{"difficulty":D,"guild":{},"page":P,"page_size":S,"trial_id":T,"world":{"group":{"difficulty":D,"entries":[]},"solo":{"all":{"difficulty":D,"entries":[]}}}}`
+`{"difficulty":D,"guild":{},"page":P,"page_size":S,"trial_id":T,"world":{"group":{"difficulty":D,"entries":G},"solo":{"all":{"difficulty":D,"entries":A}}}}`
+
+`A` and `G` are the asked-for page of the solo and group boards (§3.3a), read with a query's coercions; with no runs
+(or no store) both are `[]`, so the answer is the stub's. After `all`, `solo` holds one more key per weapon board
+with a line on the page, in the order `sword`, `axe`, `hammer`, `chainblades`, `pike`, `repeaters`, `strikers`, each
+`{"difficulty":D,"entries":W}`.
 
 | Body | `payload` fields |
 | --- | --- |
@@ -167,7 +179,52 @@ core's reader gives as an object of strings); an array, scalar or absent body co
 | `{"difficulty":null,"page":{"a":[1,2e0]}}` | `1`; `page` `{"a":[1,2]}` |
 | form `difficulty=2&trial_id=a%20b` | `"2"`, `"a b"` (form values are strings) |
 
-Logged (info): `Trials leaderboard all (stubbed empty) trial_id=<String(T) as a debug string> difficulty=<String(D)>`.
+Logged (info): `Trials leaderboard all trial_id=<String(T) as a debug string> difficulty=<String(D)>: <n> solo, <m> group`.
+
+### 3.3a The Trials boards and a finished Trial (B34-B34e)
+
+The shapes are the 1.14.7 client's Phoenix leaderboard serializers (`FOnlineLeaderboardsPhoenix`, a static reading
+of `Dauntless-Win64-Shipping.exe`, 2026-11-19); the endpoint paths come from its packed config, as the first Trials
+test logged them. Each route reads the body with core's reader (errors as B33), logs it at info as
+`[Trials] {METHOD} {path and query} body={JSON}` with B51a's redaction, and uses it only when it is an object.
+
+- **A query** reads `trial_id` (a string, else `""`), `difficulty` (a number or numeric string, truncated, else 1),
+  `page` (likewise, at least 0, else 0) and `page_size` (likewise, 1 to 100, else 100).
+- **A solo line**:
+  `{"phx_account_id":U,"platform_name":N,"rank":R,"completion_time":C,"weapon":W,"player_role_id":X,"objectives_completed":O,"platform":F,"trial_id":T}`,
+  `U` the userId and `N` the account name. **A group line**:
+  `{"rank":R,"completion_time":C,"entries":P,"objectives_completed":O,"trial_id":T}`, `P` the run's players as
+  `{"phx_account_id","platform_name","weapon","player_role_id","platform"}`. **A page**:
+  `{"difficulty","page","page_size","trial_id","entries"}` from the query. Ranks count from 1 over the whole board.
+- **The board key.** The game names a Trial `Arena_MatchmakerHunt_<tier>_<NNNN>`, `NNNN` being the whole weeks since
+  its schedule row's start plus one (a static reading of the formatter, 2026-11-20). The runtime moves that start on
+  the hunt server, so the hunt server sent `_0001` while the client asked for `_0312` (first recorded runs,
+  2026-11-20). A `trial_id` of that form (a non-empty tier, four digits) is therefore kept and looked up as the
+  featured hunt, `Arena_MatchmakerHunt_<tier>_<WWW>`, `WWW` the Director's featured week now
+  (`TRIALS_ROTATION_MINUTES`, read as the Director reads it; three digits, 1 to 181); any other id as sent. Lines
+  carry the query's `trial_id`. A run that ends after the week turns is kept under the new week.
+- **The boards** come from the store's `trials_runs` (`rustic-isles-store` migration 0660, `repo::trials`): one row
+  per account, Trial, difficulty, mode (`solo`/`group`) and weapon (0 for a group row) holding the best run, its
+  objectives, role and platform, the run's sorted userIds joined by `,` (`party_key`), its players (the line's `P`)
+  and a run count. Rows of deleted accounts are left out. Fastest `completion_time` first, then the earlier write,
+  then name. The solo board keeps each player's fastest row; a weapon board is the rows with that weapon (`sword` 1,
+  `axe` 2, `hammer` 3, `chainblades` 4, `pike` 5, `repeaters` 6, `strikers` 7, after the client's
+  `ELeaderboardWeaponType` order; pike's 5 confirmed by a recorded run, the rest unverified); the group board keeps each `party_key`'s fastest row.
+- **When the client asks.** It reads B33 (the boards in Ramsgate) once at login and B34/B34b when the Trials screen
+  opens, so a new run shows in Ramsgate only after the next login (2026-11-20).
+- **B34b/B34c** answer the envelope of a page of the solo or group board. **B34/B34d** answer the caller's (auth's
+  `user_id`) solo line, any weapon, or the first group line they are in, with its rank; `{}` when there is none.
+- **B34a** is the hunt server's run (`UArenaGameModeComponent::SubmitLeaderboardsInfo`, origin
+  `leaderboards-prod.steelyard.ca`, first seen 2026-11-19; recorded 2026-11-20 as
+  `{"difficulty":1,"completion_time":5414,"objectives_completed":3,"trial_id":"Arena_MatchmakerHunt_Elite_0001","party_members":[{"phx_account_id":U,"platform_name":"","weapon":5,"player_role_id":"PR_FRANK","platform":""}]}`). Only a game server may send it, as
+  B51a's `PUT /process_run` (an empty 403, the body unused). The body is read as `trial_id` (not blank), `difficulty`
+  (as a query's, 1), `completion_time` (milliseconds: a 2.9 s run sent 2893; a number or numeric string, below 0 is 0), `objectives_completed` (0) and its
+  players: the objects (`phx_account_id`, `weapon`, `player_role_id`, `platform`) or userId strings under `party_members`,
+  else `entries`, else `players`, else the body itself as one player; repeats dropped, a string taking the body's own `weapon`, role
+  and platform. A missing Trial, time or player: a warning, nothing stored. One player is a solo run with their
+  weapon, more a group run. Each player homed here gets their row written as `System`: runs plus one, and the new
+  run replaces the best when its time is lower. Answered with the envelope of `{}`.
+- **B34e** only logs and answers the envelope of `{}`.
 
 ### 3.4 `/game_tuning/*` (constant answers; key order is the wire order)
 
@@ -189,24 +246,51 @@ window in table order:
 The windows must cover now, or the client's bounty component finds no season and the hub disconnects (1.14.7,
 2026-10-03); keeping them current is the version crate's job.
 
-### 3.5 The Gauntlet stubs (answer only on a Gauntlet origin; core §4.2)
+### 3.5 The Gauntlet host (answers only on a Gauntlet origin; core §4.2)
 
-The season id is `ESC_SEASON_1` (the client then asks progression and rewards for it).
+The season id is `ESC_SEASON_1` (the client then asks progression and rewards for it). Progress lives in the store's
+`gauntlet_progress` (`rustic-isles-store`'s migration 0650, `repo::gauntlet`): one row per account and season with the best level finished, the
+seconds left on it and a run count. A user id resolves to its account through `accounts.user_id`; an unknown user,
+or no store, reads as level 0. "On" below is `RUSTIC_ISLES_GAUNTLET` reading `on` (JS-trimmed, ASCII
+case-insensitive), as matchmaking reads it.
 
 - **B47** `/config`: when `raw(GAUNTLET_CONFIG_PROBE)` is unset or exactly `1`, the envelope of
   `{"gauntlet_id":"ESC_SEASON_1","start_at":S,"end_at":E}` with `S`, `E` the Hunt Pass season window containing now,
   as `IsoUtc` texts (core §8.4: `2026-07-30T17:00:00+00:00`); otherwise the envelope of `{}`. Logged (info) with the
   origin host.
-- **B48**: params `0` (the season, may be empty) and `1`. When `0` lower-cased (Unicode) is `level_access`, the
-  envelope of `0` (the level-access request is an integer, 0 for no access); otherwise the envelope of
-  `{"personal_progression":0,"guild_progression":0}`.
-- **B49** envelope of `{}`; **B50** envelope of `0`; **B51** envelope of `[]` (an array, not an object).
+- **B48**: params `0` and `1`. When `0` lower-cased (Unicode) is `level_access` (the client sends it with no bearer,
+  so it is not gated), the envelope of an integer, the level the player may enter: off, `0` (the hunt menu keeps
+  Gauntlet locked, 2026-11-19); on, the player's best level in season `1` plus one, the player being the query's
+  first `account_id` (percent-decoded; none: best 0). Otherwise `0` is the season and `1` the user, and the answer is
+  `{"personal_progression":B,"guild_progression":B}` with `B` their best level (no guilds yet).
+- **B49** envelope of `{}`; **B50** envelope of `0`.
+- **B51**: the season is the path's last segment. The envelope of an array (never an object) of
+  `{"guild_name":<account name>,"guild_nameplate":"","level":<best level>,"remaining_sec":<seconds left>}`: the
+  season's rows with a best level above 0 and an account not deleted, highest level first, then most seconds left,
+  then name, at most 100. Each player stands in for a guild until guilds exist.
+- **B51a/B51b** (any write on the host): the body is read (core's limit), logged at info as
+  `[Gauntlet] {METHOD} {path and query} body={JSON}` with every object field whose lower-cased name contains
+  `session`, `token`, `key`, `secret`, `password` or `auth` removed at any depth, and answered with the envelope of
+  `{}`. A `PUT /process_run` is the hunt server's level end (`UGauntletGameModeComponent::NotifyHuntEnded`, first
+  seen 2026-11-19): `{"gauntlet_id":S,"players":[userIds],"level":L,"remaining_sec":R,"data":{}}`, `L` a positive
+  integer (plain, not combined with the season), `S` not blank, at least one non-blank player. Only a game server
+  may send it: a caller whose auth data (auth's `AuthData`) has neither `is_gameserver` nor a `runtime` gets an empty
+  403 with a warning, and nothing is recorded or logged of its body. For each player
+  homed here (others are their home's to record) the run is written as `System`: runs plus one; it becomes the best
+  when `L` is above the best, or equal with more seconds left (`R` below 0 counts as 0). A body that does not read
+  is logged (warn) and still answered. The guild-claim `POST` (`GauntletGrantGuildRewardsEndpoint`) has not been
+  seen: it is only logged.
 
 | Request (origin `gauntlet-prod.steelyard.ca`) | Payload |
 | --- | --- |
-| `GET /progression/ESC_SEASON_1/user-1` | `{"personal_progression":0,"guild_progression":0}` |
+| `GET /progression/ESC_SEASON_1/user-1`, no runs | `{"personal_progression":0,"guild_progression":0}` |
 | `GET /progression//INVALID` | the same (empty season) |
-| `GET /progression/level_access/user-1?account_id=x`, `GET /PROGRESSION/LEVEL_ACCESS/user-1` | `0` |
+| `GET /progression/level_access/user-1?account_id=x`, `GET /PROGRESSION/LEVEL_ACCESS/user-1`, off | `0` |
+| `GET /progression/level_access/ESC_SEASON_1` with `RUSTIC_ISLES_GAUNTLET= On `, no runs | `1` |
+| the same after `user-1` finished level 1 (`PUT /process_run`) | `2`; progression `{"personal_progression":1,"guild_progression":1}` |
+| `PUT /anything/ESC_SEASON_1/user-1` | `{}`; from another origin the row passes on |
+| `PUT /process_run` with a player's token | empty 403 |
+| best runs (1, 526 s) and (2, 100 s) and (2, 300 s) | the board lists (2, 300), (2, 100), (1, 526) |
 | `GET /config` at 2026-10-16T08:30:00Z | `{"gauntlet_id":"ESC_SEASON_1","start_at":"2026-07-30T17:00:00+00:00","end_at":"2026-10-22T17:00:00+00:00"}` |
 | `GET /config` with `GAUNTLET_CONFIG_PROBE=0` | `{}` |
 | `GET /config` from `mailbox-prod.steelyard.ca` | core's empty 404 (the row passes on) |
@@ -689,11 +773,12 @@ The storage policy then differs from today's only if the seeds differ from the l
 | --- | --- | --- |
 | `COHORT_TREATMENT_LEGACY` | exactly `1`: B40-B42 answer the Dojo treatment | `1` |
 | `GAUNTLET_CONFIG_PROBE` | exactly `1`: B47 answers the season config | `1` |
+| `RUSTIC_ISLES_GAUNTLET` | `on`, JS-trimmed, any case: B48's level access follows progress (§3.5); `settings.toml`'s `[switches] gauntlet` | off |
 | `GAMESERVER_WIDEN_HUNTPASS_WINDOWS` | exactly `0`: no window rewrite | rewrite |
 | `GAMESERVER_HUNTPASS_ID` | the served pass, JS-trimmed (set but empty: empty) | the table's `active_huntpass_id` |
 | `GAMESERVER_RECENT_SEASONS` | comma list (set but empty: none) | the table's `recent_huntpass_seasons` |
 
-None is a `settings.toml` field today: a host sets them by hand in the env file (§12 item 7). The generators read no
+Only `RUSTIC_ISLES_GAUNTLET` is a `settings.toml` field today; a host sets the others by hand in the env file (§12 item 7). The generators read no
 setting; their paths come from hostkit's `Paths`.
 
 ---
@@ -718,11 +803,11 @@ One crate, `rustic-isles-gamedata` (lib), MIT, in dainty-lass `crates/rustic-isl
 
 | Item | Contract |
 | --- | --- |
-| `pub fn register(handlers: &mut rustic_isles::Handlers)` | Registers the 29 handlers of §3.1 on `Service::Backend` at their exact path strings (core §5.7: a typo fails the build with `UnknownRoute`) |
-| `pub fn routes() -> &'static [(rustic_isles::Method, &'static str)]` | The 29 (method, path) pairs in §3.1's order; a test checks them against `rustic_isles::routes::all()`'s `game-data` rows |
+| `pub fn register(handlers: &mut rustic_isles::Handlers)` | Registers the 36 handlers of §3.1 on `Service::Backend` at their exact path strings (core §5.7: a typo fails the build with `UnknownRoute`) |
+| `pub fn routes() -> &'static [(rustic_isles::Method, &'static str)]` | The 36 (method, path) pairs in §3.1's order; a test checks them against `rustic_isles::routes::all()`'s `game-data` rows |
 | `pub fn envelope(payload: Value) -> Value` | §2 |
 | `pub mod tuning` | `seasonal_event_schedule()`, `huntpass_xp_config()`, `island_content_config()`, `item_grant_data(&[ItemGrantWindow])`, `bounty_game_data(&[ItemGrantWindow])`, `bounty_game_data_daily()`, `bounty_game_data_weekly()`: §3.4's values, enveloped except `item_grant_data` |
-| `pub mod gauntlet` | `GAUNTLET_SEASON_ID`, `config_payload(now_ms)`, `progression_payload(first_segment)`, `guild_rewards_payload()`, `leaderboard_payload()`: §3.5's payloads (not enveloped) |
+| `pub mod gauntlet` | `GAUNTLET_SEASON_ID`, `config_payload(now_ms)`, `is_level_access(first_segment)`, `level_access(gauntlet_on, best_level)`, `progression_payload(first_segment, level_access, best_level)`, `guild_rewards_payload()`, `leaderboard_payload()` (the empty board), `redacted(value)`: §3.5's payloads (not enveloped) and the write log's redaction |
 | `pub mod patchnotes` | `payload(language, release_version) -> Value`: §3.6 (enveloped) |
 | `pub mod progression_config` | `served(rule, &file, &VersionTables, &Settings, now_ms) -> Value`, `widen_huntpass_windows(config, &tables, &settings, now_ms) -> Value`, `served_huntpass_id(&tables, &settings) -> String` (progression's Hunt Pass route uses it), `recent_seasons(&tables, &settings) -> Vec<String>`; the four window constants |
 | `pub mod generators` | `stringify_pretty(&Value, indent) -> String` (§2.1); `generate_progression_config(raw_dir, out_dir, apply)`, `generate_slayers_path(export, target, apply)`, `generate_slayers_path_definitions(export, target, source_version, apply)`, `generate_reward_cache_store(catalog, output, &RewardCachePlan)`, `generate_ladyluck_store(raw_dir, out_dir, apply)`, `enrich_ladyluck_store(catalog, live, store)`, `generate_platinum_store(catalog, store_images, capture_dir, data_dir)`, `generate_inventory_storage_policy(catalog, &TokenSource, game_data_dir)`, `resolve_platinum_export_file(exports, base) -> PathBuf`; each `-> Result<String, String>` |
@@ -770,10 +855,10 @@ row of a real catalog, capture or plan (AGENTS.md "Nothing from the game is comm
 
 | Area | Cases |
 | --- | --- |
-| Routes | `routes()` equals the 29 `game-data` rows of core's table, in order; `register` builds with no `UnknownRoute`; with no token each "game" row answers auth's empty 401 and each "open" row its answer |
+| Routes | `routes()` equals the 36 `game-data` rows of core's table, in order; `register` builds with no `UnknownRoute`; with no token each "game" row answers auth's empty 401 and each "open" row its answer |
 | Constant answers | §3.1's table byte for byte with content types: `POST /heartbeat` 200 `text/plain; charset=utf-8` `20000`; `GET /crash/CrashReporter/Ping` `OK`; `POST /profile/update` 200, no body, no content type; `POST /motd` (no slash) 204; `GET /motd/trigger?event_name=test` 404 empty; `GET /eventstats/` `{"stats":[]}`; `GET /all/` envelope of `{"messages":[]}`; §3.4 byte for byte (weekly's key order included) |
 | Treatments | default, `COHORT_TREATMENT_LEGACY=1` → Dojo; `0`, empty → `[]`; `/playertreatments/some-user` same as default |
-| Trials | §3.3's table; an invalid JSON body with a valid token → the 400 page; with no token → 401 (auth first) |
+| Trials | §3.3's table; an invalid JSON body with a valid token → the 400 page; with no token → 401 (auth first); §3.3a with no store: `/solo` a page of `[]` echoing the coerced query, both individual routes `{}`, another Trials path `{}`, a run posted with a player's token an empty 403; a group body, a flat solo body and a userId list parse, a body missing the Trial, the time or players does not; the query defaults and the page-size cap; ranks, paging, the weapon filter and the caller's line; the solo line's key order |
 | Survey | 1.14.7's hook → 200 envelope of `{"Triggers":[]}`; a hook with no body → empty status; a hook with status 1000 → 500 |
 | Gauntlet | §3.5's table; payload functions: `leaderboard_payload()` is an array, `progression_payload("LEVEL_ACCESS")` is `0`, `progression_payload("")` both levels 0, `guild_rewards_payload()` `0`, `config_payload` at 2026-10-16T08:30:00Z compact text `{"gauntlet_id":"ESC_SEASON_1","start_at":"2026-07-30T17:00:00+00:00","end_at":"2026-10-22T17:00:00+00:00"}` and the window contains now |
 | Patch notes | release version `""`: `release_version` `""`, two notes with §3.6's titles and types, three list items each, language echoed (`pt%2DBR` → `pt-BR`); `"9.9"`: `notes` `[]`, the language `fr` echoed |
@@ -798,7 +883,7 @@ the patch-notes prose if §12 item 1 is decided as own copy.
 
 ## 11. Security behaviour (RX3)
 
-The routes take untrusted input only through B33's body (core's bounded reader, 100 KiB) and path params that are
+The routes take untrusted input only through the Trials bodies (B33-B34e) and the Gauntlet writes (core's bounded reader, 100 KiB) and path params that are
 echoed into JSON (escaped by the writer); nothing is stored, no file is named by a request, and the only file read
 is the fixed `progression_config.json` under the configured folder. The generators read host-side files (game
 exports, host-supplied responses, captures hostkit fetched at a pinned commit and checked by hash) and write fixed

@@ -70,6 +70,7 @@ pub fn init() {
     if !server {
         crate::branding::register();
         crate::save_reset::register();
+        crate::trials_board::register();
     }
     crate::ffi::server_events::register(server);
     crate::escalation::register();

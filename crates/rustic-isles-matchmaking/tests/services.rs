@@ -213,6 +213,7 @@ async fn the_director_launches_over_http() {
         game_args: None,
         hunt_id: "ShatteredIsles_IslandA".into(),
         expected_players: vec!["a".into(), "b".into()],
+        gauntlet_level: None,
         request_id: Some("trace-0042-alpha".into()),
     };
     assert_eq!(

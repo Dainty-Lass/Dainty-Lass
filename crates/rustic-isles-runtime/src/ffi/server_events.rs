@@ -12,6 +12,7 @@ use rustic_isles_runtime_core::offsets::r20;
 use rustic_isles_runtime_core::reflect::is_writable_protect;
 use rustic_isles_runtime_core::registry;
 use rustic_isles_runtime_core::server_events::{self as core, PawnFields, flags as names, lines, matchers, vars};
+use rustic_isles_runtime_core::test_cheats::{self, Cheats};
 use std::collections::HashMap;
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
@@ -21,8 +22,8 @@ type SetPackageNameFn = unsafe extern "C" fn(*mut c_void, u64);
 
 const SLICE: &str = "R20";
 
-/// The SP-2 handlers (3.1).
-fn pe_handlers() -> [PeHandler; 5] {
+/// The SP-2 handlers (3.1), and the host's test cheats.
+fn pe_handlers() -> [PeHandler; 6] {
     let before = |order, matcher, before| PeHandler {
         slice: SLICE,
         order,
@@ -40,6 +41,7 @@ fn pe_handlers() -> [PeHandler; 5] {
         before(0, matchers::CLIENT_RESTART, client_restart),
         before(0, matchers::VENDOR, vendor),
         before(0, matchers::CAN_RESTART, player_can_restart),
+        before(0, test_cheats::GAUNTLET_BROADCAST, gauntlet_broadcast),
     ]
 }
 
@@ -74,6 +76,12 @@ pub fn register(server: bool) {
     }
     if let Some(handler) = tick {
         let _ = handlers::register_tick(handler);
+        let _ = handlers::register_tick(TickHandler {
+            slice: SLICE,
+            order: matchers::TICK_ORDER,
+            before: None,
+            after: Some(hold_behemoth_health),
+        });
     }
 }
 
@@ -149,6 +157,172 @@ fn damage(call: &PeCall) -> Verdict {
             .unwrap_or_else(|| "?".to_owned());
         log::line(&lines::damage(&name, &object, before, after, factor));
     }
+    Verdict::Continue
+}
+
+// ---- the host's test cheats (`[switches] test_cheats`) ----
+
+fn cheats() -> Cheats {
+    static CHEATS: OnceLock<Cheats> = OnceLock::new();
+    *CHEATS.get_or_init(|| {
+        let value = win::env_value(test_cheats::VARIABLE.0, test_cheats::VARIABLE.1);
+        let dedicated = config::is_server() && crate::player_host::hosted_role().is_none();
+        let cheats = Cheats::parse(value.as_deref()).for_process(dedicated);
+        if cheats.any() {
+            log::line(&test_cheats::lines::enabled(cheats));
+        }
+        cheats
+    })
+}
+
+/// Where the sweep of the object array goes on next frame.
+static SWEEP_AT: AtomicUsize = AtomicUsize::new(0);
+/// Whether each class seen is a health set class; classes are never collected, so asked once a process.
+static SET_CLASSES: LazyLock<Mutex<HashMap<usize, bool>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+/// Each Behemoth health set found, with its Behemoth and whether it has been held yet.
+static SETS: LazyLock<Mutex<HashMap<usize, (usize, bool)>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+/// When the sets were last held.
+static HELD_AT: Mutex<Option<std::time::Instant>> = Mutex::new(None);
+static HOLD_LOGS: AtomicU32 = AtomicU32::new(0);
+static COUNT_LOGS: AtomicU32 = AtomicU32::new(0);
+static LAST_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+/// The Behemoth an attribute set belongs to: its outer, or that one's outer.
+fn behemoth_owning(set: usize) -> Option<usize> {
+    let mut object = set;
+    for _ in 0..test_cheats::MAX_OWNER_STEPS {
+        object = ptr_at(object + rustic_isles_runtime_core::offsets::layout::UOBJECT_OUTER);
+        if !live(object) {
+            return None;
+        }
+        if reflect::is_a(object, test_cheats::BEHEMOTH_CLASS) {
+            return Some(object);
+        }
+    }
+    None
+}
+
+/// This frame's share of the object array (a full scan in one frame stalled the server for up to 0.6 s), through
+/// the census's region cache; new Behemoth health sets join `sets`.
+fn sweep(sets: &mut HashMap<usize, (usize, bool)>) {
+    let cache = super::census::RegionCache::default();
+    let Some(engine) = engine::engine_over(&cache) else {
+        return;
+    };
+    let Ok(mut classes) = SET_CLASSES.lock() else {
+        return;
+    };
+    let mut found = Vec::new();
+    let start = SWEEP_AT.load(Ordering::Relaxed);
+    let next = rustic_isles_runtime_core::reflect::scan_slice(&engine, start, test_cheats::SWEEP_SLOTS, |header| {
+        let class = header.class;
+        let is_set = *classes.entry(class).or_insert_with(|| {
+            rustic_isles_runtime_core::reflect::class_is_a(&engine, class, test_cheats::HEALTH_SET_CLASS)
+        });
+        if is_set && !sets.contains_key(&header.object) {
+            found.push(header.object);
+        }
+    });
+    SWEEP_AT.store(next, Ordering::Relaxed);
+    if next == 0 && !classes.values().any(|is_set| *is_set) {
+        static MISSING: AtomicBool = AtomicBool::new(false);
+        if !MISSING.swap(true, Ordering::Relaxed) {
+            log::line(test_cheats::lines::HEALTH_SET_MISSING);
+        }
+    }
+    drop(classes);
+    for set in found {
+        if let Some(behemoth) = behemoth_owning(set) {
+            sets.insert(set, (behemoth, false));
+        }
+    }
+}
+
+/// One-hit kills: every Behemoth's health is held at 1, so the next hit of any size kills it.
+fn hold_behemoth_health(_engine: usize, _delta: f32) {
+    if detaching() || !cheats().one_hit_kills {
+        return;
+    }
+    let Ok(mut sets) = SETS.lock() else {
+        return;
+    };
+    sweep(&mut sets);
+    let now = std::time::Instant::now();
+    let due = HELD_AT.lock().is_ok_and(|mut held_at| {
+        let due = held_at.is_none_or(|at| now.duration_since(at) >= HOLD_EVERY);
+        if due {
+            *held_at = Some(now);
+        }
+        due
+    });
+    if !due {
+        return;
+    }
+    sets.retain(|&set, &mut (behemoth, _)| live(set) && live(behemoth));
+    if LAST_COUNT.swap(sets.len(), Ordering::Relaxed) != sets.len()
+        && COUNT_LOGS.fetch_add(1, Ordering::Relaxed) < test_cheats::HOLD_LOG_BUDGET
+    {
+        log::line(&test_cheats::lines::health_sets(sets.len()));
+    }
+    for (&set, (behemoth, held)) in sets.iter_mut() {
+        let span = test_cheats::MAX_HEALTH + 4 - test_cheats::HEALTH;
+        if !readable_unaligned(set + test_cheats::HEALTH, span) {
+            continue;
+        }
+        // Writes only when above the hold, so a held Behemoth costs two reads
+        if read_unaligned::<f32>(set + test_cheats::SHIELD).is_some_and(|shield| shield > 0.0) {
+            put::<f32>(set + test_cheats::SHIELD, 0.0);
+        }
+        let Some(before) = read_unaligned::<f32>(set + test_cheats::HEALTH) else {
+            continue;
+        };
+        let Some(after) = test_cheats::hold(before) else {
+            continue;
+        };
+        if !put::<f32>(set + test_cheats::HEALTH, after) {
+            continue;
+        }
+        let first = !*held;
+        *held = true;
+        if HOLD_LOGS.fetch_add(1, Ordering::Relaxed) >= test_cheats::HOLD_LOG_BUDGET {
+            continue;
+        }
+        let name = reflect::engine()
+            .and_then(|engine| engine.object_name(*behemoth))
+            .unwrap_or_else(|| "?".to_owned());
+        log::line(&if first {
+            let max = read_unaligned::<f32>(set + test_cheats::MAX_HEALTH).unwrap_or(f32::NAN);
+            test_cheats::lines::health_held(&name, set, before, max)
+        } else {
+            test_cheats::lines::health_restored(&name, before)
+        });
+    }
+}
+
+const HOLD_EVERY: std::time::Duration = std::time::Duration::from_millis(test_cheats::HOLD_INTERVAL_MS);
+
+static GAUNTLET_CHEATED: AtomicUsize = AtomicUsize::new(0);
+
+/// The first state or level timer broadcast of each Gauntlet state component sets the game's own end-early flag.
+fn gauntlet_broadcast(call: &PeCall) -> Verdict {
+    if detaching()
+        || !cheats().end_gauntlet_early
+        || GAUNTLET_CHEATED.load(Ordering::Relaxed) == call.object
+        || !live(call.object)
+        || !reflect::is_a(call.object, test_cheats::GAUNTLET_STATE_CLASS)
+    {
+        return Verdict::Continue;
+    }
+    GAUNTLET_CHEATED.store(call.object, Ordering::Relaxed);
+    let function = reflect::find_class(test_cheats::GAUNTLET_STATE_CLASS)
+        .and_then(|class| reflect::function(class, test_cheats::END_GAUNTLET_EARLY));
+    let Some(function) = function else {
+        log::line(test_cheats::lines::GAUNTLET_CHEAT_MISSING);
+        return Verdict::Continue;
+    };
+    let mut params = reflect::Params::new(0);
+    let called = reflect::call(call.object, function, &mut params);
+    log::line(&test_cheats::lines::gauntlet_ended_early(call.object, called));
     Verdict::Continue
 }
 
@@ -537,6 +711,7 @@ mod tests {
                 ("R20", 0, true, false),
                 ("R20", 0, true, false),
                 ("R20", 0, true, false),
+                ("R20", 0, true, false),
             ]
         );
         let names = [
@@ -545,6 +720,7 @@ mod tests {
             "Function Engine.PlayerController.ClientRetryClientRestart",
             "Function vendor_interactive_bp.vendor_interactive_bp_C.UpdateCameraForAspect",
             "Function Engine.GameModeBase.PlayerCanRestart",
+            "Function Archon.GauntletGameStateComponent.BroadcastStateTimerToClients",
         ];
         for (handler, name) in pe.iter().zip(names) {
             assert!(matches(handler.matcher, Some(name)), "{name}");

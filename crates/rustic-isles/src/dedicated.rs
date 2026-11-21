@@ -19,6 +19,8 @@ pub struct LaunchRequest {
     pub hunt_id: String,
     /// User ids
     pub expected_players: Vec<String>,
+    /// The Gauntlet level the client chose (`gauntlet_level`: season x 10 000 000 + level)
+    pub gauntlet_level: Option<i64>,
     /// Sent as `x-rustic-isles-request-id`
     pub request_id: Option<String>,
 }
@@ -36,6 +38,9 @@ impl LaunchRequest {
         body.insert("HuntId".into(), Value::String(self.hunt_id.clone()));
         let players = self.expected_players.iter().cloned().map(Value::String).collect();
         body.insert("ExpectedPlayers".into(), Value::Array(players));
+        if let Some(level) = self.gauntlet_level {
+            body.insert("GauntletLevel".into(), Value::from(level));
+        }
         Value::Object(body)
     }
 }
@@ -135,6 +140,11 @@ mod tests {
         assert_eq!(
             dainty_service_kit::jsjson::stringify(&request.body()),
             r#"{"GameMode":"ISLAND","GameArgs":"","HuntId":"h","ExpectedPlayers":["u1"]}"#
+        );
+        request.gauntlet_level = Some(10_000_001);
+        assert!(
+            dainty_service_kit::jsjson::stringify(&request.body())
+                .ends_with(r#""ExpectedPlayers":["u1"],"GauntletLevel":10000001}"#)
         );
     }
 }

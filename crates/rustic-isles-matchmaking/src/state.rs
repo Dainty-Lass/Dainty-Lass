@@ -138,6 +138,8 @@ pub(crate) struct Tables {
     pub hub_sessions: HashMap<String, String>,
     pub ring_instances: HashMap<String, GlobalId>,
     pub last_ring_instance: Option<GlobalId>,
+    /// Each player's last Gauntlet join's `gauntlet_level`, for the launch that follows
+    pub gauntlet_levels: HashMap<String, i64>,
 }
 
 impl Tables {

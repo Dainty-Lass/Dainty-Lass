@@ -52,7 +52,7 @@ pub const SWITCHES: [SharedSwitch; 5] = [
 ];
 
 /// Keys with a `null` default; their help is `Optional host switch ({env})`.
-pub const OPTIONAL_SWITCHES: [SharedSwitch; 6] = [
+pub const OPTIONAL_SWITCHES: [SharedSwitch; 7] = [
     switch("account_erasure", "RUSTIC_ISLES_ACCOUNT_ERASURE", ""),
     switch("log_purge", "RUSTIC_ISLES_LOG_PURGE", ""),
     switch("rate_limit", "RUSTIC_ISLES_RATE_LIMIT", ""),
@@ -67,6 +67,7 @@ pub const OPTIONAL_SWITCHES: [SharedSwitch; 6] = [
         "RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE",
         "",
     ),
+    switch("gauntlet", "RUSTIC_ISLES_GAUNTLET", ""),
 ];
 
 /// A settings file could not be read or a value is not allowed.

@@ -29,6 +29,8 @@ mod save_reset;
 #[cfg(minhook)]
 pub mod server_life;
 #[cfg(minhook)]
+mod trials_board;
+#[cfg(minhook)]
 pub mod widgets;
 
 /// Every raw pointer read, Win32 call, MinHook call and detour body (RT-1).

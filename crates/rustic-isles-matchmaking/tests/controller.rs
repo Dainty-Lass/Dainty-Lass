@@ -12,7 +12,7 @@ use std::sync::Arc;
 use common::{Activity, RecordingHome, account, ctx, module_with, solo, with_party};
 use rustic_isles::{LiveHub, Settings};
 use rustic_isles_matchmaking::test_support::{FakeDirector, FakeLaunch, TestModule};
-use rustic_isles_matchmaking::{CandidateSource, MatchCandidate, Parties, RAMSGATE_HUNT};
+use rustic_isles_matchmaking::{CandidateSource, JoinRequest, MatchCandidate, Parties, RAMSGATE_HUNT};
 use rustic_isles_store::test_support::TempStore;
 use serde_json::Value;
 
@@ -284,6 +284,18 @@ async fn gauntlet_switch() {
         .await
         .unwrap();
     assert_eq!(leave(&on, "b").await.1, "queued");
+    // The level the client chose goes to the Director with the launch
+    let picked = JoinRequest {
+        gauntlet_level: Some(10_000_003),
+        ..with_party("c", "ISLAND", Some("CR19_PlayerHunt_Gauntlet"), "q", &["c", "d"], None)
+    };
+    assert!(c.join(&picked).await.unwrap());
+    let launched = d
+        .launches()
+        .into_iter()
+        .find(|l| l.hunt_id == "CR19_PlayerHunt_Gauntlet")
+        .unwrap();
+    assert_eq!(launched.gauntlet_level, Some(10_000_003));
 }
 
 #[tokio::test]

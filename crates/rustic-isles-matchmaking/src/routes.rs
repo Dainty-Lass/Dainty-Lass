@@ -352,6 +352,10 @@ fn shown(text: Option<&str>) -> String {
     text.map_or_else(|| "undefined".to_owned(), rules::log_text)
 }
 
+fn shown_level(level: Option<i64>) -> String {
+    level.map_or_else(|| "none".to_owned(), |l| l.to_string())
+}
+
 async fn join(mut call: Call) -> Response {
     let user = answer!(signed_in(&mut call).await);
     touch_realm_presence(&call.shared, &user);
@@ -381,6 +385,17 @@ async fn join(mut call: Call) -> Response {
         rules::field_shape(body.get("isPrivate")),
         if requested.is_some() { "present" } else { "absent" },
     );
+    // Season x 10 000 000 + level, as the client combines them (first Gauntlet test, 2026-11-19: 10000001)
+    let gauntlet_level = body
+        .get("gauntlet_level")
+        .and_then(Value::as_i64)
+        .filter(|level| (1..=i64::from(i32::MAX)).contains(level));
+    if hunt.as_deref().is_some_and(rules::is_gauntlet_hunt_id) {
+        tracing::info!(
+            "[Gauntlet] {user} asked for gauntlet_level {}",
+            shown_level(gauntlet_level)
+        );
+    }
     let store = ctx.store();
     let party = match ctx.parties(store.as_deref()).for_player(&user).await {
         Ok(party) => party,
@@ -438,6 +453,7 @@ async fn join(mut call: Call) -> Response {
         args,
         hunt,
         build_id,
+        gauntlet_level,
         party: JoinParty {
             party_id: resolution.party_id,
             members: resolution.members,

@@ -509,6 +509,35 @@ async fn gauntlet() {
         ..Options::default()
     });
     assert_eq!(off.game("GET", &at("/config")).await.payload(), json!({}));
+    // A write on the Gauntlet host answers an empty envelope; elsewhere the row passes on
+    let write = h.game("PUT", &at("/anything/ESC_SEASON_1/user-1")).await;
+    assert_eq!((write.status, write.payload()), (200, json!({})));
+    assert_ne!(h.game("PUT", "/anything/ESC_SEASON_1/user-1").await.status, 200);
+    // A player's own token may not record a finished run
+    let token = h.token();
+    let run = r#"{"gauntlet_id":"ESC_SEASON_1","players":["user-1"],"level":9,"remaining_sec":1,"data":{}}"#;
+    let forged = h
+        .send(
+            "PUT",
+            &at("/process_run"),
+            &[("authorization", token.as_str())],
+            Some(run),
+        )
+        .await;
+    assert_eq!(forged.status, 403);
+    // With Gauntlet on, level access opens the first level; the other progression answers are unchanged
+    let on = Harness::new(Options {
+        settings: vec![("RUSTIC_ISLES_GAUNTLET", " On ")],
+        ..Options::default()
+    });
+    let access = on
+        .send("GET", &at("/progression/level_access/ESC_SEASON_1"), &[], None)
+        .await;
+    assert_eq!(access.body, r#"{"code":null,"message":"OK","payload":1}"#);
+    assert_eq!(
+        on.game("GET", &at("/progression/ESC_SEASON_1/user-1")).await.payload(),
+        json!({"personal_progression": 0, "guild_progression": 0})
+    );
 }
 
 #[tokio::test]
@@ -606,4 +635,35 @@ async fn progression_config() {
     let later = get("2026-10-23T00:00:00.000Z").await;
     assert_eq!(later["paths"][0]["start_date"], "2026-10-22T17:00:00+00:00");
     assert_eq!(later["paths"].as_array().unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn trials_boards_without_a_store() {
+    let h = Harness::bare();
+    let body = r#"{"trial_id":"CR19_PlayerHunt_Arena_Elite","difficulty":2,"page":0,"page_size":10}"#;
+    let a = h.post_json("/trials/leaderboards/solo", "application/json", body).await;
+    assert_eq!(
+        a.payload(),
+        json!({"difficulty":2,"page":0,"page_size":10,"trial_id":"CR19_PlayerHunt_Arena_Elite","entries":[]})
+    );
+    let a = h
+        .post_json("/trials/leaderboards/group", "application/json", "{}")
+        .await;
+    assert_eq!(a.payload()["entries"], json!([]));
+    for own in [
+        "/trials/leaderboards/solo/individual",
+        "/trials/leaderboards/group/individual",
+    ] {
+        let a = h.post_json(own, "application/json", body).await;
+        assert_eq!(a.payload(), json!({}), "{own}");
+    }
+    // Any other Trials write is logged and answered with an empty envelope
+    let a = h
+        .post_json("/trials/leaderboards/guild", "application/json", "{}")
+        .await;
+    assert_eq!(a.payload(), json!({}));
+    // A player's own token may not record a finished run
+    let run = r#"{"trial_id":"T","completion_time":90,"phx_account_id":"user-1","weapon":1}"#;
+    let forged = h.post_json("/trials/leaderboards", "application/json", run).await;
+    assert_eq!((forged.status, forged.body.as_str()), (403, ""));
 }

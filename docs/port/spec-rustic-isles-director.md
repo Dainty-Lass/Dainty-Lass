@@ -388,6 +388,12 @@ Each game server leads a process tree that ends with it:
   `ExpectedPlayers` (§9.3; its errors fail the request), then a hunt start with map `String(mapPath)`, Behemoth
   `String(behemothPath)` unless it is `NO_BEHEMOTH`, matchmaker hunt id `String(matchmakerHuntId)`, and the roster
   `ExpectedPlayers`' items each with the hunt id text.
+- **A Gauntlet hunt** (from a hunt id whose matchmaker hunt id contains `gauntlet` in any ASCII case, and whose map
+  has no `?` yet): the map gets `?game={GameModeOverride}` when the matchmaker row has a non-empty one (the Gauntlet
+  map's own mode is Story Mission, so without it nothing spawns), then `?GauntletLevel={n}`, `n` the request body's
+  `GauntletLevel` when it is a positive integer (core §5.6, the client's season x 10 000 000 + level), else
+  `10000001`. The game's Gauntlet mode reads its level there (first seen 2026-11-19). SHARED hunts carry no level.
+  Other rows with a `GameModeOverride` (Exploration, Story Missions) get no `?game=`.
 
 Hunts are never restarted and never reaped by wall clock: the runtime ends a hunt nobody is connected to.
 
@@ -629,7 +635,7 @@ A file is a JSON array whose first element is an object with `Rows`, an object o
 | matchmaker | `HuntTags` | array of tag strings |
 | matchmaker | `MapList` | array of `{"MapName","MapAssetName":"/Game/<package>.<object>","Biome","Weighting"}` |
 | matchmaker | `SpecificBehemoth.BehemothAsset.AssetPathName` | the Behemoth class path, or `None` |
-| matchmaker | `GameModeOverride`, `MaxPlayers` | audits only |
+| matchmaker | `GameModeOverride`, `MaxPlayers` | audits, and a Gauntlet hunt's `?game=` (§5.8) |
 
 ### 9.2 Loading
 

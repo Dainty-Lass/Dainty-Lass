@@ -118,9 +118,10 @@ async fn the_manifest_and_registration() {
     let sections: Vec<&str> = registration.config.iter().map(|s| s.name.as_str()).collect();
     assert_eq!(sections, ["backend", "switches", "game_data"]);
     let switches = &registration.config[1].keys;
-    assert_eq!(switches.len(), 11);
+    assert_eq!(switches.len(), 12);
     assert_eq!(switches[0].default, serde_json::json!("80"));
     assert_eq!(switches[5].help, "Optional host switch (RUSTIC_ISLES_ACCOUNT_ERASURE)");
+    assert_eq!(switches[11].name, "gauntlet");
 }
 
 #[tokio::test]

@@ -288,8 +288,8 @@ A row's **scope** is "node" when its path starts `/launcher/`, `/admin/`, `/heal
 `/reforged/api/`, else "version" (the launcher's, operators' and probes' routes are no game version's; areas may use
 it). A row's **name** is `{METHOD} {path}`.
 
-Counts (tests check them): 290 rows, 285 backend (219 isles, 66 rifts) and 5 Director (4 isles, 1 rifts); 29
-`admin` (every `/admin/...` row plus `/health/release-gates`), 5 `gauntlet` (including `/config`), 59 `rifts`. The 8
+Counts (tests check them): 306 rows, 301 backend (234 isles, 67 rifts) and 5 Director (4 isles, 1 rifts); 33
+`admin` (every `/admin/...` row plus `/health/release-gates`), 7 `gauntlet` (including `/config`), 60 `rifts`. The 8
 rifts-side Guard rows isles keeps (RF1 decision 1: `/launcher/v1/guard/sessions`, `/launcher/v1/guard/heartbeat`,
 `/launcher/v1/guard/sessions/:guardSessionId`, both `guard-manifests` rows and the three `/admin/v1/guard/*` reads)
 are `always` or `admin`; every other rifts-side row is `rifts`; no isles-side row is `rifts`.
@@ -307,8 +307,9 @@ The table is Express's registration order; the first matching mounted row answer
 | B41 `GET /playertreatments/` | B40 `GET /playertreatments` (one handler) |
 | B114 `POST /encountered-content/` | B113 `POST /encountered-content` (the same answer) |
 
-Rows that overlap but pass on: the five `gauntlet` rows answer only for a Gauntlet origin, so `GET /progression/a/b`
-reaches `GET /progression/:userId/:progressionId`; literal rows registered before `:param` rows win
+Rows that overlap but pass on: the seven `gauntlet` rows answer only for a Gauntlet origin, so `GET /progression/a/b`
+reaches `GET /progression/:userId/:progressionId`, and the two any-path writes (B51a `PUT`, B51b `POST`) take every
+write on the Gauntlet host before a later row can, while a write elsewhere walks on; literal rows registered before `:param` rows win
 (`/progression/objectives/u` is `GET /progression/objectives/:userId`).
 
 The full table is Appendix A. A new upstream route is added there in its registration position, never appended.
@@ -390,8 +391,10 @@ A replaceable per-module slot, default "unconfigured", which the Director's serv
 
 - `configured()`: whether a Director can be asked (`DEPLOYSERVER_URL` set and not blank, or one in-process).
 - `launch(request)`: request is game mode (optional), game args (optional), hunt id, expected players (user ids),
-  request id (optional, sent as `x-rustic-isles-request-id`); its body on the wire is
-  `{"GameMode":..,"GameArgs":..,"HuntId":..,"ExpectedPlayers":[..]}` with absent options left out, in that order.
+  Gauntlet level (optional, the client's combined season and level), request id (optional, sent as
+  `x-rustic-isles-request-id`); its body on the wire is
+  `{"GameMode":..,"GameArgs":..,"HuntId":..,"ExpectedPlayers":[..],"GauntletLevel":..}` with absent options left
+  out, in that order.
   Answers `Online { host, port }`, `Refused { reason }` (a reason only when nothing was asked), or an error text.
   Unconfigured answers `Refused` with no reason.
 - `hub_status()`: Ramsgate's and the Training Dojo's hubs (ready, host, port) or none when unreachable.
@@ -870,7 +873,7 @@ the route table itself (wire facts), and the crate's own test checks its counts.
 
 | Area | Cases |
 | --- | --- |
-| Table | 290 rows; 285 backend; `RouteSet::V1147.routes(Backend)` 285; 29 `admin` rows, all `/admin/...` or `/health/release-gates`; 5 `gauntlet` including `/config`; every isles-side row not `rifts`; rifts-side rows `rifts` except the 8 Guard rows of §4.2; every path compiles |
+| Table | 306 rows; 301 backend; `RouteSet::V1147.routes(Backend)` 301; 33 `admin` rows, all `/admin/...` or `/health/release-gates`; 7 `gauntlet` including `/config`; every isles-side row not `rifts`; rifts-side rows `rifts` except the 8 Guard rows of §4.2; every path compiles |
 | Matching | §4.1's table |
 | 501 | a bare module (no handlers): `GET /character` → 501, `content-type: application/json; charset=utf-8`, body `{"error":{"code":"NOT_IMPLEMENTED","message":"isles: GET /character is not implemented yet","requestId":"<the x-rustic-isles-request-id header>"}}`; `HEAD /CHARACTER/` → 501, empty body; `GET /nothing/here` → empty 404 |
 | Order | `GET /progression/a/b` → message names `GET /progression/:userId/:progressionId`; the same under `/__origin/gauntlet-prod.steelyard.ca` → names `GET /^\/progression\/([^/]*)\/([^/]+)$/i`; `GET /progression/objectives/u` → `GET /progression/objectives/:userId`; `POST /inventory//dauntlessrel-1.14.7:647472` → `POST /^\/inventory\/([^/]*)\/(.+)$/`; `GET /__origin/evil.example/character` → 400 |
@@ -1055,6 +1058,11 @@ composer; native code, `tools/RuntimeLoader` and `reference/` stay in restricted
 | B32 | POST | `/profile/update` | game-data | isles |  |
 | B33 | POST | `/trials/leaderboards/all` | game-data | isles |  |
 | B34 | POST | `/trials/leaderboards/solo/individual` | game-data | isles |  |
+| B34a | POST | `/trials/leaderboards` | game-data | isles |  |
+| B34b | POST | `/trials/leaderboards/solo` | game-data | isles |  |
+| B34c | POST | `/trials/leaderboards/group` | game-data | isles |  |
+| B34d | POST | `/trials/leaderboards/group/individual` | game-data | isles |  |
+| B34e | POST | `/^\/trials\/(.*)$/` | game-data | isles |  |
 | B35 | GET | `/vivox/login` | chat | isles |  |
 | B36 | POST | `/motd/` | game-data | isles |  |
 | B37 | GET | `/motd/trigger` | game-data | isles |  |
@@ -1072,6 +1080,8 @@ composer; native code, `tools/RuntimeLoader` and `reference/` stay in restricted
 | B49 | GET | `/^\/rewards\/personal\/([^/]*)\/([^/]+)$/i` | game-data | isles | gauntlet |
 | B50 | GET | `/^\/rewards\/guild\/([^/]*)\/([^/]+)$/i` | game-data | isles | gauntlet |
 | B51 | GET | `/^\/leaderboard\/get_leaderboard\//i` | game-data | isles | gauntlet |
+| B51a | PUT | `/^\/(.*)$/` | game-data | isles | gauntlet |
+| B51b | POST | `/^\/(.*)$/` | game-data | isles | gauntlet |
 | B52 | GET | `/huntpass/:userId` | progression | isles |  |
 | B53 | GET | `/cooldown/:userId` | bounties-store | isles |  |
 | B54 | PUT | `/cooldown/batch/:userId` | bounties-store | isles |  |

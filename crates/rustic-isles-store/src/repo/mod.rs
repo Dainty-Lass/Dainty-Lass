@@ -32,12 +32,14 @@ pub mod auth;
 pub mod bounties;
 pub mod characters;
 pub mod chat;
+pub mod gauntlet;
 pub mod inventory;
 pub mod parties;
 pub mod playtime;
 pub mod progression;
 pub mod reforged;
 pub mod resets;
+pub mod trials;
 
 use std::sync::Arc;
 

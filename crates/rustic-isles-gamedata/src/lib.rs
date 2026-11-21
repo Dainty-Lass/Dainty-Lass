@@ -12,9 +12,11 @@
 
 mod areas;
 pub mod gauntlet;
+mod gauntlet_runs;
 pub mod generators;
 pub mod patchnotes;
 pub mod progression_config;
+pub mod trials;
 pub mod tuning;
 
 use rustic_isles::{Handlers, Method};
@@ -26,7 +28,7 @@ pub use generators::{
 };
 
 /// The 29 `game-data` rows (spec §3.1), in the table's order.
-const ROUTES: [(Method, &str); 29] = [
+const ROUTES: [(Method, &str); 36] = [
     (Method::Post, "/heartbeat"),
     (Method::Post, "/event"),
     (Method::Get, "/crash/CrashReporter/Ping"),
@@ -36,6 +38,11 @@ const ROUTES: [(Method, &str); 29] = [
     (Method::Post, "/profile/update"),
     (Method::Post, "/trials/leaderboards/all"),
     (Method::Post, "/trials/leaderboards/solo/individual"),
+    (Method::Post, "/trials/leaderboards"),
+    (Method::Post, "/trials/leaderboards/solo"),
+    (Method::Post, "/trials/leaderboards/group"),
+    (Method::Post, "/trials/leaderboards/group/individual"),
+    (Method::Post, r"/^\/trials\/(.*)$/"),
     (Method::Post, "/motd/"),
     (Method::Get, "/motd/trigger"),
     (Method::Get, "/playertreatments"),
@@ -48,6 +55,8 @@ const ROUTES: [(Method, &str); 29] = [
     (Method::Get, r"/^\/rewards\/personal\/([^/]*)\/([^/]+)$/i"),
     (Method::Get, r"/^\/rewards\/guild\/([^/]*)\/([^/]+)$/i"),
     (Method::Get, r"/^\/leaderboard\/get_leaderboard\//i"),
+    (Method::Put, r"/^\/(.*)$/"),
+    (Method::Post, r"/^\/(.*)$/"),
     (Method::Get, "/all/"),
     (Method::Get, "/patchnotes/:language/:gameversion"),
     (Method::Get, "/game_tuning/seasonal_event_schedule"),

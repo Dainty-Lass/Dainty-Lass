@@ -166,7 +166,10 @@ In this order:
 4. Log `UserId {user} wants to join a game with GameMode {mode} & GameArgs {args} & HuntId {hunt} & gameType={s}
    privateMatch={s} isPrivate={s} partyId={present|absent}` (absent strings print `undefined`; each `{s}` is the
    field's **shape**: a string as its first 40 characters JSON-quoted, a boolean or number as its JSON text, anything
-   else `absent`; never the party id).
+   else `absent`; never the party id). For a Gauntlet hunt id (§5.5) also log `[Gauntlet] {user} asked for
+   gauntlet_level {n|none}`, `n` being the body's `gauntlet_level` when it is an integer from 1 to 2^31 - 1: the
+   level the client chose, season x 10 000 000 + level (`10000001` is season 1 level 1; first seen 2026-11-19).
+   Never log the body itself: it carries the `session_id` token.
 5. The player's party (§7, `for_player`). No database: the 501; another failure: the 500 page.
 6. Whether the realms side wants offline members filtered: `filters_offline_party_members(mode or "", hunt id)`; a
    seam error is the 500 page.
@@ -452,17 +455,19 @@ clock directly. Node's tests mock `Date.now` the same way.
 1. `MATCHMAKING_MODE` raw: `DISABLED` warns `Matchmaking is disabled, refusing MM!` → false; exactly `DEPLOYSERVER`
    goes on; anything else (unset, empty, other casing) logs error `Unsupported MATCHMAKING_MODE!` → false.
 2. The effective hunt id (§5.5); **everyone** = the party members, else the player alone.
-3. A refused Gauntlet id: warn `[HuntRoute] Gauntlet hunt {id} refused reason=GAUNTLET_DISABLED (RUSTIC_ISLES_GAUNTLET
+3. A Gauntlet id with a `gauntlet_level` (§3.3 step 4): remembered as the player's last Gauntlet
+   level, in memory only, for the launch that follows (§6.10).
+4. A refused Gauntlet id: warn `[HuntRoute] Gauntlet hunt {id} refused reason=GAUNTLET_DISABLED (RUSTIC_ISLES_GAUNTLET
    is not on)`; cancel the hunt for everyone with `GAUNTLET_DISABLED` → true. This is before the realms route, so it
    applies on every route.
-4. **Realms route**: `route_hunt(HuntRouteContext { game_mode: mode or "", hunt_id: effective, player, party: the
+5. **Realms route**: `route_hunt(HuntRouteContext { game_mode: mode or "", hunt_id: effective, player, party: the
    party global id as a rifts `PartyId` (§11), party_members: the members, party_revision (when it is not negative),
    build_id, is_hub })`. `Handled { result }` → result. A seam error fails the request.
-5. **Party** = (party id, members) when there are more than one member.
-6. Not a hub destination, effective id non-blank, and a party: the party hunt (§6.6).
-7. Effective id blank, or not needing a queue: the immediate instance (§6.7).
-8. A party (only a hub destination with a `CR19` id reaches here): the party hunt.
-9. Else the queue (§6.8).
+6. **Party** = (party id, members) when there are more than one member.
+7. Not a hub destination, effective id non-blank, and a party: the party hunt (§6.6).
+8. Effective id blank, or not needing a queue: the immediate instance (§6.7).
+9. A party (only a hub destination with a `CR19` id reaches here): the party hunt.
+10. Else the queue (§6.8).
 
 ### 6.2 The candidate poll (`CheckAndUpdateQueueStatus`)
 
@@ -581,8 +586,9 @@ the queue is removed. An error propagates and leaves the queue resolved (§15 it
 2. A hunt (not a hub destination) while the realms side says dedicated hunts are disabled: error `[HuntRoute] blocked
    dedicated hunt launch (dedicated hunts are disabled) huntId={id}` → `Refused` with no reason. A seam error fails.
 3. Log `Querying DeployServer for GameMode: {mode or undefined} HuntId {id} with {n} Expected Players!`; core's
-   dedicated servers `launch(LaunchRequest { game_mode, game_args, hunt_id, expected_players, request_id: the
-   request's id })`. An error fails the request (Express's 500).
+   dedicated servers `launch(LaunchRequest { game_mode, game_args, hunt_id, expected_players, gauntlet_level,
+   request_id: the request's id })`, `gauntlet_level` for a Gauntlet hunt being the first expected player's
+   remembered level (§6.1 step 3), else none. An error fails the request (Express's 500).
 4. `Online` for a hunt: a fresh launch ref stored for `host:port`, and the activity seam's hunt start for the
    expected players with the hunt and the ref (the launch never waits for the activity rows).
 
