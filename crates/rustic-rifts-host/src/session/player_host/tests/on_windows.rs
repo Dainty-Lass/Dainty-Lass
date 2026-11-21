@@ -54,7 +54,8 @@ fn the_ready_pipe_refuses_another_client_an_overlong_message_and_silence() {
         listener.accept(other, Duration::from_secs(10), &|| true),
         Err(PipeFailure::WrongPeer)
     );
-    client.join().unwrap();
+    // The refused client's write may meet the closed pipe first
+    let _ = client.join();
 
     let x = token();
     let listener = ReadyListener::create(&ready_name(&x)).unwrap();
@@ -96,6 +97,8 @@ fn the_ready_pipe_is_the_first_instance_and_this_users_alone() {
         .nth(1)
         .and_then(|rest| rest.split(')').next())
         .unwrap();
+    // The descriptor's text names the built-in Administrator (RID 500, as on CI runners) by its alias
+    let user = if user.ends_with("-500") { "LA" } else { user };
     assert!(dacl.starts_with("D:P"), "{dacl}");
     assert_eq!(dacl.matches("(A;").count(), 2, "{dacl}");
     assert!(dacl.contains(&format!(";;;{user})")), "{dacl}");

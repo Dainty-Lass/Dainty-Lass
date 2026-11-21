@@ -6,5 +6,10 @@
 #     expired_at: 2027-01-01
 vulnerabilities: []
 misconfigurations: []
-secrets: []
+secrets:
+  - id: discord-client-id
+    paths:
+      - ui/apps/web/scripts/demo.ts
+    statement: The demo dashboard's made-up owner ID, not a real Discord account.
+    expired_at: 2027-11-21
 licenses: []

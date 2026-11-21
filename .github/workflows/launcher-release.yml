@@ -120,7 +120,8 @@ jobs:
         run: |
           set -euo pipefail
           config="$(cygpath -w "$WORK/config")"
-          bunx tauri build --ci --bundles nsis --config "$config\\client.json" -- --features realms
+          # bunfig.toml's isolated linker keeps the CLI in launcher's node_modules, out of bunx's reach
+          bun ../../launcher/node_modules/@tauri-apps/cli/tauri.js build --ci --bundles nsis --config "$config\\client.json" -- --features realms
           mkdir -p "$WORK/out"
           collect() {
             local name="$1" exe sig
@@ -131,7 +132,7 @@ jobs:
             rm -rf ../../target/release/bundle/nsis
           }
           collect DaintyLassLauncher
-          bunx tauri build --ci --bundles nsis --config "$config\\manager.json" --config "$config\\manager-data.json" -- --no-default-features --features server-gui
+          bun ../../launcher/node_modules/@tauri-apps/cli/tauri.js build --ci --bundles nsis --config "$config\\manager.json" --config "$config\\manager-data.json" -- --no-default-features --features server-gui
           collect DaintyLassManager
           ls -l "$WORK/out"
 
@@ -242,10 +243,11 @@ jobs:
             done
             rm -rf "$bundle"
           }
-          bunx tauri build --ci --bundles appimage,deb,rpm --config "$RUNNER_TEMP/config/client.json" --config "$RUNNER_TEMP/config/inject-helper.json" \
+          # bunfig.toml's isolated linker keeps the CLI in launcher's node_modules, out of bunx's reach
+          bun ../../launcher/node_modules/@tauri-apps/cli/tauri.js build --ci --bundles appimage,deb,rpm --config "$RUNNER_TEMP/config/client.json" --config "$RUNNER_TEMP/config/inject-helper.json" \
             -- --features realms
           collect DaintyLassLauncher
-          bunx tauri build --ci --bundles appimage,deb,rpm --config "$RUNNER_TEMP/config/manager.json" --config "$RUNNER_TEMP/config/manager-data.json" \
+          bun ../../launcher/node_modules/@tauri-apps/cli/tauri.js build --ci --bundles appimage,deb,rpm --config "$RUNNER_TEMP/config/manager.json" --config "$RUNNER_TEMP/config/manager-data.json" \
             -- --no-default-features --features server-gui
           collect DaintyLassManager
           ls -l "$RUNNER_TEMP/out"
