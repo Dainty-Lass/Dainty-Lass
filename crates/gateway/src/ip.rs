@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Single IP addresses, strictly: no range, CIDR, zone id, leading zero or white space. What the rate limits key

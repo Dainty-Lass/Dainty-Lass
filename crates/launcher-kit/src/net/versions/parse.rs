@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! What a joined server's content answers on DF4b's version routes, read without the network. The server is
 //! not trusted with more than its own versions: each version's profile is checked as a module manifest

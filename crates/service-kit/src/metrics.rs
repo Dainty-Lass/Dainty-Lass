@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Process-wide metrics in Prometheus' text format (0.0.4). Every service runs in one process (RD26), so one

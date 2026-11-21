@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! One-time enrollment codes and URI parsing (`docs/remote-management.md` §5.2,
 //! `docs/security/remote-management.md`).

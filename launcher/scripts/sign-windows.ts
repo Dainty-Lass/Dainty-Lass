@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Authenticode-signs one file. Tauri runs this as bundle.windows.signCommand once per file and prints its command
 // line, so the certificate and its password come from the environment, and neither is ever printed here.
 import { existsSync, readdirSync, statSync } from "node:fs"

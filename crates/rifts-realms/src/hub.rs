@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Realm hub rules: identity and manifests, the hub state machine and its tick, who is in a hub and how a row moves,

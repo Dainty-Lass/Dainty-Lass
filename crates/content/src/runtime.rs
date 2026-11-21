@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The game runtime the host published to `CONTENT_RUNTIME_DIR`: `runtime.json` and the files it lists, each

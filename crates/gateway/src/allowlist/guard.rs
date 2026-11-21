@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The UDP ports the allowlist guards (DF4d): the game ports `ALLOWLIST_PORTS` names, plus the ranges the loaded

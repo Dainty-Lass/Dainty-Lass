@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The list against synthetic manifests and stand-in sources. The archived manifests are Epic's files: the
 //! opt-in test fetches them (`REFORGED_TEST_EPIC_MANIFEST=1`), as `crates/epic/tests/archive.rs` does.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The Guard publisher against a fake backend (spec §5.1 "Publisher"), with a 200 ms window and 20→80 ms retries.

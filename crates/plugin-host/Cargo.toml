@@ -4,7 +4,7 @@ description = "Loads modules built as libraries and drives them over the frame p
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license = "MIT OR Apache-2.0"
 repository.workspace = true
 publish.workspace = true
 

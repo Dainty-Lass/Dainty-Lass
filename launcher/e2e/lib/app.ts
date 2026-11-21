@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // One running desktop app, driven over WebView2's DevTools port. Calls go through the page's own
 // __TAURI_INTERNALS__, so the isolation hook checks them as it checks the page's.
 import { mkdirSync } from "node:fs"

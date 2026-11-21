@@ -16,7 +16,7 @@ crate both a `[lib]` target (for compiled-in server builds) and a `[[bin]]` targ
 name = "my-game-module"
 version = "0.1.0"
 edition = "2024"
-license = "AGPL-3.0-only" # or "MIT" if written from scratch with no AGPL upstream
+license = "AGPL-3.0-only" # or "MIT OR Apache-2.0" if written from scratch with no AGPL upstream
 
 [lib]
 name = "my_game_module"

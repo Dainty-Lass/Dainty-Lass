@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Rooms (MUC). A room is a `RoomKind`; each occupant keeps the room JID its client joined with, so two `City-*`

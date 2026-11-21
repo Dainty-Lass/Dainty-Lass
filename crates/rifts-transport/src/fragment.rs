@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Messages over 1100 bytes go as 2..=4 Fragment frames: inner type, a big-endian message id, the piece index and

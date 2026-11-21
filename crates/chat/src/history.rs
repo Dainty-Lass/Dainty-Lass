@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! New here (DD15, DD21): chat's own database on `store`, apart from the game's: a SQLite file of its own, so

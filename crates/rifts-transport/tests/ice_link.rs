@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Two links connecting through the signal texts alone: direct, and relay-only through a TURN server on 127.0.0.2.

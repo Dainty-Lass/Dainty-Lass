@@ -4,7 +4,7 @@
   "description": "Runs on each DaintyLass controller the dashboard does not run on: dials the dashboard, runs its allowlisted game calls with this host's secrets, reports status and relays chat",
   "type": "module",
   "private": true,
-  "license": "MIT",
+  "license": "MIT OR Apache-2.0",
   "scripts": {
     "start": "bun src/main.ts",
     "build": "bun build --compile --outfile dist/dainty-agent src/main.ts",

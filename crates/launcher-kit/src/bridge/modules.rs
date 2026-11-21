@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The server GUI's module panels (DU3, DD11): what the page may see of a module, and what it may ask of one.
 //! A module ships no UI, so everything here is data drawn from its manifest and registration. The checks are

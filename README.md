@@ -67,8 +67,10 @@ Director and runtime live in dainty-restricted's `modules/rustic-isles`; on [Dau
 the launcher follows; and on [Undaunted](https://github.com/SyST3MDeV/Undaunted) (gwog and contributors), which both
 of those build on.
 
-MIT License ([LICENSE.txt](LICENSE.txt)): everything here was written or rewritten clean-room
-from no other project. The AGPL parts, the Apache-2.0 runtime loader and the additional terms for the
+Licensed under either of the MIT License ([LICENSE-MIT.txt](LICENSE-MIT.txt)) or the Apache License, Version 2.0
+([LICENSE-APACHE.txt](LICENSE-APACHE.txt)), at your option: everything here was written or rewritten clean-room
+from no other project. Unless you state otherwise, any contribution you submit for inclusion is dual-licensed the
+same way, without further terms. The AGPL parts, the Apache-2.0 runtime loader and the additional terms for the
 Mystic Paradox material are dainty-restricted's.
 
 An unofficial fan project, not affiliated with or endorsed by Phoenix Labs, Epic Games, Mystic Paradox or

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The hosted hunt's lifecycle: the pure rules, the steps that each run inside one hunt transaction, and recovery

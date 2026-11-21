@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The server against a real listener on 127.0.0.1:0 (spec section 3.3, H and L): keys, streams, a runtime

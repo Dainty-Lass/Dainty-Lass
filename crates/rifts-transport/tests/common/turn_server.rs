@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! A TURN server on 127.0.0.2 for the relay tests. On one PC a relay on the peers' own address lets a direct-to-relay

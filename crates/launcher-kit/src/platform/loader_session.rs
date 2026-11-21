@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! Loading Dumper-7 or CatalogExporter into the game through the runtime's own loader (RD9).
 //! The loader (`winmm.dll`, `native/runtime-loader`) loads every

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! A fake backend on 127.0.0.1 (plain HTTP, which the client allows on loopback): it records every call and answers

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Chat's database on both engines (DD15). `REFORGED_TEST_POSTGRES_URL` names a server the test may create a

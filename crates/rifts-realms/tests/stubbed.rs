@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Every rifts crate stubbed: the module is loaded, each of the 60 routes is mounted once (RF1's 68 less the 8

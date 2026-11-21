@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The region report a player's launcher posts to the gateway (docs/dainty-lass-plan.md DN7, RX3;

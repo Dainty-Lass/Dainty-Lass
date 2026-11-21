@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! ECMAScript-compatible string trimming, UTF-16 code unit length, control/bidi character filtering,
 //! and numeric coercion (`Number(str)`).

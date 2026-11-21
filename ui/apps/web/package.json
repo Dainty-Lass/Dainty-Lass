@@ -4,7 +4,7 @@
   "description": "DaintyLass's pages from one source: the staff dashboard, the launcher page and the server manager page, picked by DAINTY_MODE",
   "type": "module",
   "private": true,
-  "license": "MIT",
+  "license": "MIT OR Apache-2.0",
   "scripts": {
     "dev": "vite dev",
     "dev:launcher": "DAINTY_MODE=launcher vite dev",

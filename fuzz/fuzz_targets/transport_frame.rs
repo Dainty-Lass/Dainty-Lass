@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! What a peer sends over a link (spec-rd27-rifts-transport.md §2.10, §2.11): sealed frames opened with a fixed key,

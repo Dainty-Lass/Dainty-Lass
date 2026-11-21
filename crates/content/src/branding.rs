@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The art pack the launcher shows behind the server's page (`CONTENT_BRANDING_DIR`): background images with

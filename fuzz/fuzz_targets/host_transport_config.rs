@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! The backend's `transport-config` JSON turned into the transport's files (spec-rd27-rifts-host.md §6.2.1

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! Peer event and diagnostic lines from the transport applied to the launcher's live view (spec-rd27-rifts-host.md

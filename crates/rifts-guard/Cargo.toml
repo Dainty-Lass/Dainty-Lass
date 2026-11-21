@@ -4,7 +4,7 @@ description = "Rustic Rifts' Guard in observe mode: hunt evidence chains, host w
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license = "MIT OR Apache-2.0"
 repository.workspace = true
 publish.workspace = true
 
