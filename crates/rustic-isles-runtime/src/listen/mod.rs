@@ -99,16 +99,23 @@ pub fn register_player_host(listen: &'static dyn PlayerHostListen) -> Result<(),
 
 /// The map URL with its NUL, built once; `None` without a launch (R9 call 9). Logs the summary line once.
 pub fn map_url() -> Option<&'static [u16]> {
-    URL.get_or_init(|| {
+    fn build() -> Option<Vec<u16>> {
         let launch = config::launch()?;
         let cap = u32::try_from(config::hub_cap().value).unwrap_or(1);
         let mut url = roster::map_url(launch, cap, false);
         log::line(&core::map_url_line(launch, url.len(), cap));
         url.push(0);
         Some(url)
-    })
-    .as_deref()
+    }
+    // A spare answers its placeholder until its hunt arrives, then the hunt's URL from then on
+    static PLACEHOLDER: OnceLock<Option<Vec<u16>>> = OnceLock::new();
+    if config::is_spare() && !config::has_spare_hunt() {
+        return PLACEHOLDER.get_or_init(build).as_deref();
+    }
+    URL.get_or_init(build).as_deref()
 }
+
+pub mod spare;
 
 /// Server Init, after `minhook::initialize()` and before `handlers::freeze()`: the two SP-3 handlers and SRV-1.
 pub fn install(base: usize, initialized: i32) -> Vec<Install> {

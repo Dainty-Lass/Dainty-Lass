@@ -75,6 +75,8 @@ pub struct Config {
     pub public_reuse: bool,
     /// Restart a hub as soon as it exits or is found gone (`HUB_PROMPT_RESTART`, default on).
     pub hub_prompt_restart: bool,
+    /// Keep one hunt server booted and held before its map load (`GAMESERVER_WARM_SPARE=1`; prototype, default off).
+    pub warm_spare: bool,
     /// Keep the Ramsgate hub running (`RAMSGATE_HUB`, default on).
     pub ramsgate_hub: bool,
     /// Keep the Training Grounds running (`TRAINING_HUB`); off by default under `TRAINING_ON_DEMAND`.
@@ -230,6 +232,7 @@ impl Config {
             public_reuse: settings.raw("ENABLE_PUBLIC_HUNT_REUSE") == Some("1"),
             hub_prompt_restart: !trimmed_lower(settings, "HUB_PROMPT_RESTART")
                 .is_some_and(|v| matches!(v.as_str(), "0" | "false" | "no" | "off")),
+            warm_spare: settings.raw("GAMESERVER_WARM_SPARE") == Some("1"),
             ramsgate_hub: switch_on(settings.raw("RAMSGATE_HUB"), true),
             training_hub,
             training_idle_minutes,

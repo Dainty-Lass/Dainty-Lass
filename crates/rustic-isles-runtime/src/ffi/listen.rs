@@ -129,6 +129,11 @@ pub(crate) fn default_map(out: *mut EngineString, next: usize) -> *mut EngineStr
 }
 
 unsafe extern "C" fn srv1_detour(out: *mut EngineString) -> *mut EngineString {
+    static CALLS: AtomicUsize = AtomicUsize::new(0);
+    let call = CALLS.fetch_add(1, Ordering::SeqCst) + 1;
+    if crate::config::is_spare() {
+        let _ = catch_unwind(|| crate::listen::spare::hold_on(call));
+    }
     default_map(out, SRV1_NEXT.load())
 }
 

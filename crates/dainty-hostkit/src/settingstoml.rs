@@ -165,6 +165,7 @@ const PERFORMANCE: &[Field] = &[
     ("memoryGuard", "memory_guard", false),
     ("minFreeMemoryMb", "min_free_memory_mb", false),
     ("huntMemoryMb", "hunt_memory_mb", false),
+    ("warmSpare", "warm_spare", false),
 ];
 
 const LINUX: &[Field] = &[
@@ -733,6 +734,9 @@ fn comment(path: &str) -> &'static str {
         "performance.memory_guard" => "true: a new hunt starts only when the machine has the memory for it.",
         "performance.min_free_memory_mb" => "MB left free after a new hunt starts.",
         "performance.hunt_memory_mb" => "MB one hunt needs (at least 256).",
+        "performance.warm_spare" => {
+            "true: one hunt server waits booted for the next hunt, which then starts in about 1.5 s instead of 5              (it holds one hunt slot and about 1 GB). Prototype."
+        }
         "linux" => "Linux only: how the Windows game servers run, and what the allowlist filters.",
         "linux.wine" => "The wine program. Left out: the first wine on PATH.",
         "linux.proton" => "A Proton (or GE-Proton) script to use instead of Wine.",

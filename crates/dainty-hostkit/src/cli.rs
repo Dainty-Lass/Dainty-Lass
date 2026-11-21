@@ -256,6 +256,12 @@ pub struct SetupArgs {
     /// Memory one hunt needs, in MB (at least 256).
     #[arg(long = "hunt-ram")]
     pub hunt_ram: Option<String>,
+    /// Keeps one hunt server booted for the next hunt (prototype; takes one hunt slot).
+    #[arg(long = "warm-spare")]
+    pub warm_spare: bool,
+    /// Starts every hunt server when it is asked for.
+    #[arg(long = "no-warm-spare")]
+    pub no_warm_spare: bool,
     /// The Wine executable, a path or a name on PATH (Linux); empty to find it.
     #[arg(long)]
     pub wine: Option<String>,

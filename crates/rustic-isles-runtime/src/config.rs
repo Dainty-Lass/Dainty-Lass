@@ -83,9 +83,41 @@ pub fn is_server() -> bool {
     ROLE.get().is_some_and(|role| role.server)
 }
 
-/// The server's launch.
+/// The launch a warm spare was handed (`spare.rs`); it replaces the spare's own from then on.
+static SPARE_HUNT: OnceLock<(Launch, Option<u32>)> = OnceLock::new();
+
+/// The server's launch: a spare's hunt once it has one, else the command line's.
 pub fn launch() -> Option<&'static Launch> {
-    ROLE.get().and_then(|role| role.launch.as_ref())
+    SPARE_HUNT
+        .get()
+        .map(|(launch, _)| launch)
+        .or_else(|| ROLE.get().and_then(|role| role.launch.as_ref()))
+}
+
+/// A warm spare: a full-launch server with `RUSTIC_ISLES_SPARE=1`.
+pub fn is_spare() -> bool {
+    static SPARE: OnceLock<bool> = OnceLock::new();
+    *SPARE.get_or_init(|| {
+        ROLE.get()
+            .and_then(|role| role.launch.as_ref())
+            .is_some_and(|launch| launch.watchdog)
+            && win::env_value(rustic_isles_runtime_core::spare::VARIABLE, 8).as_deref() == Some("1")
+    })
+}
+
+/// Whether a spare has its hunt.
+pub fn has_spare_hunt() -> bool {
+    SPARE_HUNT.get().is_some()
+}
+
+/// Gives the spare its hunt; false when it already has one.
+pub fn set_spare_hunt(hunt: &rustic_isles_runtime_core::spare::Hunt) -> bool {
+    let Some(own) = ROLE.get().and_then(|role| role.launch.as_ref()) else {
+        return false;
+    };
+    SPARE_HUNT
+        .set((rustic_isles_runtime_core::spare::launch_for(own, hunt), hunt.week))
+        .is_ok()
 }
 
 /// The auth mode.
@@ -156,6 +188,9 @@ pub fn trials_rotation_minutes() -> i64 {
 
 /// The pinned trials week.
 pub fn trials_week() -> Option<u32> {
+    if let Some((_, week)) = SPARE_HUNT.get() {
+        return *week;
+    }
     static WEEK: OnceLock<Option<u32>> = OnceLock::new();
     *WEEK.get_or_init(|| trials::trials_week(&win::env_raw(trials::WEEK_VARIABLE, trials::WEEK_CAP)))
 }

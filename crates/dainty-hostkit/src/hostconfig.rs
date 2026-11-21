@@ -51,6 +51,7 @@ pub const DEFAULT_PERFORMANCE: PerformanceOptions = PerformanceOptions {
     memory_guard: true,
     min_free_memory_mb: 1024,
     hunt_memory_mb: 1536,
+    warm_spare: false,
 };
 /// `GAMESERVER_LOG_CMDS` for quiet game logs: the noisy categories turned down.
 pub const QUIET_GAME_LOG_CMDS: &str = "LogPhoenixCharacter Warning, LogOnline Warning, LogLoad Off";
@@ -361,6 +362,8 @@ pub struct PerformanceOptions {
     pub min_free_memory_mb: u32,
     /// Memory one hunt needs, in MB.
     pub hunt_memory_mb: u32,
+    /// Keeps one hunt server booted ahead, held before its map, for the next hunt (spec-runtime-spare).
+    pub warm_spare: bool,
 }
 
 impl Default for PerformanceOptions {
@@ -1099,6 +1102,10 @@ impl HostConfig {
                     .and_then(Value::as_u64)
                     .map(|n| n as u32)
                     .unwrap_or(DEFAULT_PERFORMANCE.hunt_memory_mb),
+                warm_spare: p
+                    .get("warmSpare")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(DEFAULT_PERFORMANCE.warm_spare),
             });
         let linux = obj.get("linux").and_then(Value::as_object).map(|l| LinuxOptions {
             wine: l.get("wine").and_then(Value::as_str).map(str::to_owned),
@@ -1393,6 +1400,11 @@ impl HostConfig {
                     "huntMemoryMb",
                     Value::from(p.hunt_memory_mb),
                     p.hunt_memory_mb != DEFAULT_PERFORMANCE.hunt_memory_mb,
+                ),
+                (
+                    "warmSpare",
+                    Value::Bool(p.warm_spare),
+                    p.warm_spare != DEFAULT_PERFORMANCE.warm_spare,
                 ),
             ];
             let mut perf = Map::new();
@@ -2268,6 +2280,16 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
                     n as u32
                 }
             };
+            let warm_spare = match p.get("warmSpare") {
+                None => DEFAULT_PERFORMANCE.warm_spare,
+                Some(Value::Bool(b)) => *b,
+                Some(v) => {
+                    return Err(bad(format!(
+                        "performance.warmSpare must be true or false, not {}",
+                        shown(Some(v))
+                    )));
+                }
+            };
             Some(PerformanceOptions {
                 server_fps,
                 idle_fps,
@@ -2277,6 +2299,7 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
                 memory_guard,
                 min_free_memory_mb,
                 hunt_memory_mb,
+                warm_spare,
             })
         }
     };
@@ -2566,6 +2589,7 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
             ("memoryGuard", Value::Bool(p.memory_guard)),
             ("minFreeMemoryMb", Value::from(p.min_free_memory_mb)),
             ("huntMemoryMb", Value::from(p.hunt_memory_mb)),
+            ("warmSpare", Value::Bool(p.warm_spare)),
         ];
         let mut perf_out = Map::new();
         if let Some(orig_p) = obj
@@ -3200,6 +3224,11 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
         &mut director,
         "GAMESERVER_MEMORY_GUARD",
         if perf.memory_guard { "1" } else { "0" },
+    );
+    push(
+        &mut director,
+        "GAMESERVER_WARM_SPARE",
+        if perf.warm_spare { "1" } else { "0" },
     );
     push(
         &mut director,
@@ -4517,6 +4546,53 @@ test_cheats = \"on\"
         let off = HostConfig::from_toml(&text("private", "100.101.102.103").replace("\"on\"", "\"off\"")).unwrap();
         let files = build_env_files(&off, &sample_secrets(), &Paths::new(dir.path()), "", Platform::Windows);
         assert!(!files.director.iter().any(|(k, _)| k == "DAINTY_TEST_CHEATS"));
+    }
+
+    /// The warm spare (spec-runtime-spare) reaches the Director's file as `GAMESERVER_WARM_SPARE`, off for a file
+    /// without the key, and survives the trip back to settings.toml.
+    #[test]
+    fn warm_spare_reaches_the_director_file() {
+        let text = |perf: &str| {
+            format!(
+                "version = 1
+mode = \"private\"
+name = \"Friday Hunts\"
+host = \"100.101.102.103\"
+game_address = \"100.101.102.103\"
+registration = \"INVITECODE\"
+max_hunt_servers = 3
+{perf}"
+            )
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let spare = |cfg: &HostConfig| {
+            build_env_files(cfg, &sample_secrets(), &Paths::new(dir.path()), "", Platform::Windows)
+                .director
+                .into_iter()
+                .find(|(k, _)| k == "GAMESERVER_WARM_SPARE")
+                .map(|(_, v)| v)
+        };
+        let on = HostConfig::from_toml(&text(
+            "
+[performance]
+warm_spare = true
+",
+        ))
+        .unwrap();
+        assert!(performance_options(&on).warm_spare);
+        assert_eq!(spare(&on).as_deref(), Some("1"));
+        assert!(on.to_toml().unwrap().contains("warm_spare = true"));
+        let older = HostConfig::from_toml(&text("")).unwrap();
+        assert!(!performance_options(&older).warm_spare);
+        assert_eq!(spare(&older).as_deref(), Some("0"));
+        let wrong = HostConfig::from_toml(&text(
+            "
+[performance]
+warm_spare = \"yes\"
+",
+        ))
+        .unwrap_err();
+        assert!(wrong.to_string().contains("warm"), "{wrong}");
     }
 
     /// RT-11: the hub cap and AFK timeouts reach only the Director's file, which it hands every game server; the
