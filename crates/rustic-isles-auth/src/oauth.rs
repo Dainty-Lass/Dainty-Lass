@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! OAuth 2.0 sign-in for the Dainty launcher (`DAINTY_OAUTH_*`): one provider per server, the Discord preset or

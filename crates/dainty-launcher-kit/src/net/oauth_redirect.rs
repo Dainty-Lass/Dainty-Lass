@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Silent Spud
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! The OAuth provider's redirect back to the launcher (RFC 8252 section 7.3): one listener on
 //! `127.0.0.1:61190` for the length of a sign-in, which takes the browser's `GET /oauth/callback?code=..&state=..`

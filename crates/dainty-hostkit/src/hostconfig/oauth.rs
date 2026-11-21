@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
 //! `[oauth]`: players sign in to the launcher with an OAuth provider (`docs/oauth.md`), written into the backend's
