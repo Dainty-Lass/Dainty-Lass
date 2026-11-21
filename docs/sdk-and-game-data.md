@@ -98,6 +98,12 @@ afterwards to build the progression config from it. A supplied source already th
 machine, because no licence allows copying them here. The launcher shows players whether a server runs on real
 or example data.
 
+The Ramsgate wishing well (a ram tossed once a day, store tag `fountain_daily_free_bundle`) needs
+`fountain_daily_bundle.json`, which nothing generates. When the backend game data has none, `setup` and `gamedata`
+write a default that gives one Silver Cell Core per toss, provided the storage policy lists it as an uncapped stack.
+Edit the file to change the reward (the rules are in the game data's `README.md`); a file you wrote is never
+replaced.
+
 Move the result as a pack, for a Linux host or a second PC:
 
 ```powershell

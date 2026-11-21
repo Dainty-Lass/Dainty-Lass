@@ -393,6 +393,9 @@ pub fn run_with(
             &mut |_| {},
         );
     }
+    if crate::gamedata::seed_fountain_bundle(&p.backend_game_data)? {
+        out("- Ramsgate well: default daily reward written (1 Silver Cell Core)");
+    }
 
     if let Some(ref game_dir) = config.game_dir {
         let exe = Path::new(game_dir).join(game_exe_relative());
