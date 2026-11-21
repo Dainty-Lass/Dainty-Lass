@@ -31,6 +31,8 @@ pub const TRAINING_DOJO_MAP: &str = "/Game/Maps/islands/dojo/training_dojo_persi
 /// The player hunt id of the Training Grounds.
 pub const TRAINING_DOJO_HUNT_ID: &str = "ShatteredIsles_TrainingDojo";
 
+mod spare;
+
 const WATCHDOG: Duration = Duration::from_secs(60);
 const HUB_QUEUE_CAP: Duration = Duration::from_secs(60);
 const IDLE_ABANDON_MS: u64 = 120_000;
@@ -233,6 +235,7 @@ struct Inner {
     queue_tail: Instant,
     /// Hunts past the capacity check and not yet listed
     launching: usize,
+    spare: spare::SpareSlot,
 }
 
 struct IdleStop {
@@ -353,6 +356,7 @@ impl Director {
                     procs: Vec::new(),
                     queue_tail: Instant::now(),
                     launching: 0,
+                    spare: spare::SpareSlot::default(),
                 }),
                 training_state: Mutex::new(Training {
                     wanted: false,
@@ -510,6 +514,12 @@ impl Director {
             return Err(StartError::other("the Director is stopping"));
         }
         let hunt = spec.kind == ServerKind::Hunt;
+        if hunt
+            && self.config.warm_spare
+            && let Some(result) = self.start_from_spare(&spec).await
+        {
+            return result;
+        }
         if hunt {
             self.wait_hunt_slot().await;
         }
@@ -522,7 +532,8 @@ impl Director {
             ServerKind::Hunt => {
                 {
                     let mut inner = lock(&self.inner);
-                    let count = inner.servers.iter().filter(|s| s.is_hunt()).count() + inner.launching;
+                    let count =
+                        inner.servers.iter().filter(|s| s.is_hunt()).count() + inner.launching + inner.spare.slots();
                     // Compared as numbers, so NaN never refuses (§16 item 7)
                     if count as f64 >= self.config.max_hunts {
                         return Err(StartError {
@@ -688,7 +699,18 @@ impl Director {
             }
         });
 
-        let mut ready = spawned.ready;
+        self.await_ready(&server, spawned.ready, reservation).await
+    }
+
+    /// Waits for a started server's ready marker (§5.2): listed as ready, or failed, removed and stopped.
+    async fn await_ready(
+        self: &Arc<Self>,
+        server: &Arc<GameServer>,
+        mut ready: tokio::sync::oneshot::Receiver<()>,
+        reservation: Option<u64>,
+    ) -> Result<Arc<GameServer>, StartError> {
+        let proc = Arc::clone(&server.proc);
+        let (label, port, hunt) = (&server.label, server.port, server.is_hunt());
         let started = Instant::now();
         let waited = tokio::time::timeout(self.config.ready_timeout, async {
             tokio::select! {
@@ -714,7 +736,7 @@ impl Director {
                     self.config.my_ip_text(),
                     started.elapsed().as_millis()
                 );
-                return Ok(server);
+                return Ok(Arc::clone(server));
             }
             Ok(Some(exit)) => format!(
                 "{label} port {port} exited before ready (code={}, signal={})",
@@ -727,7 +749,7 @@ impl Director {
             ),
         };
         server.state().status = ServerStatus::Failed;
-        self.remove(&server);
+        self.remove(server);
         if let Some(id) = reservation {
             self.memory.give_back(id);
         }
@@ -739,7 +761,7 @@ impl Director {
                 let _ = director.stop_proc(&proc).await;
             });
         } else if hunt {
-            self.release_lease(&server);
+            self.release_lease(server);
         }
         Err(StartError::startup(failure))
     }
@@ -766,6 +788,7 @@ impl Director {
         if server.is_hunt() {
             self.remove(server);
             self.release_lease(server);
+            self.ensure_spare();
         } else if self.config.hub_prompt_restart {
             let reason = format!("exit code={} signal={}", OrNull(&exit.code), OrNull(&exit.signal));
             self.cleanup(server, &reason);
@@ -843,7 +866,12 @@ impl Director {
         if kind == ServerKind::Training {
             lock(&self.training_state).policy.reset();
         }
-        self.start_server(ServerSpec::hub(kind)).await
+        let started = self.start_server(ServerSpec::hub(kind)).await;
+        // The spare boots once Ramsgate is up, so the two never load at once
+        if kind == ServerKind::Ramsgate && started.is_ok() {
+            self.ensure_spare();
+        }
+        started
     }
 
     fn live_hub(&self, kind: ServerKind) -> Option<Arc<GameServer>> {

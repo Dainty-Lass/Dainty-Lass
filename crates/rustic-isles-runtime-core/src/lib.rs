@@ -37,6 +37,7 @@ pub mod save_reset;
 pub mod server_events;
 pub mod server_life;
 pub mod sim;
+pub mod spare;
 pub mod stub;
 pub mod test_cheats;
 pub mod travel;
