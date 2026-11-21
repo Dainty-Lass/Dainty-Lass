@@ -3,7 +3,7 @@
 use crate::config;
 use crate::ffi::exit::{self, Install};
 use crate::ffi::{
-    dispatch, engine, flags, http, loading, log, minhook, net, player_role, relevance, repgraph, travel, win,
+    broker, dispatch, engine, flags, http, loading, log, minhook, net, player_role, relevance, repgraph, travel, win,
 };
 use crate::handlers;
 use crate::login;
@@ -18,6 +18,8 @@ struct Status {
     server: bool,
     port: u16,
     installs: Vec<Install>,
+    hooks: broker::Applied,
+    base: usize,
 }
 
 static STATUS: OnceLock<Status> = OnceLock::new();
@@ -41,6 +43,7 @@ pub fn init() {
     let base = win::image_base();
     engine::set_image_base(base);
     let initialized = minhook::initialize();
+    broker::queue_enables();
     exit::register();
     if server {
         crate::headless::register();
@@ -142,7 +145,14 @@ pub fn init() {
     installs.extend(loading::install(base, server));
     // R6 after the dispatch installs and R5; its lines are deferred
     crate::widgets::install(base, server, initialized);
-    let _ = STATUS.set(Status { server, port, installs });
+    let hooks = broker::apply_queued();
+    let _ = STATUS.set(Status {
+        server,
+        port,
+        installs,
+        hooks,
+        base,
+    });
     log::set_ready();
 }
 
@@ -163,7 +173,21 @@ pub fn write_status_once() {
     for (id, result) in &status.installs {
         log::line(&install_line(id, *result));
     }
+    log::line(&hooks_line(&status.hooks, status.base));
     log::line(mode_line(flags::uncached()));
     log::line(&format!("[MitRuntime] {}", config::resolve_backend().log_line()));
     log::flush_deferred();
+}
+
+/// The batched enable's result: one line, plus each target left disabled as an image offset.
+fn hooks_line(applied: &broker::Applied, base: usize) -> String {
+    let mut line = format!("[MitRuntime] hooks: {} enabled together at init", applied.enabled);
+    for (target, status) in &applied.failed {
+        line.push_str(&format!(
+            "; +0x{:X} not enabled ({})",
+            target.wrapping_sub(base),
+            minhook::status_name(*status)
+        ));
+    }
+    line
 }

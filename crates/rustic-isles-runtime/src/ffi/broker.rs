@@ -97,12 +97,16 @@ struct Broker {
     hooks: BTreeMap<usize, Hook>,
     nexts: BTreeMap<usize, &'static NextCell>,
     pool: Option<Pool>,
+    // While init runs: targets queued, not enabled. Each MH_EnableHook freezes threads by walking a snapshot of every
+    // thread on the machine, ~65 ms apiece; 45 of them were 3.1 s of a server's start (WPR, 2026-11-21)
+    queued: Option<Vec<usize>>,
 }
 
 static BROKER: Mutex<Broker> = Mutex::new(Broker {
     hooks: BTreeMap::new(),
     nexts: BTreeMap::new(),
     pool: None,
+    queued: None,
 });
 
 fn broker() -> std::sync::MutexGuard<'static, Broker> {
@@ -126,10 +130,16 @@ impl Broker {
                 pool.used += 1;
             }
             cell(head).store(trampoline, Ordering::Release);
-            let status = minhook::enable(target);
+            let status = match self.queued.as_ref() {
+                Some(_) => minhook::queue_enable(target),
+                None => minhook::enable(target),
+            };
             if status != minhook::MH_OK {
                 minhook::remove(target);
                 return Err(status);
+            }
+            if let Some(queued) = self.queued.as_mut() {
+                queued.push(target);
             }
             self.hooks.insert(
                 target,
@@ -153,6 +163,43 @@ impl Broker {
             }
         }
         cell(hook.head).store(hook.chain.head(), Ordering::Release);
+    }
+}
+
+/// From here until [`apply_queued`], new hooks are queued rather than enabled one by one.
+pub fn queue_enables() {
+    let mut broker = broker();
+    if broker.queued.is_none() {
+        broker.queued = Some(Vec::new());
+    }
+}
+
+/// What [`apply_queued`] did: how many hooks it enabled, and the targets still disabled with their status.
+pub struct Applied {
+    /// Hooks enabled.
+    pub enabled: usize,
+    /// Targets left disabled, with MinHook's status.
+    pub failed: Vec<(usize, i32)>,
+}
+
+/// Enables every queued hook under one freeze and ends queuing. If the batch fails, each target is enabled alone,
+/// as before queuing; a target that still fails stays created but disabled, so its wrappers never run.
+pub fn apply_queued() -> Applied {
+    let queued = broker().queued.take().unwrap_or_default();
+    if queued.is_empty() || minhook::apply_queued() == minhook::MH_OK {
+        return Applied {
+            enabled: queued.len(),
+            failed: Vec::new(),
+        };
+    }
+    let failed: Vec<(usize, i32)> = queued
+        .iter()
+        .map(|&target| (target, minhook::enable(target)))
+        .filter(|&(_, status)| status != minhook::MH_OK && status != minhook::MH_ERROR_ENABLED)
+        .collect();
+    Applied {
+        enabled: queued.len() - failed.len(),
+        failed,
     }
 }
 
