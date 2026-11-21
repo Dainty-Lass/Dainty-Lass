@@ -1,12 +1,10 @@
 /*
- * What the theme has no token for: the launcher icon's colours (the brand mark only, never chrome), and
+ * What the theme has no token for: the icon's colours (the brand mark only, never chrome), and
  * the frames Astryx does not draw, coloured as Caddy Proxy Manager colours them (its globals.css).
  */
 @layer astryx-theme {
   [data-astryx-theme] {
     --dainty-navy: #171f29;
-    --dainty-periwinkle: #a0c4ff;
-    --dainty-gold: #e6b664;
   }
 }
 
@@ -80,20 +78,38 @@
     background-color: var(--color-background-card);
   }
 
-  /* The brand mark: the icon's L and dot, drawn by BrandMark. */
+  /* The logo, drawn by BrandMark: the icon's colours, one per element. */
   .dainty-brand-mark {
     display: inline-block;
     flex: none;
-    border-radius: 22%;
-    background: var(--dainty-navy);
   }
 
-  .dainty-brand-mark rect {
-    fill: var(--dainty-periwinkle);
+  .dainty-elemental-radiant {
+    fill: #f5c542;
   }
 
-  .dainty-brand-mark circle {
-    fill: var(--dainty-gold);
+  .dainty-elemental-neutral {
+    fill: #b9bec7;
+  }
+
+  .dainty-elemental-frost {
+    fill: #5ec8f2;
+  }
+
+  .dainty-elemental-shock {
+    fill: #a066f0;
+  }
+
+  .dainty-elemental-terra {
+    fill: #6dbe45;
+  }
+
+  .dainty-elemental-umbral {
+    fill: #4a1f6e;
+  }
+
+  .dainty-elemental-blaze {
+    fill: #f0582a;
   }
 
   /* A chat line whose text the filter matched: the matched span, not the whole line. */
