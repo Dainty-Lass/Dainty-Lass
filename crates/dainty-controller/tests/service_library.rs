@@ -9,8 +9,8 @@ use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use dainty_controller::{
-    ModuleEntry, ModuleRegistry, ModuleSource, RegistryOptions, ServerController, ServiceLibrary, service_compiled_in,
-    service_library,
+    ModuleEntry, ModuleRegistry, ModuleSource, ModuleState, RegistryOptions, ServerController, ServiceLibrary,
+    service_compiled_in, service_library,
 };
 use dainty_module_api::host::file_sha256;
 use dainty_module_api::stub::StubModule;
@@ -169,6 +169,47 @@ async fn exercise(built: Built) {
         lines(&echo_file).last().is_some_and(|line| line == "stop")
     })
     .await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_module_the_restarted_service_refuses_is_unloaded() {
+    let _watchdog = watchdog("the refusal on restart", Duration::from_secs(180));
+    let dir = tempfile::tempdir().unwrap();
+    let echo_file = dir.path().join("echo.txt");
+    let env = Env::from_pairs([("ECHO_FILE", echo_file.to_str().unwrap())]);
+
+    let mut controller = ServerController::new("private", Vec::new());
+    let registry = ModuleRegistry::new(RegistryOptions::standalone(), controller.status_registry().clone());
+    controller.add(service_compiled_in(echo::Echo::default, env, Some(&registry)));
+    let stub = "stub".parse().unwrap();
+    registry
+        .add_entry(ModuleEntry {
+            id: "stub".parse().unwrap(),
+            source: ModuleSource::CompiledIn(Arc::new(|| Arc::new(StubModule::new()) as Arc<dyn GameModule>)),
+            autoload: true,
+            settings: BTreeMap::new(),
+        })
+        .unwrap();
+    controller.set_registry(registry.clone());
+    controller.start_all().await.unwrap();
+    eventually("the stub attached", || {
+        lines(&echo_file).contains(&String::from("attach stub dir=false"))
+    })
+    .await;
+    assert_eq!(registry.info(&stub).unwrap().state, ModuleState::Ready);
+
+    std::fs::write(dir.path().join("echo.refuse"), "").unwrap();
+    controller.restart_component("echo").await.unwrap();
+    eventually("refused after the restart", || {
+        lines(&echo_file).contains(&String::from("refuse stub"))
+    })
+    .await;
+    eventually("the stub unloaded", || {
+        registry.info(&stub).unwrap().state == ModuleState::NotLoaded
+    })
+    .await;
+
+    controller.shutdown().await;
 }
 
 #[tokio::test]

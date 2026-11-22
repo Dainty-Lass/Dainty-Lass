@@ -41,6 +41,16 @@ impl dainty_service_plugin::Service for Echo {
     }
 
     fn attach(&self, module: &ModuleManifest, _: &Registration, dir: Option<&Path>) -> Result<(), ModuleError> {
+        let file = self
+            .file
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone();
+        // A test turns the service against modules with a `.refuse` file beside its own
+        if file.is_some_and(|file| file.with_extension("refuse").exists()) {
+            self.write(&format!("refuse {}", module.id));
+            return Err(ModuleError::new(dainty_module_api::ErrorKind::Invalid, "refused"));
+        }
         self.write(&format!("attach {} dir={}", module.id, dir.is_some()));
         Ok(())
     }
