@@ -396,7 +396,17 @@ async fn drive(
             .await
             .unwrap_or_else(|e| Err(ModuleError::new(ErrorKind::Unavailable, e.to_string())));
         if let Err(error) = result {
-            tracing::warn!(target: "host", "{}: module {id} not taken again: {error}", shared.name);
+            // Refused now as it would be at load: left running, its ports would go unguarded by the allowlist
+            tracing::warn!(target: "host", "{}: module {id} not taken again, unloading it: {error}", shared.name);
+            shared.state().attached.remove(&id);
+            if let Some(registry) = shared.registry.as_ref().and_then(WeakRegistry::upgrade) {
+                // Spawned: the unload detaches through this plugin and waits on the registry's own lock
+                tokio::spawn(async move {
+                    if let Err(error) = registry.unload(&id).await {
+                        tracing::warn!(target: "host", "module {id} not unloaded: {error}");
+                    }
+                });
+            }
         }
     }
     let mut stop = ctx.stop_receiver();
