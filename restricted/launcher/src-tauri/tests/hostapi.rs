@@ -17,7 +17,7 @@ use dainty_launcher_kit::net::hostapi::parse as kit;
 use dainty_launcher_kit::net::hostapi::{
     KEY_HEADER, REFORGED, StatusOutcome, fetch_runtime_manifest, fetch_status, fetch_user_info, key_headers, register,
 };
-use dainty_launcher_kit::net::http::Endpoint;
+use dainty_launcher_kit::net::http::{Endpoint, FailureKind};
 use dainty_launcher_kit::net::pinned::certificate_fingerprint;
 use dainty_launcher_kit::net::runtime_files::RuntimeManifestResult;
 use dainty_protocol::account::RegisterRequest;
@@ -305,7 +305,8 @@ fn user_info_answers() {
         Ok(kit::UserInfo {
             user_id: "uid-1_A".into(),
             username: "Slayer".into(),
-            is_admin: true
+            is_admin: true,
+            oauth_linked: None
         })
     );
     let not_admin = serde_json::json!({ "UserId": "u", "Username": "S", "IsAdmin": "true" });
@@ -575,7 +576,7 @@ async fn status_over_the_pin_the_full_list_with_the_key_the_limited_view_without
     };
     assert_eq!(
         fetch_status(&public_plain, Some(KEY), Some(Duration::from_millis(2000))).await,
-        StatusOutcome::Unreachable
+        StatusOutcome::Unreachable(FailureKind::Other)
     );
 }
 
@@ -604,11 +605,12 @@ async fn an_older_server_is_recognised_through_dauntless_status_which_never_gets
     );
 
     // Nobody listening
+    // Refused on Linux; Windows retries a refused connect past the timeout
     let closed = Endpoint { port: 1, ..endpoint };
-    assert_eq!(
+    assert!(matches!(
         fetch_status(&closed, None, Some(Duration::from_millis(500))).await,
-        StatusOutcome::Unreachable
-    );
+        StatusOutcome::Unreachable(FailureKind::Refused | FailureKind::Timeout)
+    ));
 }
 
 #[tokio::test]

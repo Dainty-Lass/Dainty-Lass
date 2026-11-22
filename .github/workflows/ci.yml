@@ -178,7 +178,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    # Windows spends about an hour on clippy, the plugin builds and the tests
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -191,6 +192,11 @@ jobs:
       - name: Long paths for git
         if: runner.os == 'Windows'
         run: git config --global core.longpaths true
+
+      # The clippy and test builds of the whole workspace fill the hosted runner's disk
+      - name: Room on the disk
+        if: runner.os == 'Linux'
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc && df -h /
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -301,6 +307,11 @@ jobs:
       run:
         working-directory: fuzz
     steps:
+      # Each sanitizer-built target links its own copy of the workspace
+      - name: Room on the disk
+        working-directory: .
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc && df -h /
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -528,8 +539,11 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: restricted/modules/rustic-isles/reference/1.14.7/${{ matrix.package }}/package-lock.json
+      # Not setup-node's cache: it runs npm at the root, whose devEngines refuses anything but bun
+      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: ~/.npm
+          key: npm-${{ matrix.package }}-${{ hashFiles(format('restricted/modules/rustic-isles/reference/1.14.7/{0}/package-lock.json', matrix.package)) }}
       - run: npm ci --no-audit --no-fund
       - run: npm test
 
@@ -655,9 +669,13 @@ jobs:
       run:
         working-directory: restricted
     steps:
+      # The scripts use only Docker on the host, so the tool cache goes too
       - name: Room on the disk
         working-directory: .
-        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc && df -h /
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache /usr/local/share/boost \
+            /usr/share/swift /usr/local/share/powershell /usr/local/share/chromium
+          df -h /
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -666,13 +684,21 @@ jobs:
       - name: Build the images and run the full test run
         env:
           DAINTY_COMMIT: ${{ github.sha }}
+          # The network job runs the region ping, with the libraries its build needs
+          NETWORK_REGION_PING: skip
         run: bash docker/run-tests.sh
+
+      # Both runs' images and build cache together outgrow the hosted runner's disk
+      - name: Drop restricted's images and build cache
+        run: docker system prune --all --force && df -h /
 
       # The root's MIT images (lane D); restricted's run above until its oracle runs retire it
       - name: Build the root's images and run their full test run
         working-directory: .
         env:
           DAINTY_COMMIT: ${{ github.sha }}
+          # The network job runs the region ping, with the libraries its build needs
+          NETWORK_REGION_PING: skip
         run: bash docker/run-tests.sh
 
       # Advisory: the images' packages, for code scanning when it is on (the CODE_SCANNING variable)
@@ -745,8 +771,9 @@ jobs:
           set -euo pipefail
           # The manager ships the 1.14.7 version data beside its executable (RD27)
           echo '{"bundle":{"resources":{"../../restricted/modules/rustic-isles/version-data/1.14.7/version_data.json":"data/1.14.7/version_data.json","../../crates/rustic-isles-1-14-7/data/version_facts.json":"data/1.14.7/version_facts.json"}}}' > "$RUNNER_TEMP/manager-data.json"
-          bunx tauri build --ci --bundles nsis -- --features realms
-          bunx tauri build --ci --bundles nsis --config tauri.server-gui.conf.json --config "$RUNNER_TEMP/manager-data.json" \
+          # bunfig.toml's isolated linker keeps the CLI in launcher's node_modules, out of bunx's reach
+          bun ../../launcher/node_modules/@tauri-apps/cli/tauri.js build --ci --bundles nsis -- --features realms
+          bun ../../launcher/node_modules/@tauri-apps/cli/tauri.js build --ci --bundles nsis --config tauri.server-gui.conf.json --config "$RUNNER_TEMP/manager-data.json" \
             -- --no-default-features --features server-gui
           ls -la ../../target/release/bundle/nsis/*-setup.exe
 

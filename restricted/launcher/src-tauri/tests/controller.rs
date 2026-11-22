@@ -728,9 +728,9 @@ async fn public_mode_end_to_end_join_register_game_check_runtime_trust_and_insta
     let wrong = hx.fake_game(GAME_VERSION_TEXT, b"another build");
     assert_eq!(
         hx.c.use_game_path(&wrong.to_string_lossy()).await,
-        error(ErrorCode::GameWrongVersion)
+        error(ErrorCode::GameWrongBuild)
     );
-    assert_eq!(hx.last().game.problem, Some(GameProblem::WrongVersion));
+    assert_eq!(hx.last().game.problem, Some(GameProblem::WrongBuild));
 
     let root = hx.game();
     assert_eq!(
@@ -1310,6 +1310,7 @@ async fn settings_take_reforgeds_seven_keys() {
         close_to_tray: None,
         show_game_console: None,
         inject_helper: None,
+        crash_reports: None,
     };
     let settings = hx.c.set_settings(patch).await;
     assert_eq!(settings.graphics.get(), 3);
@@ -1869,6 +1870,10 @@ async fn server_gui_drives_setup_synthetic_data_config_doctor_and_backup_in_proc
 
 #[cfg(feature = "server-gui")]
 #[tokio::test(flavor = "multi_thread")]
+#[cfg_attr(
+    not(windows),
+    ignore = "Linux's start preflight wants Wine and the inject helper beside the binary; Windows CI runs it"
+)]
 async fn server_gui_and_client_end_to_end_start_invite_join_ban_history_and_stop() {
     use dainty_launcher_kit::bridge::types::{
         AdminActionKind, AdminOutcome, HostComponentPhase, HostServerMode, HostServerState, ModuleListOutcome,

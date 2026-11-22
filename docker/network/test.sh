@@ -185,8 +185,13 @@ else
             [[ $other == "$home" ]] || echo "$(injected "${player:-$other}" "$other") $other"
         done | sort -n | awk '{ printf "%s%s=%s", (NR > 1 ? "," : ""), $2, $1 }')
         echo "home $home: $expect"
+        # The home takes the order only from one of its own players
+        json_req "$home" POST /dainty/api/Register "{\"Username\":\"Ping${home//-/}\"}"
+        expect_status 200 "Register the region ping's player on $home"
+        ping_key=$(json_str "$body" UUK)
+        [[ -n $ping_key ]] || fail "Register the region ping's player on $home: no UUK in $body"
         RR_HARNESS_HOME=${published[$home]} RR_HARNESS_PIN=$pin RR_HARNESS_EXPECT=$expect \
-            RR_HARNESS_TOLERANCE_MS=$tolerance \
+            RR_HARNESS_TOLERANCE_MS=$tolerance RR_HARNESS_KEY=$ping_key \
             cargo test -p dainty-launcher-kit --lib --locked -- --ignored --nocapture the_region_order_follows ||
             fail "the region order from $home"
     done

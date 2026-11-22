@@ -108,7 +108,7 @@ mod tests {
         let args = PublishRuntimeArgs {
             from: Some(custom.to_string_lossy().into_owned()),
         };
-        run_with(&paths, &args, &mut |_| {}).unwrap();
+        assert_eq!(run_with(&paths, &args, &mut |_| {}).unwrap(), ExitCode::SUCCESS);
         assert_eq!(
             std::fs::read(paths.runtime_publish.join(MIT_RUNTIME_DLL)).unwrap(),
             b"mit"

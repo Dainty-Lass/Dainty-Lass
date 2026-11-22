@@ -54,7 +54,7 @@ pub struct EncryptionKeys {
 pub fn normalize_token(token: &str) -> String {
     let trimmed = dainty_service_kit::js::trim(token);
     let bytes = trimmed.as_bytes();
-    if bytes.len() > 6 && trimmed[..6].eq_ignore_ascii_case("bearer") {
+    if bytes.len() > 6 && bytes[..6].eq_ignore_ascii_case(b"bearer") {
         let rest = &trimmed[6..];
         if rest.starts_with(dainty_service_kit::js::is_space) {
             return dainty_service_kit::js::trim(rest).to_owned();

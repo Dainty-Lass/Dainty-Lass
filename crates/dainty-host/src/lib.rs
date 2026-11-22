@@ -1970,40 +1970,49 @@ mod tests {
         write_version_data(&paths);
 
         let mut lines = Vec::new();
-        commands::db::run_with(
-            &paths,
-            &DbArgs {
-                command: DbCommand::Migrate(DbMigrateArgs::default()),
-            },
-            &mut |l| lines.push(l.to_owned()),
-        )
-        .unwrap();
+        assert_eq!(
+            commands::db::run_with(
+                &paths,
+                &DbArgs {
+                    command: DbCommand::Migrate(DbMigrateArgs::default()),
+                },
+                &mut |l| lines.push(l.to_owned()),
+            )
+            .unwrap(),
+            ExitCode::SUCCESS
+        );
         assert!(lines.iter().any(|l| l.contains("accounts: 1")));
 
         lines.clear();
-        commands::db::run_with(
-            &paths,
-            &DbArgs {
-                command: DbCommand::Verify(DbVerifyArgs::default()),
-            },
-            &mut |l| lines.push(l.to_owned()),
-        )
-        .unwrap();
+        assert_eq!(
+            commands::db::run_with(
+                &paths,
+                &DbArgs {
+                    command: DbCommand::Verify(DbVerifyArgs::default()),
+                },
+                &mut |l| lines.push(l.to_owned()),
+            )
+            .unwrap(),
+            ExitCode::SUCCESS
+        );
         assert!(lines.iter().any(|l| l.contains("dainty-host db verify: OK")));
         assert!(paths.config.join(commands::update::MONGO_MIGRATED_MARKER).exists());
 
         lines.clear();
-        commands::db::run_with(
-            &paths,
-            &DbArgs {
-                command: DbCommand::ExportMongo(DbExportMongoArgs {
-                    dry_run: true,
-                    ..DbExportMongoArgs::default()
-                }),
-            },
-            &mut |l| lines.push(l.to_owned()),
-        )
-        .unwrap();
+        assert_eq!(
+            commands::db::run_with(
+                &paths,
+                &DbArgs {
+                    command: DbCommand::ExportMongo(DbExportMongoArgs {
+                        dry_run: true,
+                        ..DbExportMongoArgs::default()
+                    }),
+                },
+                &mut |l| lines.push(l.to_owned()),
+            )
+            .unwrap(),
+            ExitCode::SUCCESS
+        );
         assert!(lines.iter().any(|l| l.contains("dainty-host db export-mongo (dry-run")));
         assert!(lines.iter().any(|l| l.contains("accounts: 1")));
     }

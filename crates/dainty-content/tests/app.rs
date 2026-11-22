@@ -601,10 +601,15 @@ async fn post(port: u16, path: &str, headers: &[(&str, &str)], body: &[u8]) -> R
         request.push_str(&format!("{name}: {value}\r\n"));
     }
     request.push_str("connection: close\r\n\r\n");
+    // The server answers some requests without reading the body, and a close with bytes unread is a reset that
+    // Windows answers by dropping the reply: a body it takes goes in one write with the head, one over the limit
+    // not at all, since the declared length alone is refused
+    let mut request = request.into_bytes();
+    if body.len() <= dainty_content::crash::MAX_UPLOAD {
+        request.extend_from_slice(body);
+    }
     let mut socket = TcpStream::connect(("127.0.0.1", port)).await.unwrap();
-    socket.write_all(request.as_bytes()).await.unwrap();
-    // The server may answer and close before the whole body is read
-    _ = socket.write_all(body).await;
+    socket.write_all(&request).await.unwrap();
     let mut raw = Vec::new();
     _ = tokio::time::timeout(Duration::from_secs(20), socket.read_to_end(&mut raw)).await;
     let split = raw.windows(4).position(|w| w == b"\r\n\r\n").unwrap();

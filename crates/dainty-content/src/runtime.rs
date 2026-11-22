@@ -360,7 +360,12 @@ mod tests {
         );
         assert!(status.listed("Rustic-Isles-Runtime.dll").is_none());
         // A changed MIT DLL is noticed like the others
-        fs::write(tmp.path().join("rustic-isles-runtime.dll"), b"MIT").unwrap();
+        let dll = tmp.path().join("rustic-isles-runtime.dll");
+        fs::write(&dll, b"MIT").unwrap();
+        // Same size, and Windows can stamp both writes alike: move the time so the change is seen
+        let file = fs::File::options().write(true).open(&dll).unwrap();
+        file.set_modified(UNIX_EPOCH + std::time::Duration::from_secs(1))
+            .unwrap();
         now.fetch_add(10_000, Ordering::SeqCst);
         let Status::Invalid(reason) = store.status() else {
             panic!("a wrong hash checked out")
