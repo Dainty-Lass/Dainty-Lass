@@ -377,12 +377,14 @@ async fn drive(
         }
         extension.prepare(&link).await?;
     }
-    run.send(&ToService::Start {
-        protocol: PROTOCOL_VERSION,
-        env: env.vars().map(|(k, v)| (k.to_owned(), v.to_owned())).collect(),
-    });
     let replay: Vec<(ModuleManifest, Registration)> = {
+        // Under the lock with the run: the service is ready only after Start, and a module loaded once it is must be
+        // put to this run, not left for the next (the allowlist refused nothing in that gap)
         let mut state = shared.state();
+        run.send(&ToService::Start {
+            protocol: PROTOCOL_VERSION,
+            env: env.vars().map(|(k, v)| (k.to_owned(), v.to_owned())).collect(),
+        });
         state.run = Some(run.clone());
         state.attached.values().cloned().collect()
     };
