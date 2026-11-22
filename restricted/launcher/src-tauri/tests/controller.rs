@@ -1870,6 +1870,10 @@ async fn server_gui_drives_setup_synthetic_data_config_doctor_and_backup_in_proc
 
 #[cfg(feature = "server-gui")]
 #[tokio::test(flavor = "multi_thread")]
+#[cfg_attr(
+    not(windows),
+    ignore = "Linux's start preflight wants Wine and the inject helper beside the binary; Windows CI runs it"
+)]
 async fn server_gui_and_client_end_to_end_start_invite_join_ban_history_and_stop() {
     use dainty_launcher_kit::bridge::types::{
         AdminActionKind, AdminOutcome, HostComponentPhase, HostServerMode, HostServerState, ModuleListOutcome,
