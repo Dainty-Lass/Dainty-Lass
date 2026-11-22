@@ -723,6 +723,8 @@ jobs:
       - name: Build the images and run the full test run
         env:
           DAINTY_COMMIT: ${{ github.sha }}
+          # The network job runs the region ping, with the libraries its build needs
+          NETWORK_REGION_PING: skip
         run: bash docker/run-tests.sh
 
       # The root's MIT images (lane D); restricted's run above until its oracle runs retire it
@@ -730,6 +732,8 @@ jobs:
         working-directory: .
         env:
           DAINTY_COMMIT: ${{ github.sha }}
+          # The network job runs the region ping, with the libraries its build needs
+          NETWORK_REGION_PING: skip
         run: bash docker/run-tests.sh
 
   installers-windows:
