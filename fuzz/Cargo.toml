@@ -114,6 +114,10 @@ url = "2"
 tokio = { version = "1", features = ["rt", "sync", "io-util", "time"] }
 # legacy_database_readers, legacy_host_json: what the legacy importer reads from an old install (spec-legacy-import §12)
 dainty-legacy = { path = "../crates/dainty-legacy" }
+# host_config, host_console, host_gamedata_input: what the host kit reads from a host and its services (RB15)
+dainty-hostkit = { path = "../crates/dainty-hostkit", default-features = false }
+# proxy_headers: the headers the services forward
+dainty-proxy = { path = "../crates/dainty-proxy" }
 tempfile = "3"
 toml = "0.9"
 
@@ -764,6 +768,41 @@ bench = false
 [[bin]]
 name = "content_crash_report"
 path = "fuzz_targets/content_crash_report.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "module_frame"
+path = "fuzz_targets/module_frame.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "proxy_headers"
+path = "fuzz_targets/proxy_headers.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "host_config"
+path = "fuzz_targets/host_config.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "host_console"
+path = "fuzz_targets/host_console.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "host_gamedata_input"
+path = "fuzz_targets/host_gamedata_input.rs"
 test = false
 doc = false
 bench = false
