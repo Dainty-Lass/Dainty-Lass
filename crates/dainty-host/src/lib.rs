@@ -1178,6 +1178,8 @@ fn gateway_service_main(args: &[String]) -> ExitCode {
 #[cfg(feature = "gateway")]
 fn run_network_full_node(p: &paths::Paths, hc: &hostconfig::HostConfig) -> ExitCode {
     ensure_hooks();
+    // The modules' own logs (the Director's starts, a failed ring placement) are tracing events
+    let _ = dainty_service_kit::telemetry::init_table_stdout_subscriber(tracing::level_filters::LevelFilter::INFO);
     let _ = dainty_hostkit::gamedata::seed_embedded_examples(p);
     let _ = std::fs::create_dir_all(&p.backend_game_data);
     let progression_config_json = serde_json::json!({
@@ -1250,15 +1252,17 @@ fn run_network_full_node(p: &paths::Paths, hc: &hostconfig::HostConfig) -> ExitC
     if let Ok(formatted) = serde_json::to_string_pretty(&matchmaker_hunts_json) {
         let _ = std::fs::write(p.director_game_data.join("matchmaker_hunts_table.json"), formatted);
     }
-    if let Some(parent) = p.gameserver_wrapper.parent() {
+    // Not named dainty-gameserver: the Director takes that for the game and refuses it without a published runtime
+    let stub = p.gameserver_wrapper.with_file_name("network-harness-gameserver");
+    if let Some(parent) = stub.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
-    let wrapper_script = "#!/bin/sh\necho \"RUSTIC_ISLES_GAMESERVER_READY launchId=${RUSTIC_ISLES_GAMESERVER_LAUNCH_ID} port=$2\"\nexec sleep 3600\n";
-    let _ = std::fs::write(&p.gameserver_wrapper, wrapper_script);
+    let stub_script = "#!/bin/sh\necho \"RUSTIC_ISLES_GAMESERVER_READY launchId=${RUSTIC_ISLES_GAMESERVER_LAUNCH_ID} port=$2\"\nexec sleep 3600\n";
+    let _ = std::fs::write(&stub, stub_script);
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&p.gameserver_wrapper, std::fs::Permissions::from_mode(0o755));
+        let _ = std::fs::set_permissions(&stub, std::fs::Permissions::from_mode(0o755));
     }
     if let Err(error) = serve::ensure_server_files(p, hc) {
         dainty_service_kit::linelog::error(&error.to_string(), serde_json::json!({}));
@@ -1266,7 +1270,13 @@ fn run_network_full_node(p: &paths::Paths, hc: &hostconfig::HostConfig) -> ExitC
     }
     let director_env = p.config.join("director.env");
     if let Ok(raw) = std::fs::read_to_string(&director_env) {
-        let updated = raw
+        let mut updated: String = raw
+            .lines()
+            .filter(|line| !line.starts_with("GAMESERVER_BINARY_PATH=") && !line.starts_with("GAMESERVER_RUNTIME_DIR="))
+            .map(|line| format!("{line}\n"))
+            .collect();
+        updated.push_str(&format!("GAMESERVER_BINARY_PATH={}\n", stub.display()));
+        let updated = updated
             .replace("GAMESERVER_MEMORY_GUARD=\"1\"", "GAMESERVER_MEMORY_GUARD=0")
             .replace("GAMESERVER_MEMORY_GUARD=1", "GAMESERVER_MEMORY_GUARD=0")
             .replace(

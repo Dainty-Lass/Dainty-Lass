@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use dainty_module_api::network::{HomeError, InstanceRecord, TicketState};
+use dainty_module_api::network::{HomeApi, HomeError, InstanceRecord, TicketState};
 use dainty_module_api::{GameVersion, GlobalId, IdKind};
 use rustic_isles::{Launch, LaunchRequest, Shared};
 use rustic_isles_store::{IslesStore, UserId};
@@ -290,7 +290,7 @@ impl Ctx {
     async fn poll_ticket(&self, player: &str, current: &MatchCandidate, ticket: &GlobalId) {
         let home = self.state.home(&self.shared);
         if let Some(game) = self.game_version() {
-            let _ = home.ring_try_form_matches(&current.hunt_id, &game).await;
+            form_ring_matches(home.as_ref(), &current.hunt_id, &game).await;
         }
         match home.ring_ticket_state(ticket).await {
             Ok(Some(TicketState::Claimed { match_id, .. })) => {
@@ -692,7 +692,7 @@ impl Ctx {
                 return None;
             }
         };
-        let _ = home.ring_try_form_matches(hunt, &game).await;
+        form_ring_matches(home.as_ref(), hunt, &game).await;
         let mut candidate = MatchCandidate::matching(hunt, &ticket.to_string());
         if let Ok(Some(TicketState::Claimed { match_id, .. })) = home.ring_ticket_state(&ticket).await
             && let Ok(Some(record)) = home.ring_lookup_instance(&match_id).await
@@ -868,4 +868,12 @@ pub async fn resolve_account(store: Option<&IslesStore>, user: &str) -> Option<G
         .await
         .ok()??;
     Some(found.id.global().clone())
+}
+
+/// Forms what ring matches it can; a failed placement leaves the tickets matching, so it is logged.
+async fn form_ring_matches(home: &dyn HomeApi, hunt: &str, game: &GameVersion) {
+    match home.ring_try_form_matches(hunt, game).await {
+        Ok(_) | Err(HomeError::NotInNetwork) => {}
+        Err(e) => tracing::warn!("ring matchmaking for {hunt} failed: {e}"),
+    }
 }
