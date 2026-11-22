@@ -113,9 +113,10 @@ pub fn if_none_match_hits(header: Option<&str>, etag: &str) -> bool {
     })
 }
 
-/// 1-256 bytes of printable ASCII with no space: anything else is refused without asking the backend.
+/// 1-256 bytes of printable ASCII with no space or comma (a list, not one key): anything else is refused without
+/// asking the backend.
 pub fn is_plausible_key(key: &str) -> bool {
-    (1..=256).contains(&key.len()) && key.bytes().all(|b| (0x21..=0x7e).contains(&b))
+    (1..=256).contains(&key.len()) && key.bytes().all(|b| (0x21..=0x7e).contains(&b) && b != b',')
 }
 
 /// `rustic-isles-runtime.dll` or `winmm.dll`, letter case included: R21 retired `rustic-isles-runtime.dll` and its aliases.

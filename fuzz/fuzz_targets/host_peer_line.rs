@@ -6,7 +6,7 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use rustic_rifts_host::{SessionLive, apply_peer_line, parse_peer_event};
+use rustic_rifts_host::{PeerEvent, SessionLive, apply_peer_line, parse_peer_event};
 
 fuzz_target!(|data: &[u8]| {
     let text = String::from_utf8_lossy(data);
@@ -14,7 +14,8 @@ fuzz_target!(|data: &[u8]| {
     for line in text.lines() {
         let before = live.peers.len();
         apply_peer_line(&mut live, line, "now");
-        let admitted = line.starts_with("PEER_ADMITTED") && parse_peer_event(line).is_some();
+        // The parser splits on white space, so a line led by a space admits too
+        let admitted = matches!(parse_peer_event(line), Some(PeerEvent::Admitted { .. }));
         assert!(live.peers.len() <= before + usize::from(admitted));
     }
 });

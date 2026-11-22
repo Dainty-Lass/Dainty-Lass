@@ -462,7 +462,8 @@ fn performance_defaults_keeps_what_host_json_had_and_takes_each_option() {
             verbose_game_logs: true,
             memory_guard: false,
             min_free_memory_mb: 512,
-            hunt_memory_mb: 2048
+            hunt_memory_mb: 2048,
+            warm_spare: false
         }
     );
     assert_eq!(perf(&[], Some(set)), Ok(set), "kept on the next setup");

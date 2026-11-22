@@ -594,7 +594,7 @@ mod tests {
             .iter()
             .map(|c| c.name)
             .collect();
-        assert_eq!(table.len(), 109);
+        assert_eq!(table.len(), 111);
         assert_eq!(handler_names(), table);
     }
 

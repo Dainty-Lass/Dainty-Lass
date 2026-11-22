@@ -2609,6 +2609,12 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
                 perf_out.insert(k.into(), new_v);
             }
         }
+        // Not the Node kit's key: written only when on, so its host.json keeps its bytes
+        if p.warm_spare {
+            perf_out.insert("warmSpare".into(), Value::Bool(true));
+        } else {
+            perf_out.remove("warmSpare");
+        }
         canonical.insert("performance".into(), Value::Object(perf_out));
     }
     if let Some(l) = linux {

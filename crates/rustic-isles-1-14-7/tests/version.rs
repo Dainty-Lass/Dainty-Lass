@@ -396,7 +396,7 @@ fn every_isles_row_is_registered_once() {
             isles += 1;
         }
     }
-    assert_eq!(isles, 235);
+    assert_eq!(isles, 245);
     // Each area's own list is disjoint from the others' and from auth's
     let lists: Vec<(&str, Vec<(rustic_isles::Method, &str)>)> = vec![
         ("gamedata", rustic_isles_gamedata::routes().to_vec()),
@@ -422,7 +422,7 @@ fn every_isles_row_is_registered_once() {
         }
     }
     let counts: Vec<usize> = lists.iter().map(|(_, l)| l.len()).collect();
-    assert_eq!(counts, [29, 8, 8, 25, 17, 49]);
+    assert_eq!(counts, [36, 8, 8, 25, 17, 49]);
     // Rifts' rows: 59 on the backend (the admission key's has no Node route) and one on the Director
     let rifts: Vec<_> = all().iter().filter(|r| r.when == When::Rifts).collect();
     assert_eq!(rifts.len(), 60);

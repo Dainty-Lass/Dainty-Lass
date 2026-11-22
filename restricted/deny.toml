@@ -7,6 +7,8 @@ all-features = true
 version = 2
 yanked = "deny"
 ignore = [
+    # chrono is unmaintained, no vulnerability (chronotope/chrono#1768); moving to jiff or time is its own change.
+    { id = "RUSTSEC-2026-0543", reason = "chrono: unmaintained, no vulnerability; until the move to jiff or time" },
     # Tauri 2 on Linux draws with GTK3 through gtk-rs 0.18, which is no longer maintained; its macros
     # use proc-macro-error. Build-time only, no known vulnerability; goes when Tauri moves off GTK3.
     { id = "RUSTSEC-2024-0370", reason = "proc-macro-error, via gtk-rs GTK3 (Tauri 2 on Linux)" },

@@ -197,7 +197,7 @@ pub fn performance_summary(c: &HostConfig) -> String {
     };
     let spare_part = if perf.warm_spare { ", one kept warm" } else { "" };
     format!(
-        "Game servers: {fps_part}; {training_part}; {logs_part}; at most {} hunts at once{spare_part} (UDP          {first}-{last}), {mem_part}",
+        "Game servers: {fps_part}; {training_part}; {logs_part}; at most {} hunts at once{spare_part} (UDP {first}-{last}), {mem_part}",
         c.max_hunt_servers
     )
 }

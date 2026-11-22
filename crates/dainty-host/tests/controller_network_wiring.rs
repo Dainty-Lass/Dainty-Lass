@@ -43,12 +43,18 @@ struct TestNode {
 /// The gateway library cargo built beside this test (target/<profile>/), pinned as settings.toml would.
 async fn gateway_library() -> dainty_controller::ServiceLibrary {
     let exe = std::env::current_exe().unwrap();
-    let profile = exe.parent().and_then(|deps| deps.parent()).unwrap();
-    let path = profile.join(format!(
+    let name = format!(
         "{}dainty_gateway_plugin{}",
         std::env::consts::DLL_PREFIX,
         std::env::consts::DLL_SUFFIX
-    ));
+    );
+    // The nearest folder up that has it: target/<profile>/deps/, or deeper under a build-dir layout's build/
+    let path = exe
+        .ancestors()
+        .skip(1)
+        .map(|dir| dir.join(&name))
+        .find(|path| path.is_file())
+        .unwrap_or_else(|| exe.parent().and_then(|deps| deps.parent()).unwrap().join(&name));
     // A cdylib is not built for the tests, and a nested cargo would wait on this one's lock
     assert!(
         path.is_file(),

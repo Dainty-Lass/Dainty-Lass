@@ -479,12 +479,18 @@ async fn refused_udp_admission_logs_warn_with_instance_and_port_without_panickin
 /// The gateway library cargo built beside this test (target/<profile>/): `cargo build -p dainty-gateway-plugin` first.
 async fn gateway_library() -> dainty_controller::ServiceLibrary {
     let exe = std::env::current_exe().unwrap();
-    let profile = exe.parent().and_then(|deps| deps.parent()).unwrap();
-    let path = profile.join(format!(
+    let name = format!(
         "{}dainty_gateway_plugin{}",
         std::env::consts::DLL_PREFIX,
         std::env::consts::DLL_SUFFIX
-    ));
+    );
+    // The nearest folder up that has it: target/<profile>/deps/, or deeper under a build-dir layout's build/
+    let path = exe
+        .ancestors()
+        .skip(1)
+        .map(|dir| dir.join(&name))
+        .find(|path| path.is_file())
+        .unwrap_or_else(|| exe.parent().and_then(|deps| deps.parent()).unwrap().join(&name));
     assert!(
         path.is_file(),
         "{} is missing: run `cargo build -p dainty-gateway-plugin` before the tests (CI does)",

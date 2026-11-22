@@ -8,11 +8,9 @@
 //!   RR_HARNESS_PIN     its certificate's SHA-256 (the invite's)
 //!   RR_HARNESS_EXPECT  the regions nearest first with the round trip injected to each, `uk=20,new-york=85`
 //!   RR_HARNESS_TOLERANCE_MS  how far above the injected round trip a median may be (25)
+//!   RR_HARNESS_KEY     the key of a player the script registered on the home, which takes the order only from one
 
 use super::*;
-
-// Built from pieces, so the repository's secret check never sees a whole key
-const KEY: &str = concat!("DLK_", "eeeeeeeeeeeeeeee", "eeeeeeeeeeeeeeee", "eeeeeeeeeeeeeeee");
 
 fn setting(name: &str) -> String {
     std::env::var(name).unwrap_or_else(|_| panic!("{name} is not set: run docker/network/test.sh"))
@@ -37,7 +35,8 @@ async fn the_region_order_follows_the_latency_the_harness_injects() {
         .collect();
     let tolerance: f64 = std::env::var("RR_HARNESS_TOLERANCE_MS").map_or(25.0, |v| v.parse().expect("milliseconds"));
 
-    let RegionPing::Ok { regions, reported } = region_ping(&home, Some(KEY), &PingSettings::default()).await else {
+    let key = setting("RR_HARNESS_KEY");
+    let RegionPing::Ok { regions, reported } = region_ping(&home, Some(&key), &PingSettings::default()).await else {
         panic!("the home refused or could not be reached");
     };
     let measured: Vec<_> = regions.iter().map(|r| (r.region.clone(), r.rtt_ms)).collect();

@@ -43,7 +43,6 @@ COPY restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captu
 COPY restricted/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/ /src/restricted/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/
 COPY restricted/modules/rustic-rifts/oracle/ /src/restricted/modules/rustic-rifts/oracle/
 COPY restricted/modules/rustic-rifts/docs/ /src/restricted/modules/rustic-rifts/docs/
-COPY restricted/modules/rustic-rifts/src/ /src/restricted/modules/rustic-rifts/src/
 
 # ------------------------------------------------------------------ the Rust binaries
 FROM ${RUST_IMAGE} AS rust-build
