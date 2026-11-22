@@ -7,6 +7,9 @@ all-features = true
 version = 2
 yanked = "deny"
 ignore = [
+    # chrono is unmaintained, no vulnerability (chronotope/chrono#1768); moving to jiff or time is its own change.
+    { id = "RUSTSEC-2026-0543", reason = "chrono: unmaintained, no vulnerability; until the move to jiff or time" },
+    { id = "RUSTSEC-2026-0542", reason = "humantime: unmaintained with chrono, via console-subscriber" },
     { id = "RUSTSEC-2024-0370", reason = "proc-macro-error: unmaintained, build-time only, via gtk-rs 0.18 under Tauri 2's Linux GTK3 backend" },
     { id = "RUSTSEC-2026-0441", reason = "pin-utils: archived, no vulnerability, via webrtc-util's nix 0.26" },
     # Nothing here opens a less-trusted database with its -wal. diesel 2.3.14 caps libsqlite3-sys < 0.39 (fixed

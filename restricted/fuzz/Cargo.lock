@@ -791,6 +791,7 @@ dependencies = [
  "dainty-protocol",
  "dainty-service-kit",
  "dainty-service-plugin",
+ "flate2",
  "futures-util",
  "hex",
  "http",
