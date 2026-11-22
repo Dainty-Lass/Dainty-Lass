@@ -111,10 +111,9 @@ pub fn injects_directly(program: &str) -> bool {
 /// Whether `program` is the game itself or the host kit's Wine wrapper for it, which without the runtime comes up
 /// as a windowed client that never reports ready (2026-11-13).
 pub fn is_game(program: &str) -> bool {
-    Path::new(program)
-        .file_name()
-        .and_then(|n| n.to_str())
-        .is_some_and(|n| n.eq_ignore_ascii_case("Dauntless-Win64-Shipping.exe") || n == "dainty-gameserver")
+    // Either separator: a Windows path in a Linux host's env file (Wine) is still the game
+    let name = program.rsplit(['/', '\\']).next().unwrap_or(program);
+    name.eq_ignore_ascii_case("Dauntless-Win64-Shipping.exe") || name == "dainty-gameserver"
 }
 
 /// What one start of `program` loads: the DLL the director injects itself, or none with the wrapper's

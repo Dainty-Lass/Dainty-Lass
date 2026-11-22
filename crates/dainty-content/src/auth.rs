@@ -307,7 +307,14 @@ mod tests {
     #[tokio::test]
     async fn implausible_keys_never_reach_the_backend() {
         let f = fake(300, |_| account("a"));
-        for key in [String::new(), "a b".into(), "a\nb".into(), "k".repeat(257), "ä".into()] {
+        for key in [
+            String::new(),
+            "a b".into(),
+            "a\nb".into(),
+            "a,b".into(),
+            "k".repeat(257),
+            "ä".into(),
+        ] {
             assert_eq!(f.auth.check(&key).await, Check::Refused);
         }
         assert_eq!(f.calls.load(Ordering::SeqCst), 0);

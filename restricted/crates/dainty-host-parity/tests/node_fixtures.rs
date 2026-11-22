@@ -151,13 +151,17 @@ fn without_admin_api_lines(text: &str) -> String {
         .collect()
 }
 
-/// What setup writes that the Node kit never did: the bridge for a runtime built before the 2026-11-06 rename, and
-/// the published runtime the Director injects (RD9 as of 2026-11-13)
-const RUNTIME_BRIDGE_LINES: [&str; 4] = [
+/// What setup writes that the Node kit never did: the bridge for a runtime built before the 2026-11-06 rename,
+/// the published runtime the Director injects (RD9 as of 2026-11-13), the sign-in provider (written empty when off),
+/// the crash reports' folder and the warm spare
+const RUNTIME_BRIDGE_LINES: [&str; 7] = [
     "REFORGED_SERVER_MAX_FPS=",
     "REFORGED_SERVER_IDLE_FPS=",
     "RUSTIC_ISLES_BACKEND_URL=",
     "GAMESERVER_RUNTIME_DIR=",
+    "DAINTY_OAUTH_",
+    "CONTENT_CRASH_DIR=",
+    "GAMESERVER_WARM_SPARE=",
 ];
 
 fn without_runtime_bridge_lines(text: &str) -> String {

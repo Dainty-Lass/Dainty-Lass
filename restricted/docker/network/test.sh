@@ -140,9 +140,14 @@ if [ "$run_region_ping" = 1 ]; then
 			[ "$r" = "$home" ] || printf '%s %s\n' "$(injected "$player" "$r")" "$r"
 		done | sort -n | awk '{ printf "%s%s=%s", sep, $2, $1; sep = "," }')"
 		echo "home $home ($published): expecting $expect"
+		# The home takes the order only from one of its own players
+		reg="$(curl -sk -X POST "https://${published/0.0.0.0/127.0.0.1}/dainty/api/Register" \
+			-H 'Content-Type: application/json' -d "{\"Username\":\"Ping${home//-/}\"}")"
+		ping_key="$(printf '%s' "$reg" | sed -n 's/.*"UUK":"\([^"]*\)".*/\1/p')"
+		[ -n "$ping_key" ] || fail "failed to register the region ping's player on $home: $reg"
 		(
 			RR_HARNESS_HOME="${published/0.0.0.0/127.0.0.1}" RR_HARNESS_PIN="$pin" RR_HARNESS_EXPECT="$expect" \
-				RR_HARNESS_TOLERANCE_MS="$tolerance" \
+				RR_HARNESS_TOLERANCE_MS="$tolerance" RR_HARNESS_KEY="$ping_key" \
 				cargo test --manifest-path ../Cargo.toml -p dainty-launcher-kit --lib --locked -- --ignored --nocapture \
 					the_region_order_follows
 		) || fail "region ping with $home as the home"
