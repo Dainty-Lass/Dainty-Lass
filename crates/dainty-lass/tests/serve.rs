@@ -72,6 +72,21 @@ fn server_folder(extra_toml: &str) -> (tempfile::TempDir, Paths, u16) {
     (dir, paths, port)
 }
 
+/// The core binary to run. Linux's preflight wants the inject helper beside it, which a test build has no copy of,
+/// so the binary is copied into `root` with a stand-in helper.
+fn core(root: &Path) -> PathBuf {
+    let built = PathBuf::from(env!("CARGO_BIN_EXE_dainty-lass"));
+    if cfg!(windows) {
+        return built;
+    }
+    let bin = root.join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    let copy = bin.join("dainty-lass");
+    std::fs::copy(&built, &copy).unwrap();
+    std::fs::write(bin.join(dainty_hostkit::wine::INJECT_HELPER), b"").unwrap();
+    copy
+}
+
 struct Server {
     child: Child,
     output: Arc<Mutex<String>>,
@@ -79,7 +94,7 @@ struct Server {
 
 impl Server {
     fn start(root: &Path) -> Self {
-        let mut child = Command::new(env!("CARGO_BIN_EXE_dainty-lass"))
+        let mut child = Command::new(core(root))
             .arg("--root")
             .arg(root)
             .env("DAINTY_CONTROL", "stdin")
@@ -189,7 +204,7 @@ fn a_service_settings_toml_pins_runs_as_a_library() {
     let wrong = toml.replace(&sha256, &"00".repeat(32));
     let (dir, paths, _) = server_folder(&wrong);
     std::fs::write(paths.config.join("echo.env"), "").unwrap();
-    let out = Command::new(env!("CARGO_BIN_EXE_dainty-lass"))
+    let out = Command::new(core(dir.path()))
         .arg("--root")
         .arg(dir.path())
         .env("DAINTY_CONTROL", "stdin")

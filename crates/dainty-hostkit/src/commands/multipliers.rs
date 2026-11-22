@@ -152,7 +152,7 @@ mod tests {
             off: false,
             no_multipliers: false,
         };
-        run(&paths, &set_args).unwrap();
+        assert_eq!(run(&paths, &set_args).unwrap(), ExitCode::SUCCESS);
         let updated = load_host_config(&paths).unwrap().unwrap();
         let mult = updated.multipliers.unwrap();
         assert_eq!(mult.xp, 2.5);
@@ -164,7 +164,7 @@ mod tests {
             off: true,
             no_multipliers: false,
         };
-        run(&paths, &off_args).unwrap();
+        assert_eq!(run(&paths, &off_args).unwrap(), ExitCode::SUCCESS);
         let after_off = load_host_config(&paths).unwrap().unwrap();
         assert!(!multipliers_on(&after_off));
     }

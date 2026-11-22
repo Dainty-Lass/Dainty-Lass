@@ -143,7 +143,8 @@ if [ "$run_region_ping" = 1 ]; then
 		(
 			RR_HARNESS_HOME="${published/0.0.0.0/127.0.0.1}" RR_HARNESS_PIN="$pin" RR_HARNESS_EXPECT="$expect" \
 				RR_HARNESS_TOLERANCE_MS="$tolerance" \
-				cargo test -p dainty-launcher --lib --locked -- --ignored --nocapture the_region_order_follows
+				cargo test --manifest-path ../Cargo.toml -p dainty-launcher-kit --lib --locked -- --ignored --nocapture \
+					the_region_order_follows
 		) || fail "region ping with $home as the home"
 	done
 fi

@@ -178,7 +178,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    # Windows spends about an hour on clippy, the plugin builds and the tests
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -306,6 +307,11 @@ jobs:
       run:
         working-directory: fuzz
     steps:
+      # Each sanitizer-built target links its own copy of the workspace
+      - name: Room on the disk
+        working-directory: .
+        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc && df -h /
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
