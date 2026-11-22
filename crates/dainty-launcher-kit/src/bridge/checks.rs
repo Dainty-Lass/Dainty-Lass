@@ -577,8 +577,8 @@ mod tests {
 
     #[test]
     fn names_must_be_listed() {
-        let target: ExternalTarget = name(&json!("mongodb"), spec::EXTERNAL_TARGETS).unwrap();
-        assert_eq!(target, ExternalTarget::Mongodb);
+        let target: ExternalTarget = name(&json!("git"), spec::EXTERNAL_TARGETS).unwrap();
+        assert_eq!(target, ExternalTarget::Git);
         let mode: InstallMode = name(&json!("repair"), spec::INSTALL_MODES).unwrap();
         assert_eq!(mode, InstallMode::Repair);
         assert_eq!(

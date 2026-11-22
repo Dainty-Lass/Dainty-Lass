@@ -13,8 +13,8 @@ Linux: [hosting-linux.md](hosting-linux.md). Docker: [hosting-docker.md](hosting
 - Windows 10 or 11, and **your own Dauntless 1.14.7** install (the folder with `Archon` in it), or an Epic
   account whose library has Dauntless, from which `install-game` installs it ([below](#getting-the-game-from-epic)).
 - The **server release** (`DaintyLassServer-<version>-windows-x64.zip`), unpacked anywhere; `bin\dainty-host.exe`
-  is the kit. Or a checkout of this repository built from source. No Node.js or MongoDB is needed on the default
-  path: the 1.14.7 backend, Director, gateway, content server, allowlist helper and admin API are compiled into
+  is the kit. Or a checkout of this repository built from source. No Node.js or MongoDB is needed: the 1.14.7
+  backend, Director, gateway, content server, allowlist helper and admin API are compiled into
   `dainty-host` and store player data in `.workspace\config\dainty-lass.db` (SQLite) or Postgres (`[database]`).
 - **Visual Studio 2022** with Desktop development with C++, and **Dumper-7**, to generate the SDK and build
   the game runtime from your own game ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)). Players get the runtime
@@ -47,7 +47,7 @@ No 1.14.7 folder yet? `install-game` fetches one from your own Epic library
 Then the runtime and the game data ([sdk-and-game-data.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/sdk-and-game-data.md)):
 
 ```powershell
-bin\dainty-host gamedata                  # from your CatalogExporter export in modules\rustic-isles\reference\1.14.7\Items_Analysis
+bin\dainty-host gamedata                  # from your CatalogExporter export in modules\rustic-isles\game-data\1.14.7\exports
 bin\dainty-host publish-runtime           # rustic-isles-runtime.dll (the release's, or yours) and winmm.dll, if built
 bin\dainty-host doctor                    # what is still missing or wrong
 ```
@@ -87,11 +87,11 @@ with the `server-gui` feature) runs the same server in-process from its Host pag
 | `preset` | Keep your game data as a preset (`--create`), or apply one (`--apply`) |
 | `multipliers` | XP and loot multipliers for a private test server (`--xp 5 --rewards 5`, `--off`) |
 | `update` | Install a newer server release and run `setup` again (`--check` only compares) |
-| `backup` | Dump the database |
+| `backup` | Copy the SQLite database to `.workspace\backups`; a Postgres one is refused, back it up with `pg_dump` |
 | `network` | The cluster CA and node certificates of a network, and joining an existing host database (`ca-init`, `issue-node-cert`, `list`, `status`, `join`; see [A network of servers](#a-network-of-servers)) |
 | `history` | What changed in the server's data, by whom and when (`--actor`, `--account`, `--since`, `--until`); `history verify` checks the log's hash chain. See [Undoing a change](#undoing-a-change) |
 | `revert` | Undo what an actor, an account or a time range changed: a dry run first, then `--apply <plan id>` |
-| `db` | Migrate or verify between MongoDB and the SQLite/Postgres store (`migrate`, `verify`), or export the store back to MongoDB for one-release rollback (`export-mongo`) |
+| `db` | Move an old Node install's MongoDB data into the store and check it (`migrate`, `verify`; `--from` defaults to `mongodb://127.0.0.1:27017/reforged`). `dainty-legacy import reforged` runs them; `db replay` replays captured traffic |
 | `legacy` | `legacy import <revived\|offline-save\|reforged> [args]` runs the importer for an old install, `bin/dainty-legacy` in the release ([source](../../crates/dainty-legacy)): the `legacy` module `[[modules.external]]` pins in `settings.toml`, or `--program <path>` before the first setup. In the console, `legacy import` runs it as `module run legacy import-<kind>` |
 
 
@@ -174,7 +174,6 @@ servers' key) lives only in `secrets.env`.
 | `--game` | `game_dir` | The Dauntless folder |
 | `--registration INVITECODE\|OPEN\|NONE` | `registration` | Who may register |
 | `--share` | `share_url` | A Tailscale share link put in private invites |
-| `--mongo-uri` | `[mongo]` `uri` | Existing MongoDB URI `db migrate`, `db verify` and `db export-mongo` default to (and a `--features paradox` rollback build's; the default server uses `[database]`) |
 | `--max-hunts 1-10` | `max_hunt_servers` | Hunts at once; the UDP range widens below 8770 past six |
 | `--xp`, `--rewards`, `--no-multipliers` | `[multipliers]` | Private test servers only |
 | `--public-port` | `public_port` | Another port than 443 |
@@ -183,7 +182,7 @@ servers' key) lives only in `secrets.env`.
 | (edit `settings.toml`) | `version_facts` | The 1.14.7 version facts (the game's ids and GUIDs, MIT `version_facts.json`) the server reads beside `version_data`, relative to the server folder. Left out: `data/1.14.7/version_facts.json`, the file the release ships. Installed beside `version_data`. When the host's export folder has `weapon_slots_1_14_7.jsonl`, the starter weapons' default parts come from it; with `catalog_1_14_7.jsonl`, `gamedata` reports any id the version data names that the catalog lacks |
 | `--server-fps`, `--idle-fps`, `--training-on-demand`, `--training-idle-minutes`, `--verbose-game-logs`, `--memory-guard`, `--min-free-memory-mb`, `--hunt-memory-mb`, `--warm-spare` | `[performance]` | What the game servers cost in CPU and RAM. `warm_spare` (off by default, a prototype) keeps one hunt server booted for the next hunt, which then starts in about 1.5 s instead of 5; it holds one of the `max_hunt_servers` slots and about 1 GB of RAM |
 | `--wine`, `--proton`, `--xvfb`, `--interface` | `[linux]` | Linux only ([hosting-linux.md](hosting-linux.md)) |
-| `--fresh-start` (or edit `settings.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote`, `fresh_start` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below); `--fresh-start` / `fresh_start = true` starts with an empty database although `.workspace\mongodb` still holds unmigrated data (MongoDB is never modified) |
+| `--fresh-start` (or edit `settings.toml`) | `[database]` `engine`, `postgres_host`, `postgres_port`, `postgres_user`, `postgres_database`, `allow_remote`, `fresh_start` | The Rust services' database: `sqlite` (the default, `dainty-lass.db` in `.workspace\config`) or `postgres` (below). `--fresh-start` / `fresh_start` is still accepted and changes nothing since RB15 |
 | (edit `settings.toml`) | `[guard]` `ban_limit`, `ban_window_minutes`, `ban_guard`, `revert_limit`, `revert_guard`, `revoke_guard`, `delay_minutes`, `expire_hours` | When a destructive or bulk admin action waits for a delay or a second operator (below). Left out: ten bans an hour from one key, a revert of over a hundred changes and the revoking of an admin or owner key each wait ten minutes; everything smaller runs at once |
 | (edit `settings.toml`) | `[history]` `ship_to_peer` | Ship this node's change log and database snapshots over `Service::LogShip` (`/__node/log_ship`) to a peer node in `[[network.nodes]]` (DH7, below). Left out: off |
 | (edit `settings.toml`) | `[switches]` `reforge`, `mastery_persistence`, `bounty_persistence`, `cooldown_persistence`, `account_erasure`, `log_purge`, `rate_limit`, `rate_limit_per_minute`, `gameserver_rate_limit_per_minute`, `host_rate_limit_per_minute`, `gauntlet` | Backend persistence, rule and request-budget switches written to `backend.env` (`RUSTIC_ISLES_REFORGE`, `RUSTIC_ISLES_MASTERY_PERSISTENCE`, `RUSTIC_ISLES_BOUNTY_PERSISTENCE`, `RUSTIC_ISLES_COOLDOWN_PERSISTENCE`, `RUSTIC_ISLES_ACCOUNT_ERASURE`, `RUSTIC_ISLES_LOG_PURGE`, `RUSTIC_ISLES_RATE_LIMIT`, `RUSTIC_ISLES_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_GAMESERVER_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_HOST_RATE_LIMIT_PER_MINUTE`, `RUSTIC_ISLES_GAUNTLET`) and forwarded to `isles-1-14-7`'s `[switches]`. Left out: the module's defaults |
@@ -241,7 +240,7 @@ log_level = "debug"
 | `[allowlist]` `max_entries` | `ALLOWLIST_MAX_ENTRIES` | 1–1000 | 256 |
 | `[allowlist]` `nft_table` | `ALLOWLIST_NFT_TABLE` | an nftables table name (Linux) | `dainty_lass` |
 | `[backend]` `log_level` | `LOG_LEVEL` | `debug`, `info`, `warn`, `error` | `info` |
-| `[backend]` `transaction_max_commit_ms` | `MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS` | 1–600000 (`--features paradox` builds) | 15000 |
+| `[backend]` `transaction_max_commit_ms` | `MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS` | 1–600000, accepted and unused since RB15 | 15000 |
 | `[backend]` `hunt_go_now_min_ms`, `hunt_go_now_max_ms` | `HUNT_GO_NOW_MIN_DELAY_MS`, `HUNT_GO_NOW_MAX_DELAY_MS` | 1–600000, min no more than max | 1, 1000 |
 | `[backend]` `xmpp_capture` | `REALTIME_XMPP_CAPTURE` | `true`, `false` | `false` |
 | `[backend]` `min_launcher_version` | `DAINTY_MIN_LAUNCHER_VERSION` | a launcher version (`2.1.0`, `2.1.0-rc.1`); an older launcher turns Play off and updates itself | unset: any launcher |
@@ -656,47 +655,32 @@ bin\dainty-host update --check            # is there a newer server release?
 bin\dainty-host update                    # install it and run setup again
 ```
 
-`update` keeps `.workspace` and runs `setup` from your `settings.toml`. Neither moves a Node backend's MongoDB data any
-more: `bin\dainty-legacy import reforged <old kit>` ([dainty-legacy](../../crates/dainty-legacy)) upgrades an old Node
-kit (its `host.json`, layout and MongoDB), and on a server already on `settings.toml`, `bin\dainty-host db migrate`
-followed by `bin\dainty-host db verify` moves the data into the configured store (`.workspace\config\dainty-lass.db`
-on SQLite, or Postgres when `[database]` sets `engine = "postgres"`). `verify` writes `.workspace\config\.mongo-migrated`
-once it finds no difference; MongoDB is never modified. `start` and `serve` refuse to run the Rust backend while
-`.workspace\mongodb` holds data without that marker (unless the host opts into an empty database with
-`dainty-host setup --fresh-start` or `fresh_start = true` under `[database]` in `settings.toml`). A `host.json` with no
-`settings.toml` is refused until dainty-legacy has imported it. When `native\` changed, `update` says so: rebuild the
-runtime and publish it again.
+`update` keeps `.workspace` and runs `setup` from your `settings.toml`. A `host.json` with no `settings.toml` (an
+old Node kit) is refused: `bin\dainty-legacy import reforged <old kit>` ([dainty-legacy](../../crates/dainty-legacy))
+upgrades it, moving its MongoDB data into the store with `db migrate` and `db verify` (MongoDB is never modified).
+When `native\` changed, `update` says so: rebuild the runtime and publish it again.
 Players' launchers notice the new hashes and ask once more.
 
-### Live server cutover checklist (backup, update, smoke, rollback)
+### Upgrading from an older install
 
-When cutting a live 1.14.7 server over from the Node backend to the Rust backend:
+The Node backend and MongoDB were retired in RB15; nothing runs them any more.
+
+- `setup` (and so `update`) moves the game data from the old `modules\rustic-isles\reference\1.14.7` folders into
+  `modules\rustic-isles\game-data\1.14.7` (`backend`, `director`, `exports`, `captures`) once, never over a file
+  already there, and prints each move.
+- A `[mongo]` table in `settings.toml` is ignored with a warning and left out the next time the file is written.
+- What is left of `modules\rustic-isles\reference\` afterwards, and `.workspace\mongodb`, can be deleted.
+
+### Live server update checklist
 
 1. **Backup.** Stop the server (or take a snapshot first), run `bin\dainty-host backup` so `.workspace\backups\`
-   holds a fresh database dump, and copy `.workspace\config` (`settings.toml`, `secrets.env`) and `.workspace\tls`
-   (`gateway-cert.pem`, `gateway-key.pem`) to safe off-server storage.
-2. **Update and migrate.** Run `bin\dainty-host update`. If the server has existing MongoDB data, start `mongod`
-   and run `bin\dainty-host db migrate` then `bin\dainty-host db verify`, and confirm `verify` reports no
-   difference.
+   holds a fresh copy of the SQLite database (on Postgres, `pg_dump` it), and copy `.workspace\config`
+   (`settings.toml`, `secrets.env`) and `.workspace\tls` (`gateway-cert.pem`, `gateway-key.pem`) to safe off-server
+   storage.
+2. **Update.** Run `bin\dainty-host update`.
 3. **Smoke check.** Run `bin\dainty-host doctor`, start the server with `bin\dainty-host start`, verify that
    `/dauntless-status`, `/dainty/api/Status` and `/content/v1/runtime` answer on the gateway, and verify with a
    1.14.7 client and launcher that an existing account can sign in, enter Ramsgate with its characters, inventory and
    loadouts intact, and depart for a hunt.
-4. **Rollback (if needed).** Stop the server, export the SQLite or Postgres store back to MongoDB with
-   `bin\dainty-host db export-mongo --to mongodb://127.0.0.1:27017/reforged` (source and target default from
-   `settings.toml`), verify with `bin\dainty-host db verify --against mongodb://127.0.0.1:27017/reforged`, and start the
-   `paradox` build (below).
-
-## Rollback to the Node backend and MongoDB (`paradox` feature)
-
-> [!WARNING]
-> Since the 2026-11-06 protocol rename (`/dainty/api`, `x-dainty-*` headers), the Node backend and Director no
-> longer speak the launcher's protocol, so a rollback to them cannot serve a current launcher. Docker's `rollback`
-> profile is gone; RB15 removes the rest.
-
-For one release after the RU9/RB14 cutover (until RB15 deletes the reference Node services), building the server with
-the opt-in `paradox` Cargo feature (`cargo build --release -p dainty-server --features paradox`) runs Mystic
-Paradox's Node `ParadoxBackend` and `ParadoxDirector` from `modules/rustic-isles/reference/1.14.7/` against MongoDB
-instead of the compiled-in `isles-1-14-7` Rust module. To export a server's SQLite or Postgres store back to MongoDB
-before starting a `paradox` build, run `dainty-host db export-mongo --to <mongodb-uri>` (and optionally
-`dainty-host db verify --against <mongodb-uri>`; `--from` and `--to` default from `settings.toml`).
+4. **Going back.** Stop the server, put the backup's database and `.workspace\config` back, and run the previous
+   release.

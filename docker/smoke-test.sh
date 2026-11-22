@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# A public server in Docker without a game: setup through settings.toml, the [RB15] MongoDB import, every service
+# A public server in Docker without a game: setup, then settings.toml alone, every service
 # healthy, the gateway's certificate and proxying, the allowlist's rules, an invite and a clean stop. Plays no game.
 #   SMOKE_NO_BUILD=1 uses the images as built; SMOKE_PORT moves the gateway's published port (18443).
 set -euo pipefail
@@ -30,9 +30,9 @@ cleanup() {
         echo
         echo "== smoke test failed; the containers and their logs"
         docker compose ps -a || true
-        COMPOSE_PROFILES=public,toml,mongo docker compose logs --tail 80 || true
+        COMPOSE_PROFILES=public,toml docker compose logs --tail 80 || true
     fi
-    COMPOSE_PROFILES=public,toml,mongo docker compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+    COMPOSE_PROFILES=public,toml docker compose down --volumes --remove-orphans >/dev/null 2>&1 || true
     rm -rf "$work"
     exit "$status"
 }
@@ -60,7 +60,7 @@ if [[ ${SMOKE_NO_BUILD:-} != 1 ]]; then
 fi
 started=1
 
-step "a fresh toml apply with no MongoDB"
+step "a fresh toml apply"
 cat >"$work/config/settings.toml" <<'EOF'
 version = 1
 mode = "public"
@@ -75,56 +75,10 @@ contains "$(workspace_file config/backend.env)" "Fresh Toml Apply" "backend.env"
 COMPOSE_PROFILES=public,toml docker compose down --volumes --remove-orphans
 rm -f "$work/config/settings.toml"
 
-# [RB15] Steps up to "migrate and verify" go with the MongoDB handling (Q-6)
-step "[RB15] seed a pre-cutover mongo-data volume"
-COMPOSE_PROFILES=public,mongo docker compose up -d --wait mongo
-COMPOSE_PROFILES=public,mongo docker compose exec -T mongo mongosh --quiet \
-    'mongodb://127.0.0.1:27017/reforged?replicaSet=rs0' --eval '
-const created = new Date("2026-01-15T12:00:00Z");
-db.accounts.insertOne({
-  _id: ObjectId("507f1f77bcf86cd799439011"),
-  userId: "user-docker-01",
-  name: "SlayerDocker",
-  displayName: "SlayerDocker",
-  displayNameNormalized: "slayerdocker",
-  email: "slayer.docker@example.invalid",
-  passwordHash: "$2b$10$abcdefghijklmnopqrstuuS5Hq3cJ0dYQ9mFQ3sXjrnD4bJm6Z1Zy",
-  status: "active",
-  approvalStatus: "approved",
-  roles: ["player"],
-  usernameSet: 1,
-  createdAt: created,
-});
-db.characters.insertOne({
-  _id: ObjectId("507f1f77bcf86cd799439012"),
-  characterId: "char-docker-01",
-  userId: "user-docker-01",
-  name: "SlayerDocker",
-  createdDate: created,
-});
-db.reforgedInvites.insertOne({
-  invitecode: "INV-DOCKER-01",
-  usesRemaining: 5,
-  infiniteUses: false,
-  note: "Docker smoke test",
-  createdAt: created,
-});
-'
-
-step "[RB15] the backend refuses unmigrated data"
-COMPOSE_PROFILES=public,mongo docker compose run --rm host gamedata --examples
-if output=$(COMPOSE_PROFILES=public,mongo docker compose run --rm -T backend 2>&1); then
-    printf '%s\n' "$output" >&2
-    fail "the backend started on unmigrated MongoDB data"
-fi
-contains "$output" "Unmigrated MongoDB data" "the backend's refusal"
-
-step "[RB15] migrate and verify"
-COMPOSE_PROFILES=public,mongo docker compose run --rm host setup --mode public --host smoke.example.org \
-    --game-address 203.0.113.7 --name "Smoke Test"
-COMPOSE_PROFILES=public,mongo docker compose run --rm host db migrate
-COMPOSE_PROFILES=public,mongo docker compose run --rm host db verify
-COMPOSE_PROFILES=public,mongo docker compose rm -sf mongo
+step "setup"
+docker compose run --rm host setup --mode public --host smoke.example.org --game-address 203.0.113.7 \
+    --name "Smoke Test"
+docker compose run --rm host gamedata --examples
 
 step "the toml profile applies settings.toml alone"
 workspace_file config/settings.toml | sed 's/^name = .*/name = "Smoke Toml"/' >"$work/config/settings.toml"
@@ -149,16 +103,6 @@ api() {
 }
 base=https://smoke.example.org:$port
 contains "$(api --fail "$base/dainty/api/ServerStatus")" '"online":true' "ServerStatus"
-# [RB15] The migrated account and invite
-taken=$(api -H 'content-type: application/json' -d '{"Username":"SlayerDocker","InviteCode":"INV-DOCKER-01"}' \
-    "$base/dainty/api/Register")
-contains "$taken" '"username_taken"' "Register as the migrated account"
-registered=$(api --fail -H 'content-type: application/json' \
-    -d '{"Username":"DockerNewbie","InviteCode":"INV-DOCKER-01"}' "$base/dainty/api/Register")
-contains "$registered" '"UUK"' "Register with the migrated invite"
-
-step "[RB15] the migrated invite is listed"
-contains "$(docker compose run --rm -T host invite --list)" "INV-DOCKER-01" "invite --list"
 
 step "the allowlist closes the game ports"
 contains "$(docker compose exec -T allowlist nft list table inet dainty_lass)" "udp dport 8770-8777 drop" \

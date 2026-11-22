@@ -35,10 +35,9 @@ What a module never gets, in or out of process: a listener off loopback (its rou
 still refuses host-only routes from outside), a raw database connection (DD23: `store`'s write path only), the
 account key (DD17) or the admin API's keys. A registration is data the core plugins choose to serve.
 
-Fuzz target: `module_frame` in `restricted/fuzz` (frames in both directions at both size limits, the hello check, a
-registration checked against a manifest, game calls and answers with their reason codes, and the names inside: game versions, module ids, global ids, JIDs, event
-names, SHA-256 digests). It checks that a length over the limit is refused before the body is read, that whatever
-decodes writes back as the same message, and that every name has exactly one spelling.
+Fuzz target: `module_frame` (rewritten in the root's `fuzz/` after RB15 deleted `restricted/fuzz`): frames in
+both directions at both size limits, back to back, each decoded message written and read again unchanged, and the
+hello check. Registrations and the names inside reach it only through the frames' JSON.
 
 ## Checklist
 
@@ -152,13 +151,13 @@ These do not block DF2 but must be settled, or accepted in writing, before exter
   and the next line, before the child's hello.
 - **Stdout discipline.** A module that prints to stdout breaks its own pipe and is killed. That is safe, but a
   module author will meet it as a crash; the module side's docs say so.
-- **Fuzzing depth.** `module_frame` starts from nothing; a seed corpus of real frames (the stub's hello and a
+- **Frame fuzzing has no seed corpus.** Seeding `corpus/module_frame` with real frames (the stub's hello and a
   registration) would reach the manifest and registration checks sooner.
 
 ## Fuzzing
 
-A short run of `module_frame` happens on every PR (CI's `fuzz` job runs every target in `cargo fuzz list`). The run
-before external modules ship, from `restricted/fuzz`:
+CI's `fuzz` job runs `module_frame` on every PR (it runs every target in
+`cargo fuzz list`). The run before external modules ship, from `fuzz`:
 
 ```bash
 cargo +nightly fuzz run module_frame -- -max_total_time=86400

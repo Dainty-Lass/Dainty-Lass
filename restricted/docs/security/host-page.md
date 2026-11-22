@@ -2,6 +2,9 @@
 
 # Security checklist: the launcher's Host page (RX3)
 
+> **Moved (RL13, RL14):** this code is now the MIT `crates/dainty-launcher-kit` (spec-rd27-launcher.md); the
+> `launcher/src-tauri` paths below are the AGPL shell's, deleted in RB15, kept as the record.
+
 The checklist for the Host page of the Tauri launcher: how it runs the host kit and handles the server's secrets,
 and how it has the game runtime's own loader load Dumper-7 or CatalogExporter through `mystic_loader.ini`, with the
 check before every PLAY that nothing is left behind (MIGRATION_PLAN.md RA12, RD9, RD23, RX3). `SECURITY_REVIEW.md`
@@ -133,7 +136,7 @@ and that multipliers that parse are finite, from 1 to 100, and private only.
 - [ ] Reforged's `hostkit.test.ts` and `hostserver.test.ts` cases pass as Rust tests (`platform/hostkit.rs`,
       `platform/hostserver.rs`, `platform/requirements.rs`), with the session and pre-launch tests in
       `platform/loader_session.rs` and `controller/tests.rs`.
-- [ ] The maintainer loaded CatalogExporter into a real 1.14.7 client through the loader and got `Items_Analysis`
+- [ ] The maintainer loaded CatalogExporter into a real 1.14.7 client through the loader and got the exports
       (RA12's last check).
 
 Reviewed commit: ________ Date: ________ Signed: ________

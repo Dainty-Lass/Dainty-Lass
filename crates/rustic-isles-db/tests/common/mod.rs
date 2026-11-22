@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 
 use dainty_store::{Database, DatabaseConfig, DatabaseOptions};
 use rustic_isles_db::mongo::MockMongoServer;
-use rustic_isles_db::{Area, ExportOptions, LegacyStarter, MigrateOptions};
+use rustic_isles_db::{LegacyStarter, MigrateOptions};
 use serde_json::{Value, json};
 
 pub fn starter() -> LegacyStarter {
@@ -226,16 +226,6 @@ pub fn migrate_options(server: &MockMongoServer, target: &str) -> MigrateOptions
         game_data_dir: None,
         allow_remote_postgres: false,
         starter: starter(),
-    }
-}
-
-pub fn export_options(server: &MockMongoServer, source: &str, areas: &[Area]) -> ExportOptions {
-    ExportOptions {
-        from_source: source.into(),
-        to_uri: server.uri("dauntless"),
-        areas: areas.iter().copied().collect(),
-        dry_run: false,
-        allow_remote_postgres: false,
     }
 }
 

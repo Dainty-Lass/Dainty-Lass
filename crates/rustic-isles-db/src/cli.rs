@@ -11,18 +11,12 @@ use std::process::ExitCode;
 use dainty_module_api::NodeId;
 use serde::Serialize;
 
-#[cfg(feature = "export-mongo")]
-use crate::run_export_mongo;
-use crate::{
-    Area, DbError, ExportOptions, ExportReport, LegacyStarter, MigrateOptions, MigrateReport, VerifyReport,
-    run_migrate, verify_report,
-};
+use crate::{Area, DbError, LegacyStarter, MigrateOptions, MigrateReport, VerifyReport, run_migrate, verify_report};
 
 const USAGE: &str = "\
 usage:
   isles-db migrate --from <mongodb://...> --to <sqlite-file|postgres-url> [options]
   isles-db verify --against <mongodb://...> --to <sqlite-file|postgres-url> [options]
-  isles-db export-mongo --from <sqlite-file|postgres-url> --to <mongodb://...> [options]
   isles-db replay ...  (the shadow replay harness's own options)
 
 options:
@@ -51,13 +45,6 @@ pub enum Command {
     Verify {
         /// The command's options.
         opts: MigrateOptions,
-        /// Print the report as JSON (`--json`).
-        json: bool,
-    },
-    /// `export-mongo`: the store written back into MongoDB (RB13).
-    ExportMongo {
-        /// The command's options.
-        opts: ExportOptions,
         /// Print the report as JSON (`--json`).
         json: bool,
     },
@@ -96,10 +83,9 @@ pub fn parse_args(args: impl IntoIterator<Item = String>, starter: LegacyStarter
     match command.as_str() {
         "-h" | "--help" | "help" => Ok(Command::Help),
         "migrate" | "verify" => parse_migrate(&command, args, starter),
-        "export-mongo" => parse_export(args),
         "replay" => Err(DbError::Replay(args.collect())),
         other => Err(config(format!(
-            "unknown subcommand {other:?}; expected 'migrate', 'verify', 'export-mongo', or 'replay'"
+            "unknown subcommand {other:?}; expected 'migrate', 'verify' or 'replay'"
         ))),
     }
 }
@@ -158,48 +144,6 @@ fn parse_migrate(
         Command::Verify { opts, json }
     } else {
         Command::Migrate { opts, json }
-    })
-}
-
-fn parse_export(mut args: impl Iterator<Item = String>) -> Result<Command, DbError> {
-    let (mut from, mut to, mut node_text) = (None, None, None);
-    let mut areas = BTreeSet::new();
-    let (mut dry_run, mut allow_remote, mut json) = (false, false, false);
-    while let Some(arg) = args.next() {
-        match arg.as_str() {
-            "--from" => {
-                from = Some(value(
-                    &mut args,
-                    "--from requires a SQLite path or postgres:// URL".into(),
-                )?)
-            }
-            "--to" => to = Some(value(&mut args, "--to requires a MongoDB URI".into())?),
-            "--node" => node_text = Some(value(&mut args, "--node requires a node ID".into())?),
-            "--area" => add_areas(&mut areas, &value(&mut args, "--area requires an area name".into())?)?,
-            "--dry-run" => dry_run = true,
-            "--allow-remote-postgres" => allow_remote = true,
-            "--json" => json = true,
-            "-h" | "--help" => return Ok(Command::Help),
-            other => return Err(config(format!("unexpected flag {other:?}"))),
-        }
-    }
-    let from = from.ok_or_else(|| config("missing required --from <sqlite-file|postgres-url>"))?;
-    let to = match to {
-        Some(to) => to,
-        None if dry_run => String::new(),
-        None => return Err(config("missing required --to <mongodb://...>")),
-    };
-    // Validated, then unused: export writes Node's ids (P3)
-    node(node_text)?;
-    Ok(Command::ExportMongo {
-        opts: ExportOptions {
-            from_source: from,
-            to_uri: to,
-            areas,
-            dry_run,
-            allow_remote_postgres: allow_remote,
-        },
-        json,
     })
 }
 
@@ -275,20 +219,6 @@ pub fn print_verify_report(report: &VerifyReport, json: bool) {
     }
 }
 
-/// Prints `export-mongo`'s report to stdout, as text or as JSON.
-pub fn print_export_report(report: &ExportReport, json: bool) {
-    if json {
-        return print_json(report);
-    }
-    println!(
-        "isles-db export-mongo ({}):",
-        if report.dry_run { "dry-run" } else { "exported" }
-    );
-    for (collection, n) in report.counts.iter().filter(|(_, n)| **n > 0) {
-        println!("  {collection}: {n}");
-    }
-}
-
 fn failed(command: &str, error: &DbError) -> ExitCode {
     eprintln!("isles-db {command} failed: {error}");
     ExitCode::from(1)
@@ -333,19 +263,6 @@ pub fn main_with(args: impl IntoIterator<Item = String>, starter: LegacyStarter)
                 }
                 Err(e) => failed("verify", &e),
             },
-            #[cfg(feature = "export-mongo")]
-            Command::ExportMongo { opts, json } => match run_export_mongo(&opts).await {
-                Ok(report) => {
-                    print_export_report(&report, json);
-                    ExitCode::SUCCESS
-                }
-                Err(e) => failed("export-mongo", &e),
-            },
-            #[cfg(not(feature = "export-mongo"))]
-            Command::ExportMongo { .. } => failed(
-                "export-mongo",
-                &DbError::Config("this build has no export-mongo (RB15)".into()),
-            ),
             Command::Help => ExitCode::SUCCESS,
         }
     })

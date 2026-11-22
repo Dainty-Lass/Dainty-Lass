@@ -19,8 +19,7 @@ use crate::error::HostError;
 use crate::gamedata::{BACKEND_GAME_DATA, DIRECTOR_GAME_DATA, GameDataKind, game_data_state, seed_embedded_examples};
 use crate::hostconfig::{HostConfig, Platform, ServerMode, gateway_port, linux_options, load_host_config};
 use crate::linux::{UNIT_ALLOWLIST, ensure_wine_prefix, systemd_installed, write_gameserver_wrapper};
-use crate::mongo::{MongoCheck, ReplicaSetOptions, ensure_replica_set, find_mongod, mongod_args};
-use crate::paths::{PORTS, Paths, game_exe_relative};
+use crate::paths::{Paths, game_exe_relative};
 use crate::preset::apply_preset;
 use crate::publish::{ensure_server_flags, retire_server_loader};
 use crate::services::{Printer, Ready, ServiceSpec, Supervisor, check_ready};
@@ -105,19 +104,10 @@ pub fn port_in_use(ready: &Ready) -> Result<bool, HostError> {
     Ok(check_ready(ready) || raw_port_in_use(ready.port(), Some(ready.host()))?)
 }
 
-/// The workspace's settings.toml; an error says to run setup, or to migrate the MongoDB data first.
+/// The workspace's settings.toml; an error says to run setup.
 pub fn load_config(paths: &Paths) -> Result<HostConfig, HostError> {
     if let Some(cfg) = load_host_config(paths)? {
         return Ok(cfg);
-    }
-    if !cfg!(feature = "paradox")
-        && !crate::commands::update::mongo_migrated_marker(paths).is_file()
-        && crate::commands::update::has_unmigrated_mongo_dir(paths)
-    {
-        return Err(HostError::message(format!(
-            "unmigrated MongoDB data was found in {}: move it with `dainty-host db migrate` and `db verify` (or `dainty-legacy import reforged <checkout>`), or pass --fresh-start to setup to start on a fresh database",
-            paths.mongo_data.display()
-        )));
     }
     Err(HostError::message(
         "server is not configured yet: run dainty-host setup first",
@@ -137,8 +127,8 @@ pub fn up_line(config: &HostConfig) -> String {
     )
 }
 
-/// The services to start, in order: the allowlist on a public server (unless it runs as its own unit), the Node
-/// backend and Director in a `paradox` build, the content server, then the gateway.
+/// The services to start, in order: the allowlist on a public server (unless it runs as its own unit), the content
+/// server, then the gateway.
 pub fn service_plan(
     p: &Paths,
     config: &HostConfig,
@@ -161,35 +151,6 @@ pub fn service_plan(
             ),
             ready_timeout: Duration::from_secs(60),
             required: true,
-        });
-    }
-
-    if cfg!(feature = "paradox") {
-        plan.push(Planned {
-            spec: ServiceSpec {
-                name: "backend".into(),
-                cwd: p.backend_dir.clone(),
-                command: programs.node.clone(),
-                args: vec![Path::new("build").join("server.js").display().to_string()],
-                env_file: Some(env_file(p, "backend")),
-                extra_env: Vec::new(),
-                ready: Some(Ready::http(own.backend, "/dauntless-status")),
-            },
-            ready_timeout: Duration::from_secs(120),
-            required: true,
-        });
-        plan.push(Planned {
-            spec: ServiceSpec {
-                name: "director".into(),
-                cwd: p.director_dir.clone(),
-                command: programs.node.clone(),
-                args: vec![Path::new("dist").join("server.js").display().to_string()],
-                env_file: Some(env_file(p, "director")),
-                extra_env: Vec::new(),
-                ready: Some(Ready::http(own.director, "/api/instances")),
-            },
-            ready_timeout: Duration::from_secs(60),
-            required: false,
         });
     }
 
@@ -221,25 +182,17 @@ pub fn service_plan(
     Ok(plan)
 }
 
-/// Prepares the database before the services start; `false` stops the start.
-pub type PrepareDbFn<'a> = &'a dyn Fn(&Supervisor) -> Result<bool, HostError>;
 /// Whether something already holds a service's port.
 pub type PortTakenFn<'a> = &'a dyn Fn(&Ready) -> Result<bool, HostError>;
 
-/// Prepares the database, then starts each planned service in order; `false` when a stop was asked meanwhile.
+/// Starts each planned service in order; `false` when a stop was asked meanwhile.
 /// Fails when a port is taken or a required service is not ready in time.
 pub fn start_services(
     supervisor: &Supervisor,
     control: &Control,
     plan: Vec<PlannedService>,
-    prepare_db: Option<PrepareDbFn<'_>>,
     port_taken: PortTakenFn<'_>,
 ) -> Result<bool, HostError> {
-    if let Some(prep) = prepare_db
-        && !prep(supervisor)?
-    {
-        return Ok(false);
-    }
     for item in plan {
         if control.asked() {
             return Ok(false);
@@ -337,12 +290,9 @@ pub fn preflight(paths: &Paths, config: &HostConfig) -> Result<(), HostError> {
     preflight_with(paths, config, false)
 }
 
-/// What runs before the services: the MongoDB data check, the host checks, the preset and game data,
+/// What runs before the services: the host checks, the preset and game data,
 /// the game folder with its runtime, and the store check. Fails on what would stop the server from running.
 pub fn preflight_with(paths: &Paths, config: &HostConfig, external_allowlist: bool) -> Result<(), HostError> {
-    if !cfg!(feature = "paradox") {
-        crate::commands::update::check_unmigrated_mongo_data(paths, config)?;
-    }
     host_checks(paths, config, external_allowlist)?;
 
     let _ = apply_preset(paths, false)?;
@@ -366,102 +316,13 @@ pub fn preflight_with(paths: &Paths, config: &HostConfig, external_allowlist: bo
         }
     }
 
-    if !cfg!(feature = "paradox") {
-        let db_check = store_database_check(paths, config);
-        if db_check.level == Level::Fail {
-            return Err(HostError::message(db_check.text));
-        }
+    let db_check = store_database_check(paths, config);
+    if db_check.level == Level::Fail {
+        return Err(HostError::message(db_check.text));
     }
 
     let _ = crate::hooks::get().install_director_runner(paths);
     Ok(())
-}
-
-/// Brings up the managed MongoDB's replica set, starting mongod under `supervisor` when it does not answer.
-/// `false` when `cancel` stopped it.
-pub fn prepare_database(
-    paths: &Paths,
-    config: &HostConfig,
-    supervisor: &Supervisor,
-    cancel: &dyn Fn() -> bool,
-) -> Result<bool, HostError> {
-    if cancel() {
-        return Ok(false);
-    }
-
-    let initial = ensure_replica_set(
-        &config.mongo.uri,
-        &ReplicaSetOptions {
-            initiate: true,
-            host: None,
-            timeout_ms: Some(2000),
-        },
-    )?;
-    if matches!(initial, MongoCheck::Ok { primary: true, .. }) {
-        return Ok(true);
-    }
-
-    if !config.mongo.manage {
-        return match initial {
-            MongoCheck::Ok { primary: false, .. } => {
-                Err(HostError::message("external MongoDB replica set is not primary yet"))
-            }
-            MongoCheck::Failed { detail, .. } => Err(HostError::message(format!(
-                "could not connect to external MongoDB ({}): {detail}",
-                config.mongo.uri
-            ))),
-            MongoCheck::Ok { primary: true, .. } => Ok(true),
-        };
-    }
-
-    let mongod_bin = find_mongod(config.mongo.mongod.as_deref())?.ok_or_else(|| {
-        HostError::message("mongod was not found: install MongoDB Community Server or pass --mongod <path> to setup")
-    })?;
-
-    std::fs::create_dir_all(&paths.mongo_data).map_err(|e| HostError::io(&paths.mongo_data, e))?;
-    std::fs::create_dir_all(&paths.logs).map_err(|e| HostError::io(&paths.logs, e))?;
-    let mongo_log = paths.logs.join("mongo.log");
-    let args = mongod_args(&paths.mongo_data, &mongo_log, PORTS.mongo)?;
-
-    let spec = ServiceSpec {
-        name: "mongod".to_owned(),
-        cwd: paths.workspace.clone(),
-        command: PathBuf::from(mongod_bin),
-        args,
-        env_file: None,
-        extra_env: Vec::new(),
-        ready: Some(Ready::tcp("127.0.0.1", PORTS.mongo)),
-    };
-
-    let started = supervisor.start(spec, Duration::from_secs(30))?;
-    if !started {
-        if cancel() {
-            return Ok(false);
-        }
-        return Err(HostError::message(format!(
-            "mongod did not start on port {} within 30s (see {})",
-            PORTS.mongo,
-            mongo_log.display()
-        )));
-    }
-
-    let after = ensure_replica_set(
-        &config.mongo.uri,
-        &ReplicaSetOptions {
-            initiate: true,
-            host: None,
-            timeout_ms: Some(15_000),
-        },
-    )?;
-    match after {
-        MongoCheck::Ok { primary: true, .. } => Ok(true),
-        MongoCheck::Ok { primary: false, .. } => Err(HostError::message(
-            "MongoDB replica set rs0 did not become primary within 15s",
-        )),
-        MongoCheck::Failed { detail, .. } => Err(HostError::message(format!(
-            "MongoDB replica set initialization failed: {detail}"
-        ))),
-    }
 }
 
 /// Writes the game server wrapper if it is missing and makes the Wine prefix.
@@ -541,20 +402,5 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let paths = Paths::new(tmp.path());
         assert!(load_config(&paths).is_err());
-    }
-
-    #[test]
-    fn load_config_refuses_unmigrated_mongo_before_requiring_settings_toml() {
-        let tmp = TempDir::new().unwrap();
-        let paths = Paths::new(tmp.path());
-        std::fs::create_dir_all(&paths.mongo_data).unwrap();
-        std::fs::write(paths.mongo_data.join("WiredTiger"), "wt").unwrap();
-        let err = load_config(&paths).unwrap_err().to_string();
-        if !cfg!(feature = "paradox") {
-            assert!(
-                err.contains("unmigrated MongoDB data") && err.contains("dainty-legacy import reforged"),
-                "{err}"
-            );
-        }
     }
 }

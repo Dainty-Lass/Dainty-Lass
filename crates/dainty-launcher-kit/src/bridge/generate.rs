@@ -120,7 +120,7 @@ pub fn types_ts() -> String {
         ModuleThemeView, ModuleCapabilitiesView, ModuleView,
         HistoryEntryView, HistoryPageView, RevertRowView, RevertConflictView, RevertPlanView, RevertedInView,
         RevertDoneView, RealmState, RealmSessionView, RealmView, DoctorLevel, DoctorCheckView, DoctorReportView,
-        MongoMigrationState, MongoMigrationView, ServerConfigView, ServerInviteEntry,
+        ServerConfigView, ServerInviteEntry,
         AdminActionKind, AdminPlayerView, AdminResultView,
         ManagedInstallView, RemoteStatusView, RemoteInviteView, RemoteExecView, UninstallPlan,
         CrashReports, CrashOfferState, CrashOffer,

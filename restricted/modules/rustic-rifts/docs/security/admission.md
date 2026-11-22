@@ -43,8 +43,8 @@ decodes, accepted claims are in the transport's ranges, a verification agrees wi
 
 ### The ticket
 
-- [ ] The payload is byte for byte Node's and the transport's: `tests/node_vectors.rs` replays 349 verdicts of
-      Mystic's `admissionTickets.ts`, message for message, and re-encodes every ticket Node issued to the same
+- [ ] The payload is byte for byte Node's and the transport's: the oracle's vectors (deleted at RB15) replayed 349
+      verdicts of Mystic's `admissionTickets.ts`, message for message, and re-encodes every ticket Node issued to the same
       bytes. The transport's own verifier and `ParadoxTransport.dll`'s joiner accept Rust-minted tickets (RF4's
       harness run, recorded in the commit report).
 - [ ] Only canonical encodings pass: unpadded base64url that re-encodes to itself, exactly three parts, prefix

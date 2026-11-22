@@ -20,8 +20,6 @@ import { ManagerShell, useAct } from "@/components/manager/ManagerShell";
 // Where each missing requirement is fetched from: only targets the bridge's open_external allows.
 const GET: Partial<Record<RequirementId, ExternalTarget>> = {
   git: "git",
-  node: "nodejs",
-  mongodb: "mongodb",
   tailscale: "tailscale_download",
   visual_studio: "visual_studio_installer",
   rust: "rust_installer",

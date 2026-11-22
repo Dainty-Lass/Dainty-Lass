@@ -711,9 +711,7 @@ fn comment(path: &str) -> &'static str {
             "The 1.14.7 version facts the server reads beside version_data, relative to the server folder. Left\n\
              out: data/1.14.7/version_facts.json, the file the release ships."
         }
-        "mongo" => "The database.",
-        "mongo.manage" => "true: dainty-host starts mongod itself.",
-        "mongo.mongod" => "The mongod program when dainty-host starts it.",
+        "mongo" => "Retired with MongoDB (RB15): read, ignored, and left out when setup next writes this file.",
         "multipliers" => {
             "Private test servers only: multiply the XP and the loot the game grants, 1 to 100 (1 is off)."
         }
@@ -898,7 +896,7 @@ fn comment(path: &str) -> &'static str {
         "backend" => "The backend (RD24). Left out: what setup has always written.",
         "backend.log_level" => "\"debug\", \"info\" (default), \"warn\" or \"error\".",
         "backend.transaction_max_commit_ms" => {
-            "MongoDB builds: a transaction's longest commit, 1 to 600000 ms (15000)."
+            "Unused since RB15 retired MongoDB: a transaction's longest commit there, 1 to 600000 ms."
         }
         "backend.hunt_go_now_min_ms" => "The least wait before a hunt's Go Now starts it, 1 to 600000 ms (1).",
         "backend.hunt_go_now_max_ms" => "The most wait before a hunt's Go Now starts it, 1 to 600000 ms (1000).",
@@ -1015,7 +1013,7 @@ fn comment(path: &str) -> &'static str {
             "true: accept a Postgres server on another machine, over a network you trust (private, not the internet)."
         }
         "database.fresh_start" => {
-            "true: start on a new database without migrating existing MongoDB data (MongoDB data is kept intact)."
+            "true: this server started on a new database rather than an old install's MongoDB data."
         }
         _ => "",
     }

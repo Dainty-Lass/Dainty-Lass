@@ -5,7 +5,7 @@
 The checklist for the server as one process (RD26): the controller in `crates/dainty-controller`, `dainty-host
 serve` in `crates/dainty-hostkit/src/serve.rs`, its console (`repl.rs`) and dashboard (`tui.rs`), the settings readers
 it loads (`hostconfig.rs`, `hostconfig/yaml.rs`) and the server GUI's embedded server
-(`launcher/src-tauri/src/server_gui.rs`). `SECURITY_REVIEW.md` indexes it.
+(`crates/dainty-launcher-kit/src/controller/host.rs`). `SECURITY_REVIEW.md` indexes it.
 
 How to use it: before `serve` replaces `dainty-host start` for hosts, copy this list into the cutover PR, check
 each item in the code (not from memory), link the code or test that shows it, and sign at the end with the date and
@@ -14,8 +14,7 @@ the commit reviewed. An item that does not hold is a bug to fix before the cutov
 ## What it is and where the boundary is
 
 The controller starts the server's modules in order (allowlist, gateway, content, admin, the compiled-in MIT
-`rustic-isles-1-14-7` module: its backend on port 61000 and in-process `rustic-isles-director` on port 61001 over SQLite or Postgres; or MongoDB and the Node backend/Director when built with the opt-in `paradox` rollback
-feature), keeps each one's phase, and stops them in reverse. It opens no listener of its own: every port belongs to a
+`rustic-isles-1-14-7` module: its backend on port 61000 and in-process `rustic-isles-director` on port 61001 over SQLite or Postgres), keeps each one's phase, and stops them in reverse. It opens no listener of its own: every port belongs to a
 module, and each module keeps the checklist of its component (`gateway.md`, `allowlist.md`, `content.md`,
 `admin-api.md`, `host-start.md`). What the controller adds is one process holding all of them, a console that drives
 them, and the files it reads to compose them.
@@ -24,8 +23,8 @@ them, and the files it reads to compose them.
   wrote. They are the host's own, but a broken or planted file must only ever be refused.
 - **In, the terminal:** console lines on stdin (`serve --interactive`) and the dashboard's keys and `:` prompt
   (`serve --tui`). Whoever has the terminal is the host: the console has no login, by design.
-- **In, the services' output:** every line a supervised process (Node, MongoDB) prints, and the in-process services'
-  log events. A Node service can echo what a player sent (a name, a chat line) into its output.
+- **In, the services' output:** every line a supervised process (a service library, an external module, turn-rs)
+  prints, and the in-process services' log events. Either can echo what a player sent (a name, a chat line).
 - **In, the server GUI:** `host_server_start`, `host_server_stop` and `host_server_restart` from the launcher page,
   over the bridge (`bridge/spec.rs`).
 - **Out:** the host's terminal, `logs/server.log` (dashboard mode), the page's server panel, and the env each
@@ -34,7 +33,8 @@ them, and the files it reads to compose them.
 Code: `crates/dainty-controller/src/controller.rs` (start, ready timeout, stop grace, restart, shutdown),
 `crates/dainty-hostkit/src/serve.rs` (`compose`, `prepare`, `run`, `prepare_embedded`, the printers), `repl.rs`
 (`parse_command`, `run_command`, `plain`), `tui.rs` (`on_key`, `run_tui`), `hostconfig.rs` (`read_host_config`),
-`hostconfig/yaml.rs`, `services.rs` (`pump`), `launcher/src-tauri/src/server_gui.rs` and `bridge/commands.rs`
+`hostconfig/yaml.rs`, `services.rs` (`pump`), `crates/dainty-launcher-kit/src/controller/host.rs` and
+`crates/dainty-launcher-app/src/bridge/commands.rs`
 (`host_server_restart`).
 
 Fuzz targets: `host_config` in `fuzz` (settings.toml, the YAML reader and host.json, and an accepted file written
@@ -136,10 +136,10 @@ as `plain` prints it carries none either).
 These do not block Phase 6 but must be settled, or accepted in writing, before the cutover:
 
 - **One process, one failure domain.** A module that panics is caught by its task, but one that blocks a runtime
-  thread or leaks memory hurts every other module. Node's separate processes did not share that.
+  thread or leaks memory hurts every other module. `start`'s separate processes did not share that.
 - **The console's own log file.** Dashboard mode writes `logs/server.log` with every event at the levels the host
   chose; the file's permissions are the workspace's. Check them on Linux (`hosting-linux.md`).
-- **Supervised restarts.** A Node service that dies is restarted by the supervisor without limit; a crash loop
+- **Supervised restarts.** A supervised process that dies is restarted by the supervisor without limit; a crash loop
   fills the log. `dainty-host start` behaves the same.
 
 ## Fuzzing
@@ -160,8 +160,7 @@ the write-back check in seconds.
 
 ## Changes from `dainty-host start`
 
-- One process runs the Rust services as modules; `start` runs each as its own process. The Node services and MongoDB
-  are supervised processes in both.
+- One process runs the Rust services as modules; `start` runs each as its own process.
 - The console, the dashboard and the server GUI are new: `start` had only Ctrl+C.
 - Settings may be YAML as well as TOML and host.json (RD26); YAML is read by the kit's own small reader, capped as
   above.

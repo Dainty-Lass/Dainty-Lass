@@ -66,8 +66,7 @@ pub(crate) fn config(target: &str, allow_remote: bool) -> Result<DatabaseConfig,
     })
 }
 
-/// verify and export refuse a SQLite file that is not there rather than create an empty one (coordinator item 1:
-/// a mistyped export source would empty MongoDB).
+/// verify refuses a SQLite file that is not there rather than create an empty one (coordinator item 1).
 pub(crate) fn must_exist(config: &DatabaseConfig) -> Result<(), DbError> {
     match config {
         DatabaseConfig::Sqlite { file } if !file.exists() => Err(DbError::Config(format!(

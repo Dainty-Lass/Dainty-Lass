@@ -28,7 +28,6 @@ use crate::cli::{
     RemoteApproveArgs, RemoteArgs, RemoteCancelArgs, RemoteCommand, RemoteEnrollArgs, RemoteExecArgs,
     RemoteInitControllerArgs, RemoteInviteArgs, RemoteSyncArgs, SetupArgs,
 };
-use crate::commands::update::MONGO_MIGRATED_MARKER;
 use crate::doctor::{DoctorOptions, Level, run_doctor};
 use crate::error::HostError;
 use crate::hostconfig::{
@@ -907,7 +906,8 @@ impl RemoteHostHandler for HostKitRemoteHandler {
                 detail: None,
             });
         }
-        let mongo_migration = if self.paths.config.join(MONGO_MIGRATED_MARKER).is_file() {
+        // The wire still carries it: what dainty-legacy's `import reforged` left of a Node kit's MongoDB
+        let mongo_migration = if self.paths.config.join(".mongo-migrated").is_file() {
             MongoMigrationState::Migrated
         } else if config.database.as_ref().and_then(|d| d.fresh_start).unwrap_or(false) {
             MongoMigrationState::Skipped

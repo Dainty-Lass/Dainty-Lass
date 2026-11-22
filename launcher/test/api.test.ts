@@ -200,8 +200,8 @@ const NO_PAGE_METHOD = new Set([
   "host_server_restart", "region_ping", "module_list", "module_get", "module_run_command", "module_set_settings",
   "module_load", "module_unload", "realm_host", "realm_join", "realm_stop", "realm_get", "history_query",
   "history_revert_dry_run", "history_revert_apply", "guarded_list", "guarded_approve", "guarded_cancel",
-  "server_doctor", "server_backup", "server_config_get", "server_config_save", "server_migrate_mongo",
-  "server_confirm_fresh_start", "server_invite_list", "admin_action", "remote_status", "remote_init_controller",
+  "server_doctor", "server_backup", "server_config_get", "server_config_save",
+  "server_invite_list", "admin_action", "remote_status", "remote_init_controller",
   "remote_invite", "remote_enroll", "remote_revoke", "remote_leave", "remote_exec",
 ])
 

@@ -11,7 +11,7 @@ commit reviewed. An item that doesn't hold is a bug to fix before the release, n
 
 ## What it is and where the boundary is
 
-A GraphQL service for the host's tools, such as a Discord bot. It runs no moderation of its own. It calls the Node
+A GraphQL service for the host's tools, such as a Discord bot. It runs no moderation of its own. It calls the
 backend's admin routes and the Director, so what it can do is bounded by what those routes do.
 
 - **In, from callers:** HTTP on `127.0.0.1:61003` only. `POST /graphql` with `Authorization: Bearer <key>` (the
@@ -25,15 +25,15 @@ backend's admin routes and the Director, so what it can do is bounded by what th
   `/api/instances`. They are local and trusted to be what they say, but each one is parsed defensively.
 - **In, from game modules (DF4c):** the answers to kick, ban and lookup (`module_api::AdminResponse` or a
   `ModuleError`), through the controller's driver. A module out of process is another program: its frames are
-  checked by `module-api`'s parser (fuzz target `module_frame`), and the admin API treats the text of its errors as
+  checked by `module-api`'s parser (no fuzz target since RB15, `module-host.md`), and the admin API treats the text of its errors as
   untrusted.
 - **Out:** signed `/admin/v1` calls (the manager-operator credential,
-  `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/security/managerOperator.ts`), the admin key to `/dainty/api/Kick`, `AdminCall`s to game
+  `upstream.rs`), the admin key to `/dainty/api/Kick`, `AdminCall`s to game
   modules, and GraphQL answers to the caller.
 
 ### Which game a player is in
 
-The admin API sends kick, ban and lookup to the game the player is in (`modules.rs`, `schema.rs` `locate`). The Node
+The admin API sends kick, ban and lookup to the game the player is in (`modules.rs`, `schema.rs` `locate`). The
 backend answers for 1.14.7 until a module for 1.14.7 is loaded, so a server with no modules works exactly as before.
 Each game module that registered admin actions is attached to the `AdminPlugin` core plugin by the controller; it
 must answer lookups, and one module per game version answers admin actions. A registration names no accounts and
@@ -72,8 +72,8 @@ id, so a change in a module's log leads back to the request and the person who a
 Code: `crates/dainty-admin/src/` (`input.rs` holds every check of outside input, `app.rs` the HTTP side, `schema.rs`
 the fields and what they call, `upstream.rs` the calls and the signature, `modules.rs` the module registry side,
 `hmac.rs`, `timeouts.rs`, `config.rs`, `server.rs`). Tests: `tests/api.rs` runs the API end to end against a fake
-backend and Director that check the signature and the admin key as the Node code does, and runs RD25's lookup, kick
-and ban cases against the Node backend, a stub 1.14.7 module and a stub 1.4.4 module (`games`).
+backend and Director that check the signature and the admin key as the backend does, and runs RD25's lookup, kick
+and ban cases against the backend, a stub 1.14.7 module and a stub 1.4.4 module (`games`).
 
 Fuzz target in `fuzz`:
 
@@ -180,9 +180,9 @@ and input checks (`schema.rs`; `guarded.rs`, `guard.rs`). Not guarded, with the 
 
 ### Game modules (DF4c)
 
-- [ ] A server with no module for 1.14.7 sends 1.14.7's kick, ban and lookup to the Node backend exactly as before,
+- [ ] A server with no module for 1.14.7 sends 1.14.7's kick, ban and lookup to the backend exactly as before,
       and asks no module when none is loaded (`schema.rs`, `locate`; `rd25_cases_on_the_node_backend`). Once a 1.14.7
-      module is attached, the Node backend is never asked for a player
+      module is attached, the backend is never asked for a player
       (`rd25_cases_on_a_1_14_7_module_which_takes_over_from_the_node_backend`).
 - [ ] `AdminPlugin::attach` refuses a plugin's admin actions, a game whose actions don't include lookup, and a second
       module for a game version already attached (`modules.rs`;
@@ -199,7 +199,7 @@ and input checks (`schema.rs`; `guarded.rs`, `guard.rs`). Not guarded, with the 
       (`a_game_that_does_not_answer_stops_an_action_but_not_a_lookup`).
 - [ ] A module's error text reaches the caller as one line of at most 200 characters (`input.rs`, `module_message`),
       and the error kind decides the code. The details go to the log.
-- [ ] A timeout in a module's game is a ban with `until`: the module lifts it, and `timeouts.json` holds the Node
+- [ ] A timeout in a module's game is a ban with `until`: the module lifts it, and `timeouts.json` holds the
       backend's timeouts only. `unban` and `liftTimeout` answer `NOT_SUPPORTED` for a module's player, since
       `module-api` has no request for them yet (`a_module_keeps_its_own_timeouts_and_lifts_nothing_yet`).
 - [ ] What `module-api`'s answers don't carry (status, restriction, the admin role, location, connections closed)
@@ -249,6 +249,9 @@ and input checks (`schema.rs`; `guarded.rs`, `guard.rs`). Not guarded, with the 
       (`PUBLIC_LAUNCHER_API`).
 
 ## paradox/ change
+
+History: the Node reference this changed was retired in RB15. RB7 ported the route to
+`crates/rustic-isles-launcher-api` (`admin/host_routes.rs`, `kick`).
 
 RD2 makes fixes the baseline for `paradox/`, not a rule. The kick needs a way to drop a live session, and nothing in
 the Node backend did that: `SessionRegistry` holds the chat connections, but no route closed them on demand. The Rust

@@ -3,7 +3,7 @@
 # Security checklist: launcher invites, pinned TLS and the host API (RX3)
 
 > **Moved (RL13, RL14):** this code is now the MIT `crates/dainty-launcher-kit` (spec-rd27-launcher.md); the paths below are
-> the shell's before the cutover, kept as the record. Its fuzz targets are in the root's `fuzz/`.
+> the shell's before the cutover (`restricted/launcher/src-tauri`, deleted in RB15), kept as the record. Its fuzz targets are in the root's `fuzz/`.
 
 The checklist for the launcher's network client: invite parsing, the TLS connection pinned to the invite's
 certificate, the HTTP client and the host API calls (MIGRATION_PLAN.md RA4, RA5, RD10). `SECURITY_REVIEW.md` indexes

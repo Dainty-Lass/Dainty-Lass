@@ -12,7 +12,7 @@ containers in [hosting-docker.md](hosting-docker.md) are this page with the pack
 ## What you need on the server
 
 - Debian 13 (or any distribution with the same packages): `wine wine64 xvfb xauth nftables`. No Node.js or MongoDB is
-  needed on the default path: the 1.14.7 backend, Director, gateway, content server, allowlist helper and admin API
+  needed: the 1.14.7 backend, Director, gateway, content server, allowlist helper and admin API
   are compiled into `dainty-host` and store player data in `.workspace/config/dainty-lass.db` (SQLite) or Postgres
   (`[database]`).
 - Your **Dauntless 1.14.7** folder (about 15 GB), writable by the user the server runs as: the game servers write
@@ -154,15 +154,11 @@ bin/dainty-host backup                        # SQLite/Postgres backup into .wor
 - The allowlist's nftables table is swapped in one transaction and filters only the game's UDP ports; it
   touches no other rule on the machine.
 
-## Updating and rollback (`dainty-host db export-mongo` and `paradox`)
+## Updating from an older install
 
-On a Linux host that previously ran the Node backend with MongoDB data, run `bin/dainty-host db migrate` and then
-`bin/dainty-host db verify` after `update`: they move the data into the configured store
-(`.workspace/config/dainty-lass.db` or Postgres) and leave `.workspace/mongodb` untouched, and `start` refuses until
-`verify` has found no difference. An old Node kit (`host.json`) is upgraded by
-`bin/dainty-legacy import reforged <old kit>`
-([hosting.md](hosting.md#live-server-cutover-checklist-backup-update-smoke-rollback)).
-For one release after the cutover (until RB15), you can roll back to the Node backend and MongoDB by exporting the store
-back to MongoDB with `bin/dainty-host db export-mongo --to mongodb://127.0.0.1:27017/reforged` (defaulting the source
-and target from `settings.toml`) and running a `dainty-host` binary built with `--features paradox`
-([hosting.md](hosting.md#rollback-to-the-node-backend-and-mongodb-paradox-feature)).
+`update` reruns `setup`, which moves the game data out of the retired `modules/rustic-isles/reference/1.14.7` folders
+into `modules/rustic-isles/game-data/1.14.7` once and prints each move. A `[mongo]` table in `settings.toml` is
+ignored with a warning and dropped the next time the file is written. What is left of `modules/rustic-isles/reference/`,
+and `.workspace/mongodb`, can be deleted. An old Node kit (`host.json`) is upgraded by
+`bin/dainty-legacy import reforged <old kit>`, which moves its MongoDB data into the store
+([hosting.md](hosting.md#upgrading-from-an-older-install)).

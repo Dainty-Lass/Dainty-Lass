@@ -17,7 +17,6 @@ use crate::hostconfig::{
     CLUSTER_CA_FILE, HostConfig, NODE_CERT_FILE, NODE_KEY_FILE, PerformanceOptions, Platform, ServerMode, gateway_port,
     is_tailscale_ipv4, linux_options, load_host_config, node_database_config, performance_options,
 };
-use crate::mongo::{MongoCheck, MongoProblem, ReplicaSetOptions, ensure_replica_set};
 use crate::paths::{
     GAME_VERSION_TEXT, PINNED_EXE_SHA256, Paths, RUNTIME_FILE_NAMES, game_exe_relative, strip_verbatim,
 };
@@ -105,7 +104,7 @@ pub const SERVICES_MEMORY_MB: i64 = 1536;
 pub fn tailscale_ipv4() -> Option<String> {
     let mut candidates = vec!["tailscale".to_owned()];
     if cfg!(windows) {
-        let pf = crate::mongo::program_files();
+        let pf = crate::which::program_files();
         let ts = pf.join("Tailscale").join("tailscale.exe");
         if ts.is_file() {
             candidates.push(ts.to_string_lossy().into_owned());
@@ -242,27 +241,6 @@ pub fn sha256_file(file: &Path) -> Result<String, HostError> {
         hasher.update(&buf[..n]);
     }
     Ok(hex::encode(hasher.finalize()))
-}
-
-/// Whether a `node --version` is 20.19 or newer.
-pub fn node_version_ok(version: &str) -> bool {
-    let trimmed = version.trim();
-    let stripped = trimmed.strip_prefix('v').unwrap_or(trimmed);
-    let mut parts = stripped.split('.');
-    let Some(major_str) = parts.next() else {
-        return false;
-    };
-    let Some(minor_str) = parts.next() else {
-        return false;
-    };
-    let Ok(major) = major_str.parse::<u32>() else {
-        return false;
-    };
-    let minor_digits: String = minor_str.chars().take_while(|c| c.is_ascii_digit()).collect();
-    let Ok(minor) = minor_digits.parse::<u32>() else {
-        return false;
-    };
-    major > 20 || (major == 20 && minor >= 19)
 }
 
 /// How many `*_functions.cpp` files the generated SDK folder holds.
@@ -873,59 +851,9 @@ pub fn network_checks(p: &Paths, config: &HostConfig, _platform: Platform) -> Re
     Ok(out)
 }
 
-/// The check of the MongoDB the server migrates from, by what `mongo` found.
-pub fn database_check(mongo: &MongoCheck, _uri: &str, managed: bool) -> Check {
-    let area = "database";
-    match mongo {
-        MongoCheck::Ok {
-            set_name,
-            primary: true,
-            ..
-        } => Check {
-            area,
-            level: Level::Ok,
-            text: format!("MongoDB replica set {set_name}, primary"),
-            fix: None,
-        },
-        MongoCheck::Ok {
-            set_name,
-            primary: false,
-            ..
-        } => Check {
-            area,
-            level: Level::Warn,
-            text: format!("MongoDB replica set {set_name} is not primary yet"),
-            fix: Some("wait a few seconds or run dainty-host setup".to_owned()),
-        },
-        MongoCheck::Failed {
-            reason: MongoProblem::Unreachable,
-            detail,
-        } if managed => Check {
-            area,
-            level: Level::Info,
-            text: format!("managed MongoDB is not running right now ({detail})"),
-            fix: Some("start the server with dainty-host start".to_owned()),
-        },
-        MongoCheck::Failed { reason, detail } => Check {
-            area,
-            level: Level::Fail,
-            text: format!("MongoDB check failed ({reason:?}): {detail}"),
-            fix: Some("start MongoDB with --replSet rs0 or run dainty-host setup".to_owned()),
-        },
-    }
-}
-
-/// The check of the store, and of MongoDB data not migrated yet.
+/// The check of the store.
 pub fn store_database_check(p: &Paths, config: &HostConfig) -> Check {
     let area = "database";
-    if let Some(text) = crate::commands::update::unmigrated_mongo_problem(p, config) {
-        return Check {
-            area,
-            level: Level::Fail,
-            text,
-            fix: None,
-        };
-    }
 
     let db_cfg = match node_database_config(config, p) {
         Ok(c) => c,
@@ -973,34 +901,6 @@ pub fn store_database_check(p: &Paths, config: &HostConfig) -> Check {
 pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostError> {
     let mut checks = Vec::new();
     let platform = Platform::current();
-
-    if cfg!(feature = "paradox") {
-        if let Ok(Some(ver)) = capture("node", &["--version"], None) {
-            let trimmed = ver.trim();
-            if node_version_ok(trimmed) {
-                checks.push(Check {
-                    area: "tools",
-                    level: Level::Ok,
-                    text: format!("Node.js {trimmed}"),
-                    fix: None,
-                });
-            } else {
-                checks.push(Check {
-                    area: "tools",
-                    level: Level::Fail,
-                    text: format!("Node.js {trimmed} is too old (need >= 20.19)"),
-                    fix: Some("install Node.js 20.19 or newer".to_owned()),
-                });
-            }
-        } else {
-            checks.push(Check {
-                area: "tools",
-                level: Level::Fail,
-                text: "Node.js was not found on PATH".to_owned(),
-                fix: Some("install Node.js 20.19 or newer".to_owned()),
-            });
-        }
-    }
 
     let Some(config) = load_host_config(p)? else {
         checks.push(Check {
@@ -1092,19 +992,7 @@ pub fn run_doctor(p: &Paths, opts: &DoctorOptions) -> Result<Vec<Check>, HostErr
 
     checks.extend(network_checks(p, &config, platform)?);
 
-    if cfg!(feature = "paradox") {
-        let mongo = ensure_replica_set(
-            &config.mongo.uri,
-            &ReplicaSetOptions {
-                initiate: false,
-                host: None,
-                timeout_ms: Some(2000),
-            },
-        )?;
-        checks.push(database_check(&mongo, &config.mongo.uri, config.mongo.manage));
-    } else {
-        checks.push(store_database_check(p, &config));
-    }
+    checks.push(store_database_check(p, &config));
 
     let backend_port = crate::hostconfig::service_ports(&config).backend;
     if wait_for_http(backend_port, "/health", Duration::from_millis(250)) {
@@ -1166,15 +1054,6 @@ mod tests {
 
     use super::*;
     use tempfile::TempDir;
-
-    #[test]
-    fn node_version_ok_requires_20_19_or_newer() {
-        assert!(!node_version_ok("v18.20.0"));
-        assert!(!node_version_ok("v20.18.9"));
-        assert!(node_version_ok("v20.19.0"));
-        assert!(node_version_ok("20.19.1"));
-        assert!(node_version_ok("v22.1.0"));
-    }
 
     #[test]
     fn count_function_files_counts_only_sdk_functions_cpp() {

@@ -26,7 +26,7 @@ and nothing a node could use is sent to it. The account key goes only to the hom
   in the headers. To the home, the report with the account key header.
 
 Code: `crates/dainty-gateway/src/network.rs` (the node list's body, the report's parser), `policy.rs`
-(`NetworkRoute`), `gateway.rs` (`Gateway::network`); `launcher/src-tauri/src/net/regionping.rs` (fetching,
+(`NetworkRoute`), `gateway.rs` (`Gateway::network`); `crates/dainty-launcher-kit/src/net/regionping.rs` (fetching,
 timing, ordering, the report) and `net/regionping/parse.rs` (the node list's reader), `controller/region.rs`.
 
 Fuzz targets in `fuzz`: `gateway_network` (the report's parser: read whole or refused, region ids and round

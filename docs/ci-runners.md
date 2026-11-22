@@ -14,17 +14,13 @@ Three labels. One Linux machine can serve the first two from one runner.
 | Label | Runs on | Used for |
 | --- | --- | --- |
 | `docker` | A job container from `node:22-bookworm` on a Linux runner | Rust (rustup is installed by the job), Node, Bun, cargo-deny, fuzzing, the change detection and `CI ok` |
-| `linux-host` | The Linux runner itself (host mode) | restricted's Docker and network jobs: they build the images and run the compose smoke test on the runner's own Docker |
-| `windows-msvc` | The maintainer's Windows machine (host mode) | MSVC builds: both Rust workspaces on Windows, restricted's unsigned NSIS installers (`installers-windows`), and the release builds on Windows |
+| `linux-host` | The Linux runner itself (host mode) | The Docker and network jobs: they build the images and run the compose smoke test on the runner's own Docker |
+| `windows-msvc` | The maintainer's Windows machine (host mode) | MSVC builds: the Rust workspace and the native crates on Windows, the unsigned NSIS installers (`installers-windows`), and the release builds on Windows |
 
 | Workflow | Jobs | Labels |
 | --- | --- | --- |
-| `ci.yml` (every push) | The root's Rust, cargo-deny and fuzz; the UI; `restricted/`'s Rust, cargo-deny and fuzz, the Paradox reference, Docker, the installers and the network | `docker`, `linux-host`, `windows-msvc` |
-| `server-release.yml`, `launcher-release.yml` (Run workflow, a dry run) | Build from `restricted/` | `docker`, `windows-msvc` |
-
-rustic-isles' and rustic-rifts' own workflows (`ci.yml`, `routes.yml`, and RF3's `transport.yml` for the
-transport DLL and its self-test) are still in `restricted/modules/<name>/.forgejo/workflows/` from before they moved
-in-tree. Forgejo doesn't read a workflow there, so nothing runs them.
+| `ci.yml` (every push) | The Rust workspace, cargo-deny and fuzz; the UI; Docker, the installers, the network and the native crates | `docker`, `linux-host`, `windows-msvc` |
+| `server-release.yml`, `launcher-release.yml` (Run workflow, a dry run) | Build from the root workspace; the server archive takes `restricted/`'s files | `docker`, `windows-msvc` |
 
 Register the runners on the **`silentspud` account** (a user, not an organisation), not on one repository, so every
 repository reaches them: user settings, Actions, Runners, "Create new runner" shows the registration token. A job whose label
@@ -51,9 +47,7 @@ by its full URL, so the setting doesn't matter for them.
 
 1. Docker Engine with the compose plugin, Node.js 22, git and bash. A user of its own for the runner, in the
    `docker` group.
-2. **A kernel older than 6.19**, for the Docker job: MongoDB 8.0 refuses to start on 6.19 (mongodb.org
-   SERVER-121912), and the smoke test starts `mongo:8.0`. Debian 12 and Ubuntu 24.04 kernels are fine.
-3. Register, as the runner's user, from the folder it will run in:
+2. Register, as the runner's user, from the folder it will run in:
 
    ```sh
    forgejo-runner register --no-interactive \
@@ -64,11 +58,11 @@ by its full URL, so the setting doesn't matter for them.
    forgejo-runner generate-config > config.yml
    ```
 
-4. In `config.yml`: `runner.capacity: 2` or more (the Rust, fuzz and deny jobs run side by side) and
+3. In `config.yml`: `runner.capacity: 2` or more (the Rust, fuzz and deny jobs run side by side) and
    `cache.enabled: true`. Leave `container.docker_host` as generated: the jobs in containers need no Docker of
    their own (cargo-deny's action is a Docker action, which the runner starts itself), and the Docker job runs on
    the host.
-5. Run it as a service: `forgejo-runner daemon --config config.yml`, from a systemd unit with
+4. Run it as a service: `forgejo-runner daemon --config config.yml`, from a systemd unit with
    `User=<runner user>`, `WorkingDirectory=` the folder above and `Restart=on-failure`.
 
 Pin the image by digest if you want it fixed (`node:22-bookworm@sha256:...`); the label is the only place it is
@@ -158,5 +152,3 @@ the server's tag trigger is commented out and the launcher's prepare never sets 
   API and checks GitHub attestations, which Forgejo has neither of, and GitHub's publish jobs wait for DX5.
 - **Dependency updates.** `.github/dependabot.yml` is GitHub's and does nothing on Forgejo. Renovate is the
   Forgejo equivalent, if wanted before DX5.
-- **Mystic's and DR's other jobs.** rustic-isles' launcher, runtime loader and gitleaks jobs stay in
-  `restricted/modules/rustic-isles/.github/workflows/`, for GitHub only.

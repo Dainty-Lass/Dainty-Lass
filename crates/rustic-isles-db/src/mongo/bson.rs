@@ -170,21 +170,13 @@ impl Cursor<'_> {
     }
 }
 
-/// A command or reply value: JSON, plus the BSON types JSON has no word for. The reading commands use only the
-/// scalars; documents and arrays are the writer's.
-#[cfg_attr(
-    not(feature = "export-mongo"),
-    allow(dead_code, reason = "only the export-mongo writer builds documents and arrays")
-)]
+/// A command's value: the scalars the reading commands send.
 pub(crate) enum B<'a> {
     Str(&'a str),
     I32(i32),
     I64(i64),
     Bool(bool),
     Bin(&'a [u8]),
-    Json(&'a Value),
-    Doc(Vec<(&'a str, B<'a>)>),
-    Arr(Vec<B<'a>>),
 }
 
 pub(crate) fn encode_command(fields: &[(&str, B<'_>)]) -> Result<Vec<u8>, MongoError> {
@@ -252,19 +244,6 @@ fn write_value(out: &mut Vec<u8>, name: &str, value: &B<'_>) -> Result<(), Mongo
             out.extend_from_slice(&len.to_le_bytes());
             out.push(0);
             out.extend_from_slice(bytes);
-        }
-        B::Json(v) => write_json(out, name, v)?,
-        B::Doc(fields) => {
-            key(out, 0x03, name)?;
-            write_doc(out, fields)?;
-        }
-        B::Arr(items) => {
-            key(out, 0x04, name)?;
-            let start = begin(out);
-            for (i, item) in items.iter().enumerate() {
-                write_value(out, &i.to_string(), item)?;
-            }
-            finish(out, start)?;
         }
     }
     Ok(())

@@ -2,7 +2,8 @@
 
 > Since 2026-11-14 the file is `settings.toml` (`host.toml` renamed, with no migrator or fallback;
 > `crates/dainty-hostkit/src/settingstoml.rs`). Read `host.toml` below as `settings.toml`; a Node kit's `host.json` is
-> still converted, into `settings.toml`.
+> still converted, into `settings.toml`. Since RB15 there is no MongoDB: a `[mongo]` table below is read, ignored
+> with a warning and left out when `setup` next writes the file; the `npm run` commands are `dainty-host`'s.
 
 Draft, 2026-10-24. Scope: Dainty Lass first; Dauntless Revived at the end.
 

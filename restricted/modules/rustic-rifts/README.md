@@ -3,11 +3,9 @@
 The co-op transport is MIT code at the root: `crates/rustic-rifts-transport`, linked into the launcher through
 `rustic-rifts-host`'s `in-process` feature (umbrella spec D1, `docs/port/spec-rd27-rifts.md`). Its C++ predecessor,
 Mystic Paradox's `ParadoxTransport.dll`, was deleted at the cutover (`docs/port/spec-paradox-transport.md`, C4); it
-stays in the history. What is left here:
+stays in the history. So does `oracle/`, Mystic Paradox's Node answers replayed against the MIT
+`rustic-rifts-admission` and `rustic-rifts-relay`, deleted at RB15. What is left here:
 
-- `oracle/` (`rustic-rifts-oracle`): Mystic Paradox's Node answers (`tests/vectors/`), replayed against the MIT
-  `rustic-rifts-admission` and `rustic-rifts-relay`. No vector exercises the transport's frames: those are fixed by
-  `rustic-rifts-transport`'s own tests.
 - `run-relay-selftest.ps1`: two ICE links on this PC, relay only, through a real relay (below).
 - `tools/mint-relay-test-file.cjs`: mints Cloudflare TURN credentials for that self-test.
 - `docs/`: the RF1 inventory and the AGPL security checklists.

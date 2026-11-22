@@ -89,7 +89,7 @@ The set is held in `guard.rs`, outside the helper, so a restarted allowlist modu
 - [ ] An attach or detach re-applies the rule with the same addresses at once, without waiting out
       `ALLOWLIST_MIN_INTERVAL_MS` (`FirewallSync::reapply`); a change during a run is not lost to that run. The
       range is in the firewall before the module's game servers start, which a player's request triggers later.
-- [ ] A public server whose allowlist this process does not run (the Node or Docker helper) refuses every module
+- [ ] A public server whose allowlist this process does not run (a separate helper, as in Docker) refuses every module
       that registers a UDP port (`AllowlistPlugin::absent`), because nothing could guard it. A private server has
       no allowlist and no plugin. A build without the `allowlist` feature adds neither.
 - [ ] Every change is audited as `ports_changed` with the module's ranges; `/status` shows `modulePorts` only when

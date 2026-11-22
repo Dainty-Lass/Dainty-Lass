@@ -2,9 +2,9 @@
 
 `restricted/` is the AGPL subtree of Dainty Lass (RD27), licensed under the GNU Affero General Public License,
 version 3 only (`AGPL-3.0-only`); see [LICENSE.txt](LICENSE.txt). Additional terms under AGPLv3 section 7 apply to the
-Mystic Paradox material only; see [ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md). It builds on the MIT crates of
-[`../crates/`](../crates); a program built from both is distributed under the AGPL-3.0-only as a whole. This file
-records where each part of `restricted/` comes from.
+Mystic Paradox material only; see [ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md). Since RB15 it holds docs and data
+only, no code; the server release ships it beside the MIT binaries built from [`../crates/`](../crates). This file
+records where each part of `restricted/` comes from, and what was here before.
 
 ## Modification notice
 
@@ -18,7 +18,7 @@ Undaunted or any other project named here, and none of them endorses it.
 These repositories were merged in with their history (RD27) and are archived; each kept its own `NOTICE.md` and
 licence files in its folder: `modules/rustic-isles` ([NOTICE.md](modules/rustic-isles/NOTICE.md), with Mystic Paradox's
 additional terms), `modules/rustic-rifts` ([NOTICE.md](modules/rustic-rifts/NOTICE.md)),
-and `legacy/` (dainty-legacy, now only the oracle for the root's MIT `crates/dainty-legacy`). dainty-dash was here too until 2026-11-02, when it moved to dainty-lass's
+and `legacy/` (dainty-legacy, the oracle for the root's MIT `crates/dainty-legacy` until RB15 deleted it). dainty-dash was here too until 2026-11-02, when it moved to dainty-lass's
 `dashboard/` (now `ui/`) under the MIT licence; its history up to then stays in this repository's. The UI's two AGPL inputs (`ui/`) came from
 dainty-lass-ui.
 
@@ -34,13 +34,14 @@ dainty-lass-ui.
   [modules/rustic-isles/NOTICE.md](modules/rustic-isles/NOTICE.md), its licence
   [modules/rustic-isles/LICENSE](modules/rustic-isles/LICENSE) and its additional terms
   [modules/rustic-isles/ADDITIONAL_TERMS.md](modules/rustic-isles/ADDITIONAL_TERMS.md).
-- Its backend and Director reference sources, and the Node goldens recorded from them (`crates/rustic-isles-mit-parity`),
-  are in [`modules/rustic-isles`](modules/rustic-isles) (from `ParadoxBackend/` and `ParadoxDirector/` at commit
-  `21b9ff5` and tag `dauntless-1.12.0` at `4d5dfaa`; their Rust ports `isles-core`, `isles-director`, `isles-chat`,
-  `isles-db`, `isles-1-14-7` and `isles-1-12-0` were replaced by dainty-lass's MIT clean-room `rustic-isles-*` crates,
-  RD27, and removed; they stay in this repository's history), and the Node vectors recorded from its realm
-  modules are in
-  [`modules/rustic-rifts`](modules/rustic-rifts) (its Rust realm and Guard ports were replaced by dainty-lass's MIT
+- Its backend's and Director's game data examples and generator inputs are in
+  [`modules/rustic-isles/game-data/1.14.7`](modules/rustic-isles/game-data/1.14.7) (from `ParadoxBackend/game-data` and
+  `ParadoxDirector/game-data` at commit `21b9ff5`). Their Node sources (the reference tree, at `21b9ff5` and tag
+  `dauntless-1.12.0` at `4d5dfaa`) and the goldens recorded from them (`rustic-isles-mit-parity`) were here until RB15
+  deleted them; their Rust ports `isles-core`, `isles-director`, `isles-chat`, `isles-db`, `isles-1-14-7` and
+  `isles-1-12-0` were replaced earlier by dainty-lass's MIT clean-room `rustic-isles-*` crates (RD27). All stay in this
+  repository's history. The Node vectors recorded from its realm modules were in
+  [`modules/rustic-rifts`](modules/rustic-rifts) (`oracle`, deleted at RB15; its Rust realm and Guard ports were replaced by dainty-lass's MIT
   clean-room `rustic-rifts-*` crates, RD27, and removed, as was its C++ co-op transport (`ParadoxTransport/`), replaced
   by the launcher's built-in `rustic-rifts-transport`; they stay in this repository's history);
   its CatalogExporter (`tools/CatalogExporter/`) was in `modules/rustic-isles/native/catalog-exporter` until
@@ -61,7 +62,8 @@ dainty-lass-ui.
   `crates/rustic-isles-1-14-7/data/version_facts.json`, and its storage token seeds, extracted from Mystic Paradox's
   source, were replaced there by the catalog ids dainty-lass's own crates name (rulings V-1 to V-3,
   `docs/port/rulings-2026-11-13.md` at the root).
-- The changes made to it are listed patch by patch in [docs/paradox-patches.md](docs/paradox-patches.md).
+- The changes made to it are listed patch by patch in [docs/paradox-patches.md](docs/paradox-patches.md), now a
+  record: the code they changed is gone.
   Patches 0004 to 0039 were written in Freeza's Dauntless Reforged Revival line
   ([github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival](https://github.com/FreezaMotoqueiro/Dauntless-Reforged-Revival),
   AGPL-3.0-only) and are kept here as they were received; the files they touch say so in their comments. The
@@ -77,9 +79,9 @@ dainty-lass-ui.
 - By mixutin and the Dauntless Revived contributors. Repository:
   [github.com/mixutin/dauntless-revived](https://github.com/mixutin/dauntless-revived), AGPL-3.0-only.
   Dauntless Revived is itself a modified version of Undaunted.
-- The workspace files and the fuzz targets `http_body` and `proxy_headers` are modified versions of its `rust/` folder at commit `e1c5fec`
-  (dainty-lass's [docs/port/migration-guide.md](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/docs/port/migration-guide.md) section 2 says how); `launcher/src-tauri`
-  carries the DR-derived core of its launcher's Rust side alongside `crates/dainty-launcher-kit`. (`crates/dainty-protocol`,
+- The workspace files, the fuzz targets `http_body` and `proxy_headers` (modified from its `rust/` folder at commit
+  `e1c5fec`) and `launcher/src-tauri` (the DR-derived core of its launcher's Rust side, kept as tests) were here
+  until RB15 deleted them; they stay in this repository's history. (`crates/dainty-protocol`,
   `proxy`, `service-kit`, the SQLite helpers of `store`, and `gateway`, `content` and `chat` were rewritten clean-room from behaviour specs under MIT in
   `DL3b`/`DD26`; see `docs/port/clean-room/`.)
 - Files and functions taken over say so in their comments.
@@ -94,11 +96,10 @@ dainty-lass-ui.
 
 ### This project
 
-By the Dainty Lass contributors (`Copyright (c) 2026 Silent Spud`), AGPL-3.0-only: `crates/dainty-host-parity` (the Node host kit's
-tests, ported from Freeza's `ReforgedHost`, and that kit's recorded output, run against dainty-lass's MIT
-`crates/dainty-host`, which moved there with its one derived part rewritten clean-room, spec-rd27-host §2.1); the DR-derived Tauri shell in `launcher/src-tauri` (including `net/epic_install.rs`, which keeps DR's
-downloader structure); the fuzz targets in `fuzz/` (`http_body` and `proxy_headers` from DR's `rust/`).
-`docker/`, `docs/` and the workflows carry the repository licence.
+By the Dainty Lass contributors (`Copyright (c) 2026 Silent Spud`), AGPL-3.0-only: `docs/`, the module docs and the
+relay self-test. Until RB15 this also held `crates/dainty-host-parity` (the Node host kit's tests, ported from
+Freeza's `ReforgedHost`), the DR-derived Tauri shell's tests in `launcher/src-tauri`, `fuzz/` and `docker/`; they stay
+in this repository's history.
 
 ### Store captures
 
@@ -107,13 +108,13 @@ downloader structure); the fuzz targets in `fuzz/` (`http_body` and `proxy_heade
   published for academic and informational purposes, with no licence. Mystic Paradox's store generators read
   five of its files (Lady Luck's rotation, the platinum webstore and dyes, the Hunt Pass rank skips and
   passes). They are **not** copied into this repository:
-  [modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json](modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json) names the commit and each
+  [modules/rustic-isles/game-data/1.14.7/store-captures.json](modules/rustic-isles/game-data/1.14.7/store-captures.json) names the commit and each
   file's SHA-256, and the host kit's `gamedata` fetches them on the host's own machine.
 
 ### Other material
 
-- The services' npm dependencies are listed in each `package-lock.json`, and the Rust crates' in
-  `Cargo.lock`; each keeps its own licence (`cargo deny` checks the Rust ones).
+- The Rust crates' dependencies are listed in the root's `Cargo.lock`; each keeps its own licence (`cargo deny`
+  checks them).
 
 ## What this repository does not contain
 

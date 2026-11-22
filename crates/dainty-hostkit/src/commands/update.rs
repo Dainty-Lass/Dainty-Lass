@@ -1,27 +1,22 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
-//! `dainty-host update`: a newer release found, checked and installed in place, then setup rerun; and the check that
-//! stops a start or update while pre-cutover MongoDB data is not migrated.
+//! `dainty-host update`: a newer release found, checked and installed in place, then setup rerun.
 
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::ExitCode;
 
 use serde_json::json;
 
 use crate::cli::UpdateArgs;
 use crate::error::HostError;
-use crate::hostconfig::{HostConfig, load_host_config, node_database_config};
 use crate::paths::Paths;
 use crate::run::{RunOptions, run as run_cmd};
 use crate::selfupdate::{
     Attestation, Candidate, Manifest, SUMS_FILE, Source, UpdateError, UpdateResult, Wanted, extract, fetch,
     find_release, install, installing_marker, read_manifest, this_platform, verify_attestation,
 };
-
-/// The marker file written by dainty-legacy's `import reforged` when it moves a Node kit's MongoDB into the store.
-pub const MONGO_MIGRATED_MARKER: &str = ".mongo-migrated";
 
 /// What `update` needs of the machine, so a test can stand in for it.
 pub trait UpdateEnv {
@@ -74,172 +69,6 @@ impl UpdateEnv for RealUpdateEnv {
             },
         )?;
         Ok(res.code)
-    }
-}
-
-/// Where the MongoDB-migrated marker is.
-#[must_use]
-pub fn mongo_migrated_marker(p: &Paths) -> PathBuf {
-    p.config.join(MONGO_MIGRATED_MARKER)
-}
-
-/// `uri` with the password in its user info replaced, for printing.
-#[must_use]
-pub fn redact_mongo_uri(uri: &str) -> String {
-    let Some((scheme, rest)) = uri.split_once("://") else {
-        return uri.to_owned();
-    };
-    let (authority, tail) = match rest.find(['/', '?']) {
-        Some(idx) => (&rest[..idx], &rest[idx..]),
-        None => (rest, ""),
-    };
-    let Some((userinfo, hostpart)) = authority.rsplit_once('@') else {
-        return uri.to_owned();
-    };
-    let redacted_user = match userinfo.split_once(':') {
-        Some((user, _)) => format!("{user}:***"),
-        None => "***".to_owned(),
-    };
-    format!("{scheme}://{redacted_user}@{hostpart}{tail}")
-}
-
-/// `uri` with its password redacted, as [`redact_mongo_uri`] does.
-#[must_use]
-pub fn redact_uri_password(uri: &str) -> String {
-    redact_mongo_uri(uri)
-}
-
-/// `raw_uri` with a database in its path: the one it names, else `db_override`, else `reforged`.
-#[must_use]
-pub fn mongo_uri_with_database(raw_uri: &str, db_override: Option<&str>) -> String {
-    let db = db_override
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .unwrap_or("reforged");
-    let Some((scheme, rest)) = raw_uri.trim().split_once("://") else {
-        return raw_uri.trim().to_owned();
-    };
-    let (before_query, query) = match rest.split_once('?') {
-        Some((b, q)) => (b, Some(q)),
-        None => (rest, None),
-    };
-    let (authority, path) = match before_query.split_once('/') {
-        Some((a, p)) => (a, p.trim_matches('/')),
-        None => (before_query, ""),
-    };
-    let effective_db = if path.is_empty() { db } else { path };
-    match query {
-        Some(q) => format!("{scheme}://{authority}/{effective_db}?{q}"),
-        None => format!("{scheme}://{authority}/{effective_db}"),
-    }
-}
-
-/// The store a migration writes to: its target (a SQLite file or a postgres:// URL with the password),
-/// whether a remote Postgres is allowed, and the SQLite file when it is one.
-pub fn store_target_for_migration(
-    paths: &Paths,
-    config: &HostConfig,
-) -> Result<(String, bool, Option<PathBuf>), HostError> {
-    match node_database_config(config, paths)? {
-        dainty_store::DatabaseConfig::Sqlite { file } => {
-            let target = file.to_string_lossy().into_owned();
-            Ok((target, false, Some(file)))
-        }
-        dainty_store::DatabaseConfig::Postgres(pg) => {
-            let auth = if pg.password.is_empty() {
-                pg.user
-            } else {
-                format!("{}:{}", pg.user, pg.password)
-            };
-            let target = format!("postgres://{auth}@{}:{}/{}", pg.host, pg.port, pg.database);
-            Ok((target, pg.allow_remote, None))
-        }
-    }
-}
-
-/// Whether this server's pre-cutover MongoDB data was moved into the store.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum MongoMigrationStatus {
-    /// There is no MongoDB data to move.
-    None,
-    /// It was moved.
-    Migrated,
-    /// The host chose to start on an empty store instead.
-    Skipped,
-    /// MongoDB data is there and was not moved.
-    Unmigrated {
-        /// The folder the data is in.
-        source: String,
-    },
-}
-
-/// Whether the marker records a fresh start rather than a migration.
-#[must_use]
-pub fn is_fresh_start_marker(marker: &Path) -> bool {
-    fs::read_to_string(marker)
-        .ok()
-        .is_some_and(|s| s.starts_with("fresh-start"))
-}
-
-/// Records that the host chose to start on an empty store.
-pub fn confirm_fresh_start(p: &Paths) -> Result<(), HostError> {
-    let marker = mongo_migrated_marker(p);
-    if let Some(parent) = marker.parent() {
-        fs::create_dir_all(parent).map_err(|e| HostError::io(parent, e))?;
-    }
-    fs::write(&marker, "fresh-start\n").map_err(|e| HostError::io(&marker, e))
-}
-
-/// The migration's state, from the marker, settings.toml and the managed MongoDB's data folder.
-#[must_use]
-pub fn inspect_mongo_migration(p: &Paths) -> MongoMigrationStatus {
-    let marker = mongo_migrated_marker(p);
-    if marker.is_file() {
-        if is_fresh_start_marker(&marker) {
-            return MongoMigrationStatus::Skipped;
-        }
-        return MongoMigrationStatus::Migrated;
-    }
-    if load_host_config(p).ok().flatten().is_some_and(|c| c.fresh_start()) {
-        return MongoMigrationStatus::Skipped;
-    }
-    if has_unmigrated_mongo_dir(p) {
-        return MongoMigrationStatus::Unmigrated {
-            source: p.mongo_data.to_string_lossy().into_owned(),
-        };
-    }
-    MongoMigrationStatus::None
-}
-
-/// Whether the managed MongoDB's data folder holds anything but its lock file.
-#[must_use]
-pub fn has_unmigrated_mongo_dir(p: &Paths) -> bool {
-    let Ok(entries) = fs::read_dir(&p.mongo_data) else {
-        return false;
-    };
-    entries.flatten().any(|e| e.file_name().to_str() != Some("mongod.lock"))
-}
-
-/// The error a start or update gives while MongoDB data is not migrated; `None` when there is nothing to move.
-#[must_use]
-pub fn unmigrated_mongo_problem(p: &Paths, config: &HostConfig) -> Option<String> {
-    if cfg!(feature = "paradox") || config.fresh_start() || mongo_migrated_marker(p).is_file() {
-        return None;
-    }
-    // An install already on settings.toml never meets dainty-legacy's host.json check, so it is caught here
-    has_unmigrated_mongo_dir(p).then(|| {
-        format!(
-            "unmigrated MongoDB data was found in {}: move it with `dainty-host db migrate` and `db verify` (or `dainty-legacy import reforged <checkout>`), or pass --fresh-start to setup to start on a fresh database",
-            p.mongo_data.display()
-        )
-    })
-}
-
-/// Fails with [`unmigrated_mongo_problem`]'s text when there is one.
-pub fn check_unmigrated_mongo_data(p: &Paths, config: &HostConfig) -> Result<(), HostError> {
-    match unmigrated_mongo_problem(p, config) {
-        Some(problem) => Err(HostError::message(problem)),
-        None => Ok(()),
     }
 }
 
@@ -447,40 +276,4 @@ pub fn run_with(
     }
 
     Ok(ExitCode::SUCCESS)
-}
-
-#[cfg(test)]
-mod tests {
-    #![allow(clippy::unwrap_used, reason = "a panic is how a test fails")]
-
-    use super::*;
-    use tempfile::TempDir;
-
-    #[test]
-    fn check_unmigrated_mongo_data_passes_when_empty_or_marked() {
-        let tmp = TempDir::new().unwrap();
-        let paths = Paths::new(tmp.path());
-        let cfg = HostConfig::from_json(&json!({
-            "mode": "private",
-            "host": "100.64.0.1",
-            "gameAddress": "100.64.0.1",
-            "name": "Test",
-            "registration": "INVITECODE",
-            "maxHuntServers": 4
-        }))
-        .unwrap();
-        assert!(check_unmigrated_mongo_data(&paths, &cfg).is_ok());
-
-        fs::create_dir_all(&paths.mongo_data).unwrap();
-        fs::write(paths.mongo_data.join("WiredTiger"), b"data").unwrap();
-        if !cfg!(feature = "paradox") {
-            let err = check_unmigrated_mongo_data(&paths, &cfg).unwrap_err().to_string();
-            assert!(err.contains("dainty-legacy import reforged"), "{err}");
-        }
-
-        let marker = mongo_migrated_marker(&paths);
-        fs::create_dir_all(marker.parent().unwrap()).unwrap();
-        fs::write(&marker, "migrated from mongodb://127.0.0.1:27017/reforged\n").unwrap();
-        assert!(check_unmigrated_mongo_data(&paths, &cfg).is_ok());
-    }
 }

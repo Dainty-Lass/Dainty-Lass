@@ -33,7 +33,8 @@ Paradox does not endorse it. Every change is recorded in the commit history.
   modules (`21b9ff5`, `AGPL-3.0-only`) to Rust on `store`. Those crates were removed on 2026-11-05 (RD27): Dainty Lass
   now builds dainty-lass's clean-room MIT `rustic-rifts-*` crates in their place, which contain none of this code. The
   removed crates stay in the history, under `AGPL-3.0-only` and Mystic Paradox's additional terms.
-- `oracle/tests/vectors/` (`node-admission.json`, `node-relay.json` and their generator `make-vectors.mts`) are data
+- `oracle/tests/vectors/` (`node-admission.json`, `node-relay.json` and their generator `make-vectors.mts`) were data
   recorded from Mystic Paradox's own admission, relay and ICE modules, and `oracle/tests/*.rs` the ported tests that
-  replay them; both stay under `AGPL-3.0-only` and Mystic Paradox's additional terms.
+  replayed them; both were deleted at RB15 and stay in the history under `AGPL-3.0-only` and Mystic Paradox's
+  additional terms.
 - `LICENSE` and `ADDITIONAL_TERMS.md` are copied unchanged from Mystic Paradox.

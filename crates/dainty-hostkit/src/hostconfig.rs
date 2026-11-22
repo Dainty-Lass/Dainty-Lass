@@ -57,11 +57,9 @@ pub const DEFAULT_PERFORMANCE: PerformanceOptions = PerformanceOptions {
 pub const QUIET_GAME_LOG_CMDS: &str = "LogPhoenixCharacter Warning, LogOnline Warning, LogLoad Off";
 /// The largest XP or reward multiplier settings.toml takes.
 pub const MAX_MULTIPLIER: f64 = 100.0;
-/// The MongoDB a server migrates pre-cutover data from when settings.toml names none.
-pub const DEFAULT_MONGO_URI: &str = "mongodb://127.0.0.1:27017/?replicaSet=rs0";
 /// TCP ports the server's own services hold with `ports`; no module or public port may take one.
 #[must_use]
-pub fn reserved_ports(ports: &crate::paths::Ports) -> [u16; 8] {
+pub fn reserved_ports(ports: &crate::paths::Ports) -> [u16; 7] {
     [
         ports.backend,
         ports.director,
@@ -70,7 +68,6 @@ pub fn reserved_ports(ports: &crate::paths::Ports) -> [u16; 8] {
         ports.allowlist,
         ports.chat,
         ports.relay,
-        ports.mongo,
     ]
 }
 
@@ -129,7 +126,7 @@ pub const CLUSTER_CA_FILE: &str = "cluster-ca-cert.pem";
 pub const SESSION_KEY_FILE: &str = "session-key";
 /// The comment lines at the top of every env file setup writes.
 pub const ENV_FILE_HEADER: [&str; 2] = [
-    "Written by ReforgedHost (`npm run setup`) from host.json and secrets.env. SECRET: never share or commit.",
+    "Written by dainty-host setup from settings.toml and secrets.env. SECRET: never share or commit.",
     "Run setup again instead of editing: it rewrites this file.",
 ];
 
@@ -227,17 +224,6 @@ impl std::fmt::Display for Registration {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.as_str())
     }
-}
-
-/// The MongoDB a server migrates its pre-cutover player data from.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct MongoConfig {
-    /// Its connection string.
-    pub uri: String,
-    /// Whether the server starts its own mongod.
-    pub manage: bool,
-    /// The mongod executable it starts; found on PATH or under Program Files when `None`.
-    pub mongod: Option<String>,
 }
 
 /// A private test server's multipliers; 1.0 is the game's own rate.
@@ -928,8 +914,6 @@ pub struct HostConfig {
     pub registration: Registration,
     /// A private server's Tailscale share link.
     pub share_url: Option<String>,
-    /// The MongoDB pre-cutover data is migrated from.
-    pub mongo: MongoConfig,
     /// The most hunts that run at once, 1 to 10.
     pub max_hunt_servers: u32,
     /// A private test server's multipliers; `None` when off.
@@ -1034,22 +1018,6 @@ impl HostConfig {
             .and_then(Registration::parse)
             .unwrap_or(Registration::Invitecode);
         let share_url = obj.get("shareUrl").and_then(Value::as_str).map(str::to_owned);
-        let mongo = match obj.get("mongo").and_then(Value::as_object) {
-            Some(m) => MongoConfig {
-                uri: m
-                    .get("uri")
-                    .and_then(Value::as_str)
-                    .unwrap_or(DEFAULT_MONGO_URI)
-                    .to_owned(),
-                manage: m.get("manage").and_then(Value::as_bool).unwrap_or(true),
-                mongod: m.get("mongod").and_then(Value::as_str).map(str::to_owned),
-            },
-            None => MongoConfig {
-                uri: DEFAULT_MONGO_URI.to_owned(),
-                manage: true,
-                mongod: None,
-            },
-        };
         let max_hunt_servers = obj.get("maxHuntServers").and_then(Value::as_u64).unwrap_or(4) as u32;
         let multipliers = obj.get("multipliers").and_then(Value::as_object).and_then(|m| {
             Some(Multipliers {
@@ -1185,7 +1153,6 @@ impl HostConfig {
             game_dir,
             registration,
             share_url,
-            mongo,
             max_hunt_servers,
             multipliers,
             public_port,
@@ -1322,20 +1289,6 @@ impl HostConfig {
             "shareUrl".into(),
             self.share_url.clone().map_or(Value::Null, Value::String),
         );
-        let mut mongo = self
-            .file
-            .document
-            .get("mongo")
-            .and_then(Value::as_object)
-            .cloned()
-            .unwrap_or_default();
-        mongo.insert("uri".into(), Value::String(self.mongo.uri.clone()));
-        mongo.insert("manage".into(), Value::Bool(self.mongo.manage));
-        mongo.insert(
-            "mongod".into(),
-            self.mongo.mongod.clone().map_or(Value::Null, Value::String),
-        );
-        canonical.insert("mongo".into(), Value::Object(mongo));
         canonical.insert("maxHuntServers".into(), Value::from(self.max_hunt_servers));
         if let Some(url) = &self.dashboard_url {
             canonical.insert("dashboardUrl".into(), Value::String(url.clone()));
@@ -2015,39 +1968,6 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
         Some(_) => return Err(bad("shareUrl must be a https://login.tailscale.com/ link")),
     };
 
-    let (mongo_uri, mongo_manage, mongo_mongod) = match obj.get("mongo") {
-        None => (DEFAULT_MONGO_URI.to_owned(), true, None),
-        Some(m_val) => {
-            let m = m_val.as_object().ok_or_else(|| bad("mongo must be an object"))?;
-            let uri_raw = m
-                .get("uri")
-                .and_then(Value::as_str)
-                .ok_or_else(|| bad("mongo.uri must be a mongodb:// connection string"))?;
-            let uri = js::trim(uri_raw);
-            if !uri.starts_with("mongodb://") && !uri.starts_with("mongodb+srv://") {
-                return Err(bad("mongo.uri must be a mongodb:// connection string"));
-            }
-            let manage = match m.get("manage") {
-                None => true,
-                Some(Value::Bool(b)) => *b,
-                Some(_) => return Err(bad("mongo.manage must be true or false")),
-            };
-            let mongod = match m.get("mongod") {
-                None | Some(Value::Null) => None,
-                Some(Value::String(s)) => {
-                    let trimmed = js::trim(s);
-                    if trimmed.is_empty() {
-                        None
-                    } else {
-                        Some(trimmed.to_owned())
-                    }
-                }
-                Some(_) => return Err(bad("mongo.mongod must be a string or null")),
-            };
-            (uri.to_owned(), manage, mongod)
-        }
-    };
-
     let hunts_val = obj.get("maxHuntServers");
     let max_hunts_f = integer(hunts_val)
         .ok_or_else(|| bad("maxHuntServers must be 1 to 10 (UDP 8770-8777 up to 6 hunts, 8766-8777 at 10)"))?;
@@ -2135,8 +2055,6 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
             Some("the gateway's")
         } else if port == PORTS.relay {
             Some("the relay's")
-        } else if port == PORTS.mongo {
-            Some("MongoDB's")
         } else if (PORTS.game_lowest..=PORTS.game_last).contains(&port) {
             Some("a game server's")
         } else {
@@ -2551,11 +2469,6 @@ pub fn validate(document: &Value) -> Result<Value, HostError> {
     canonical.insert("gameDir".into(), game_dir.map_or(Value::Null, Value::String));
     canonical.insert("registration".into(), Value::String(registration.as_str().to_owned()));
     canonical.insert("shareUrl".into(), share_url.map_or(Value::Null, Value::String));
-    let mut mongo_out = obj.get("mongo").and_then(Value::as_object).cloned().unwrap_or_default();
-    mongo_out.insert("uri".into(), Value::String(mongo_uri));
-    mongo_out.insert("manage".into(), Value::Bool(mongo_manage));
-    mongo_out.insert("mongod".into(), mongo_mongod.map_or(Value::Null, Value::String));
-    canonical.insert("mongo".into(), Value::Object(mongo_out));
     canonical.insert("maxHuntServers".into(), Value::from(max_hunt_servers));
     if let Some(port) = public_port {
         canonical.insert("publicPort".into(), Value::from(port));
@@ -2685,6 +2598,8 @@ fn merge_document_order(orig: &Map<String, Value>, canonical: Map<String, Value>
     }
     const OPTIONAL_KEYS: &[&str] = &[
         "edition",
+        // MongoDB's, read from an older file and dropped when it is next written (RB15)
+        "mongo",
         "publicPort",
         "dashboardUrl",
         "versionData",
@@ -2916,7 +2831,7 @@ pub fn load_or_create_secrets(
         ];
         let header = [
             "Dainty Lass server secrets. SECRET: never share or commit this file.",
-            "Made once by `npm run setup`; changing one logs everyone out or breaks the invites already sent.",
+            "Made once by dainty-host setup; changing one logs everyone out or breaks the invites already sent.",
         ];
         let text = format_env(&header, &entries)?;
         write_secret_file(&file, &text)?;
@@ -3101,12 +3016,6 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     push(&mut backend, "AUTH_SIGNING_PUBKEY_B64", &s.jwt_public_key_b64);
     push(&mut backend, "API_KEY_HASH_SECRET", &s.api_key_hash_secret);
     push(&mut backend, "GAMESERVER_API_KEYS", &s.gameserver_key);
-    if cfg!(feature = "paradox") {
-        push(&mut backend, "MONGODB_URI", &c.mongo.uri);
-        push(&mut backend, "MONGODB_DB", "reforged");
-        push(&mut backend, "MONGODB_APP_NAME", "dainty-backend");
-        push(&mut backend, "MONGODB_TRANSACTION_MAX_COMMIT_TIME_MS", "15000");
-    }
     push(&mut backend, "TARGET_CHANGELIST", "647472");
     push(&mut backend, "APPROVED_EXECUTABLE_SHA256", PINNED_EXE_SHA256);
     push(&mut backend, "MATCHMAKING_MODE", "DEPLOYSERVER");
@@ -3549,6 +3458,22 @@ mod tests {
 
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn an_older_settings_toml_with_mongo_loads_and_drops_it_when_written() {
+        let text = "version = 1\nmode = \"private\"\nname = \"Isle\"\nhost = \"100.64.0.1\"\n\
+                    game_address = \"100.64.0.1\"\nregistration = \"INVITECODE\"\nmax_hunt_servers = 3\n\
+                    \n[mongo]\nuri = \"mongodb://127.0.0.1:27017\"\nmanage = true\n\n[linux]\nxvfb = true\n";
+        let config = HostConfig::from_toml(text).unwrap();
+        assert!(config.file.read.contains_key("mongo"));
+        let written = config.to_toml().unwrap();
+        assert!(!written.contains("mongo"), "{written}");
+        assert!(
+            written.contains("[linux]") && written.contains("max_hunt_servers = 3"),
+            "{written}"
+        );
+        HostConfig::from_toml(&written).unwrap();
+    }
 
     #[test]
     fn ip_and_dns_validators_work() {
@@ -4179,13 +4104,7 @@ allowlist = 42005"
             &format!("CONTENT_DASHBOARD_INGEST_KEY={}", "d".repeat(64)),
         );
 
-        for bad in [
-            "backend = 443",
-            "backend = 8770",
-            "backend = 27017",
-            "director = 42002",
-            "gateway = 1",
-        ] {
+        for bad in ["backend = 443", "backend = 8770", "director = 42002", "gateway = 1"] {
             let refused = format!(
                 "{text}[ports]
 content = 42002

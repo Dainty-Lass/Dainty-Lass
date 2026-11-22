@@ -1,5 +1,5 @@
-//! What the database tool reads out of a host's MongoDB (spec-rustic-isles-db §7, §8, §11, §15): arbitrary JSON
-//! documents as every collection of a fake source, through extraction, the RB11 repairs and the export builder.
+//! What the database tool reads out of a host's MongoDB (spec-rustic-isles-db §7, §8, §15): arbitrary JSON
+//! documents as every collection of a fake source, through extraction and the RB11 repairs.
 //! Nothing panics, every JSON text column parses, every loadout keeps at least one slot, and every repaired
 //! item id is 26 characters of `A`-`Z` and `0`-`9`.
 #![no_main]

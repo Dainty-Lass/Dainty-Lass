@@ -20,6 +20,8 @@ pub const GAME_VERSION_TEXT: &str = "dauntless_rel-1.14.7_Shipping_2024-04-01_14
 pub const PINNED_EXE_SHA256: &str = "f3f95fbf22709ef077a11632ed95d675b7209b7e0172d9ecb9ba7d02a1fbb66b";
 /// The most hunts a server runs at once.
 pub const MAX_HUNTS: u32 = 10;
+/// The folder under `modules/rustic-isles` that holds each game version's data.
+pub const GAME_DATA_DIR: &str = "game-data";
 /// The public port a 1.4.4 edition's gateway listened on.
 pub const DEFAULT_LEGACY_PUBLIC_PORT: u16 = 4443;
 
@@ -46,8 +48,6 @@ pub struct Ports {
     pub private_gateway: u16,
     /// The relay's TCP port, which serves `/QoS`.
     pub relay: u16,
-    /// MongoDB's TCP port.
-    pub mongo: u16,
     /// The first UDP game port, unless more hunts need the range to start lower.
     pub game_first: u16,
     /// The last UDP game port.
@@ -69,7 +69,6 @@ pub const PORTS: Ports = Ports {
     public_gateway: 443,
     private_gateway: 61000,
     relay: 61100,
-    mongo: 27017,
     game_first: 8770,
     game_last: 8777,
     game_lowest: 8766,
@@ -201,14 +200,10 @@ pub struct Paths {
     pub content_dir: PathBuf,
     /// `.workspace/`: everything the server makes and keeps.
     pub workspace: PathBuf,
-    /// Rustic Isles' 1.14.7 reference tree.
-    pub paradox: PathBuf,
     /// `modules/rustic-isles`, in this checkout or its `restricted/`.
     pub isles: PathBuf,
-    /// The reference backend, `ParadoxBackend`.
-    pub backend_dir: PathBuf,
-    /// The reference Director, `ParadoxDirector`.
-    pub director_dir: PathBuf,
+    /// `modules/rustic-isles/game-data/1.14.7`: the game data, exports and store captures.
+    pub game_data: PathBuf,
     /// `.workspace/sdk`: the Dumper-7 `CppSDK` the launcher's Import SDK puts there and the CatalogExporter is built
     /// against (`DAINTY_SDK_DIR`).
     pub sdk_root: PathBuf,
@@ -228,15 +223,15 @@ pub struct Paths {
     pub exporter_dir: PathBuf,
     /// The built CatalogExporter DLL, where the Host page's build leaves it.
     pub exporter_dll: PathBuf,
-    /// The backend's game data.
+    /// The backend's game data, `backend/`.
     pub backend_game_data: PathBuf,
-    /// The Director's game data.
+    /// The Director's game data, `director/`.
     pub director_game_data: PathBuf,
     /// The backend's raw game data, the generators' input.
     pub raw_game_data: PathBuf,
-    /// The game exports, `Items_Analysis`.
+    /// The CatalogExporter's exports, `exports/`.
     pub exports: PathBuf,
-    /// Where the pinned store captures are fetched to.
+    /// Where the pinned store captures are fetched to, `captures/`.
     pub store_captures: PathBuf,
     /// The store-capture pin, `store-captures.json`.
     pub captures_pin: PathBuf,
@@ -252,8 +247,6 @@ pub struct Paths {
     pub cert_file: PathBuf,
     /// The gateway's private key.
     pub key_file: PathBuf,
-    /// `.workspace/mongodb`: a managed mongod's data.
-    pub mongo_data: PathBuf,
     /// `.workspace/logs`.
     pub logs: PathBuf,
     /// The game servers' logs.
@@ -295,9 +288,7 @@ impl Paths {
         let content_dir = repo.join("services").join("content");
         let workspace = repo.join(".workspace");
         let isles = restricted.join("modules").join("rustic-isles");
-        let paradox = isles.join("reference").join("1.14.7");
-        let backend_dir = paradox.join("ParadoxBackend");
-        let director_dir = paradox.join("ParadoxDirector");
+        let game_data = isles.join(GAME_DATA_DIR).join("1.14.7");
         let sdk_root = workspace.join("sdk");
         let sdk_header = sdk_root.join("SDK.hpp");
         let sdk_dir = sdk_root.join("SDK");
@@ -319,19 +310,18 @@ impl Paths {
             .join("x86_64-pc-windows-msvc")
             .join("release")
             .join("CatalogExporter.dll");
-        let backend_game_data = backend_dir.join("game-data");
-        let director_game_data = director_dir.join("game-data");
+        let backend_game_data = game_data.join("backend");
+        let director_game_data = game_data.join("director");
         let raw_game_data = backend_game_data.join("raw");
-        let exports = paradox.join("Items_Analysis");
-        let store_captures = paradox.join("DauntlessEndpointDocumentation");
-        let captures_pin = backend_dir.join("store-captures.json");
+        let exports = game_data.join("exports");
+        let store_captures = game_data.join("captures");
+        let captures_pin = game_data.join("store-captures.json");
         let runtime_publish = workspace.join("runtime");
         let config = workspace.join("config");
         let settings_toml = config.join("settings.toml");
         let tls = workspace.join("tls");
         let cert_file = tls.join("gateway-cert.pem");
         let key_file = tls.join("gateway-key.pem");
-        let mongo_data = workspace.join("mongodb");
         let logs = workspace.join("logs");
         let gameserver_logs = logs.join("gameservers");
         let branding = workspace.join("branding");
@@ -349,10 +339,8 @@ impl Paths {
             gateway_dir,
             content_dir,
             workspace,
-            paradox,
             isles,
-            backend_dir,
-            director_dir,
+            game_data,
             sdk_root,
             sdk_header,
             sdk_dir,
@@ -374,7 +362,6 @@ impl Paths {
             tls,
             cert_file,
             key_file,
-            mongo_data,
             logs,
             gameserver_logs,
             branding,
@@ -418,7 +405,14 @@ mod tests {
         );
         assert_eq!(p.cert_file, Path::new("/srv/server/.workspace/tls/gateway-cert.pem"));
         assert_eq!(p.key_file, Path::new("/srv/server/.workspace/tls/gateway-key.pem"));
-        assert_eq!(p.mongo_data, Path::new("/srv/server/.workspace/mongodb"));
+        assert_eq!(
+            p.backend_game_data,
+            Path::new("/srv/server/modules/rustic-isles/game-data/1.14.7/backend")
+        );
+        assert_eq!(
+            p.captures_pin,
+            Path::new("/srv/server/modules/rustic-isles/game-data/1.14.7/store-captures.json")
+        );
         // The launcher's Import SDK writes the same folder (dainty-launcher-kit's WorkspacePaths)
         assert_eq!(p.sdk_root, Path::new("/srv/server/.workspace/sdk"));
         assert_eq!(p.sdk_header, Path::new("/srv/server/.workspace/sdk/SDK.hpp"));

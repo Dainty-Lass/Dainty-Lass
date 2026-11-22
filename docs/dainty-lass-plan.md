@@ -38,14 +38,14 @@ Updated 2026-11-05 against `plan` at `a5ac3d8f`; the runtime, exporter and confi
 
 | What | State |
 | --- | --- |
-| Repositories | One, `silentspud/dainty-lass` on Forgejo (`git.silentspud.com`, SSH port 222). The MIT workspace is the root; `restricted/` is the AGPL workspace (RD27). dainty-restricted was imported into `restricted/` and its repository deleted (its tags live on as `restricted/<tag>`). Archived, not merged: `dainty-lass-ui` (its history is `ui/`), `rustic-isles`, `rustic-rifts`, `dainty-dashboard` (now `ui/`, dainty-dash), `dainty-legacy` (now `restricted/legacy/`), `legacy-revived` and `rustic-freeza` |
+| Repositories | One, `silentspud/dainty-lass` on Forgejo (`git.silentspud.com`, SSH port 222). The MIT workspace is the root; `restricted/` is AGPL docs and data, with no code since RB15 (RD27). dainty-restricted was imported into `restricted/` and its repository deleted (its tags live on as `restricted/<tag>`). Archived, not merged: `dainty-lass-ui` (its history is `ui/`), `rustic-isles`, `rustic-rifts`, `dainty-dashboard` (now `ui/`, dainty-dash), `dainty-legacy` (its importer is now `crates/dainty-legacy`; its oracle in `restricted/legacy/` went in RB15), `legacy-revived` and `rustic-freeza` |
 | Framework and core plugins | `crates/dainty-module-api`, `crates/dainty-controller`, `crates/dainty-plugin-host`, `crates/dainty-store` (SQLite or Postgres with the hash-chained change log), `crates/dainty-history-ship`, `crates/dainty-gateway` (with the allowlist), `crates/dainty-content`, `crates/dainty-admin`, `crates/dainty-chat`, `crates/dainty-network`, `crates/dainty-remote`, `crates/dainty-epic`, `crates/dainty-hostkit`, `crates/dainty-launcher-kit`: DF1–DF8, DH1–DH7, DN2–DN13, DE1–DE7, DX1–DX4, DL1–DL4, RM1–RM5 done |
 | Rustic Isles (RU) | The MIT crates `crates/rustic-isles` and its areas (`-auth`, `-reforged`, `-characters`, `-economy`, `-matchmaking`, `-chat`, `-gamedata`, `-director`, `-store`, `-db`, `-replay`), composed for 1.14.7 by `crates/rustic-isles-1-14-7` and built as a library by `-plugin`. They replaced the AGPL `isles-*` port the RU rows built; RU1–RU7 and RU10 done, RU8 and RU9 done in code with the canary and the live replay left to the maintainer. `restricted/modules/rustic-isles` keeps the Node reference, the version data, `rustic-isles-plugin` and the parity replay `rustic-isles-mit-parity` (890 of 890 goldens match); its C++ runtime and CatalogExporter are deleted (tags `agpl-runtime-final`, `agpl-catalog-exporter-final`) |
 | Game runtime and exporter | `crates/rustic-isles-runtime` (`rustic-isles-runtime.dll`, with `-core`), the only game runtime since R21 (`docs/port/spec-runtime-r21.md`; slices R0–R20 merged, R19 never ported), and `native/rustic-isles-exporter`, the catalog exporter the host kit builds (`2f9c5f59`). Both MIT, clean-room. The one hands-on pass is the maintainer's (`MIGRATION_PLAN.md`) |
-| Rustic Rifts (RF) | The MIT crates `crates/rustic-rifts-*` (`-seam`, `-admission`, `-relay`, `-realms`, `-guard` with enforce mode, `-transport`, `-host`), wired in by `rustic-isles-1-14-7`. RF1–RF7 done; RF8 waits for the maintainer's two-PC check. `restricted/modules/rustic-rifts` keeps the `oracle` replay; `ParadoxTransport.dll` was replaced by `rustic-rifts-transport` |
+| Rustic Rifts (RF) | The MIT crates `crates/rustic-rifts-*` (`-seam`, `-admission`, `-relay`, `-realms`, `-guard` with enforce mode, `-transport`, `-host`), wired in by `rustic-isles-1-14-7`. RF1–RF7 done; RF8 waits for the maintainer's two-PC check. `restricted/modules/rustic-rifts` keeps the docs (its `oracle` replay went in RB15); `ParadoxTransport.dll` was replaced by `rustic-rifts-transport` |
 | UI (DU) | `ui/`: dainty-dash (Astryx on Next.js through vinext, built with Bun), one app for the staff dashboard and the launcher and server-manager pages the Tauri shells serve. DU1–DU5 done; DU5's two-PC check is RF8's |
-| Executables (DF5, RD26) | the MIT Tauri shell `crates/dainty-launcher-app` (`dainty-launcher`; `restricted/launcher/src-tauri` is its oracle tests); the root's MIT `dainty-server` (with `dainty-host`) and `dainty-server-minimal`, which read the version data at start; the root's MIT core `dainty-lass` |
-| Importing old installs | `restricted/legacy/`: the 1.4.4 importer, an external plugin `settings.toml` pins, run by `dainty-host legacy import` |
+| Executables (DF5, RD26) | the MIT Tauri shell `crates/dainty-launcher-app` (`dainty-launcher`); the root's MIT `dainty-server` (with `dainty-host`) and `dainty-server-minimal`, which read the version data at start; the root's MIT core `dainty-lass` |
+| Importing old installs | `crates/dainty-legacy`: the 1.4.4 importer and `import reforged` (an old install's MongoDB, through `db migrate` / `db verify`), run by `dainty-host legacy import` |
 | Licensing (DL) | Done by RD27's clean-room rewrites; DL5's legal read is the maintainer's |
 | Mystic Paradox | Upstream `main` at `21b9ff5`; the `replay` branch is `21b9ff5` plus Reforged's patches 0001–0039, in-tree as `restricted/modules/rustic-isles` |
 | Getting the game | Epic still lists Dauntless (app name `Jackal`) for accounts that added it before it left the store in May 2025, but serves only 2.1.1's manifest. Older builds install from an archived manifest plus Epic's chunk CDN (DD22, `crates/dainty-epic`) |
@@ -65,13 +65,11 @@ silentspud/dainty-lass
   ui/              dainty-dash: dashboard, launcher and server-manager pages
   launcher/        the launcher's JavaScript: isolation hook, scripts, tests
   docs/            architecture, plans, port/ (specs, clean-room reviews), security/
-  restricted/      AGPL-3.0-only workspace
-    crates/        host (the shell around hostkit), server-console, server-minimal, *-plugin shells
-    launcher/      src-tauri: dainty-launcher and dainty-manager
-    modules/rustic-isles/   Node reference, version data, isles-1-14-7-plugin, isles-mit-parity
-    modules/rustic-rifts/   oracle
-    legacy/        the 1.4.4 importer
-    docker/, compose.yaml, docs/ (hosting, players, Paradox patches)
+  restricted/      AGPL-3.0-only docs and data, no code (RB15)
+    launcher/      brand/icon.png
+    modules/rustic-isles/   version data, game-data/1.14.7 (backend, director, exports, captures, store pin)
+    modules/rustic-rifts/   docs, relay self-test
+    docs/          hosting, players, Paradox patches (a record)
 ```
 
 ## 3. Decisions
@@ -160,7 +158,7 @@ RF rows: an area that touches them calls through rustic-rifts' crates.
 | ~~RU6~~ | ~~Director in Rust, starting from `cdc0a87`~~ **Done** | RB10 | ~~Ramsgate, the Training Grounds and a hunt start and stop (maintainer)~~ |
 | ~~RU7~~ | ~~`db migrate` from MongoDB and `db verify`~~ **Done** | RB4 | ~~Copies of real databases migrate with no difference~~ |
 | RU8 | Shadow replay for 1.14.7, realms included. **Done in code, verified end-to-end with synthetic gateway capture; live canary capture awaits maintainer** (`dainty-host db replay`, `scripts/replay-capture.mjs`, `crates/isles-core/src/replay.rs`, and `crates/isles-db/src/replay.rs` verified end-to-end by capturing 32 JSONL lines across 25 HTTP endpoints and 1 XMPP WebSocket session through a live gateway with `CAPTURE_DIR` enabled and replaying against a second live server with `exact_matched=26, unexplained_diffed=0`; see `docs/canary.md`; **live tester corpus awaits maintainer canary run**) | RB2, RB12 | No unexplained diff |
-| RU9 | Rollback, cutover and Node removal. **Done in code; 7-day canary gate and RB15 Node removal await maintainer** (`docs/canary.md` documents the gateway capture setup, `dainty-host db replay` / `scripts/replay-capture.mjs` diff report, rollback via `dainty-host db export-mongo` + `--features paradox` / Docker `--profile rollback`, and the 7-day canary gate; default 1.14.7 server runs `isles-1-14-7` on port 61000 and in-process `isles-director` on port 61001 over `store` SQLite/Postgres with no Node or MongoDB on `PATH`; **open**: maintainer 7-day canary run and RB15 deletions one release after the last host's window) | RB13–RB15 | As in those rows |
+| RU9 | Rollback, cutover and Node removal. **Done in code, RB15's Node and MongoDB removal included; the 7-day canary gate awaits the maintainer** (`restricted/docs/canary.md` documents the gateway capture setup, `dainty-host db replay` / `scripts/replay-capture.mjs` diff report and the canary gate; the rollback via `db export-mongo` + `--features paradox` / Docker `--profile rollback` went in RB15; default 1.14.7 server runs `isles-1-14-7` on port 61000 and in-process `isles-director` on port 61001 over `store` SQLite/Postgres with no Node or MongoDB on `PATH`; **open**: maintainer 7-day canary run) | RB13–RB15 | As in those rows |
 | ~~RU10~~ | ~~**Spike**: one runtime source tree for both versions, SDK glue apart~~ **Done** (see `modules/rustic-isles/docs/spikes/ru10-runtime-tree.md`); moot since 2026-10-31, when the second version was removed (one game) | — | ~~Kill criterion: if the shared part is under half the code, the two trees stay apart~~ |
 | ~~RU11~~ | ~~1.12.0's replay, when someone records 1.12.0 traffic (DD9); clears the unverified mark~~ **Removed 2026-10-31: one game** | RB12 | ~~No unexplained diff~~ |
 

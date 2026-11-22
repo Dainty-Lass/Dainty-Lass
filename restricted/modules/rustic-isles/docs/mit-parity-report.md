@@ -1,5 +1,8 @@
 # Rustic Isles goldens against the MIT module
 
+> **Historical.** RB15 deleted the Node reference and this replay (`rustic-isles-mit-parity`); the commands below no
+> longer run.
+
 What the composed clean-room module (`rustic-isles-1-14-7` at dainty-lass `3d0a64a8`, `spec_with` and restricted's
 version data) answers to every recorded golden under `crates/rustic-isles-mit-parity/tests/golden/`, compared with the recorded
 answers after each golden's own normalisation. The replay is `crates/rustic-isles-mit-parity` (AGPL test crate, a member of

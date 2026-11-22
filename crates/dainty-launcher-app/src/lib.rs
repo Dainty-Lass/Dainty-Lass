@@ -359,8 +359,6 @@ pub fn run(mut options: Options) -> Result<i32, StartError> {
             bridge::commands::server_backup,
             bridge::commands::server_config_get,
             bridge::commands::server_config_save,
-            bridge::commands::server_migrate_mongo,
-            bridge::commands::server_confirm_fresh_start,
             bridge::commands::server_invite_list,
             bridge::commands::admin_action,
             bridge::commands::remote_status,
@@ -594,7 +592,7 @@ mod tests {
             .iter()
             .map(|c| c.name)
             .collect();
-        assert_eq!(table.len(), 111);
+        assert_eq!(table.len(), 109);
         assert_eq!(handler_names(), table);
     }
 

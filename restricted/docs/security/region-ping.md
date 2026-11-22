@@ -2,6 +2,9 @@
 
 # Security checklist: region ping (RX3)
 
+> **Moved (RL13, RL14):** this code is now the MIT `crates/dainty-launcher-kit` (spec-rd27-launcher.md); the
+> `launcher/src-tauri` paths below are the AGPL shell's, deleted in RB15, kept as the record.
+
 The checklist for region ping (`docs/dainty-lass-plan.md` DN7, DD19): the gateway's network routes and the
 launcher's measurement and report. `SECURITY_REVIEW.md` indexes it. The pinned TLS connection and the HTTP client it
 uses are `launcher-net.md`'s; the rest of the gateway is `gateway.md`'s.

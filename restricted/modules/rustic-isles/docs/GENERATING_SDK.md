@@ -67,7 +67,7 @@ source.
 
 The CatalogExporter is Dainty Lass's MIT Rust crate `native/rustic-isles-exporter`, built with cargo against the
 SDK in `.workspace\sdk`. The Host page's **Build the CatalogExporter**, **Start the game with CatalogExporter** and
-**Copy the exports** steps build it, inject it and bring its `Items_Analysis` exports into `reference.14.7`.
+**Copy the exports** steps build it, inject it and bring its exports into `game-data/1.14.7/exports`.
 Section 3 of Dainty Lass's [SDK and game data guide](../../../../docs/sdk-and-game-data.md) gives the commands to do
 it by hand and the exports it writes.
 

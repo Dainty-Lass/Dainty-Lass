@@ -6,7 +6,8 @@ The map from the code this repository came from to the code it is now, and the m
 upstream change across. It is the backbone for every later port: a change in Dauntless Revived's, Mystic Paradox's
 or Freeza's line is first placed with section 4, then moved with section 5, and the row that makes a new module
 adds its line to section 2. Written 2026-10-24 against `plan` at `cb3d7e5`; the paths follow the RD27 split
-(2026-11-02), the clean-room rewrites that came with it, and `restricted/` moving in-tree (2026-11-05).
+(2026-11-02), the clean-room rewrites that came with it, `restricted/` moving in-tree (2026-11-05), and RB15
+deleting the Node reference, MongoDB and restricted's Cargo workspace.
 
 [`MIGRATION_PLAN.md`](../../MIGRATION_PLAN.md) says what is done and why (the RD decisions, the RS/RH/RA/RB rows);
 [`AGENTS.md`](../../AGENTS.md) says how work lands. This guide does not repeat them. It answers two questions those
@@ -19,11 +20,10 @@ How to read the tables:
   `legacy/UndauntedLauncher/src-tauri/` there.
 - "Reforged Node" means the Reforged Revival line's Node projects, carried under `legacy/` here until 2026-10-26, as they were when the Rust
   copy was made (`main` at `77fb622`, 2026-10-20).
-- Paths are from the repository root on `plan`. The MIT workspace is the root (`crates/`, `fuzz/`, `ui/`,
-  `launcher/`); everything AGPL is the separate workspace under `restricted/` (`restricted/crates/dainty-host`, the
-  `*-plugin` shells, `restricted/launcher/src-tauri`, `restricted/modules/`,
-  `restricted/legacy/`, `restricted/docker/`, the host and Paradox docs). A bare `modules/...` path in a table is
-  under `restricted/`. There is no `rust/` folder any more.
+- Paths are from the repository root on `plan`. All the code is the MIT workspace at the root (`crates/`, `fuzz/`,
+  `ui/`, `launcher/`, `native/`). Since RB15 `restricted/` holds no code and no Cargo workspace: only AGPL docs,
+  attribution and data (`modules/rustic-isles/version-data` and `game-data`, the host and player guides). A bare
+  `modules/...` path in a table is under `restricted/`. There is no `rust/` folder any more.
 - Since RD27 the MIT crates hold no DR or Paradox code: each was rewritten clean-room from a spec in this folder
   (`spec-*.md`, reviewed in `clean-room/`). The tables still name the DR file a module answers to, because that is
   where an upstream change is read; the Rust file is the rewrite, not a copy.
@@ -45,20 +45,21 @@ How to read the tables:
 
 | Upstream | Here | Note |
 | --- | --- | --- |
-| DR `rust/` (workspace files, `crates/`, `fuzz/`) | the root workspace and `restricted/`'s | Every package in a flat `crates/<package name>` (RD27; DR's layout before, RD11) |
+| DR `rust/` (workspace files, `crates/`, `fuzz/`) | the root workspace (`restricted/`'s was deleted at RB15) | Every package in a flat `crates/<package name>` (RD27; DR's layout before, RD11) |
 | DR `crates/dainty-gateway`, `crates/dainty-content` | `crates/dainty-gateway`, `crates/dainty-content` | Fitted to Reforged, then rewritten clean-room as MIT (RD27); sections 2.3 and 2.4 |
 | DR `services/metagame`, `deploy` (at its tip, `24b7624`) | Not here | Removed on 2026-10-31 with Dauntless Revived 1.4.4: importing an old 1.4.4 server's accounts is the `legacy` plugin's: [`crates/dainty-legacy`](../../crates/dainty-legacy), MIT (section 2.2) |
 | DR `native/internal-server`, `client-mods` | Not here | Removed with Dauntless Revived 1.4.4 (2026-10-31) |
-| — | `crates/rustic-rifts-*`; `restricted/modules/rustic-rifts` | The rifts crates (DD14) are MIT clean-room rewrites at the root (RD27); the AGPL ones were retired. The C++ transport DLL (`ParadoxTransport`) was replaced by the launcher's built-in `rustic-rifts-transport` and deleted; `restricted/modules/rustic-rifts` keeps `oracle`, which replays Paradox's answers against the MIT crates |
+| — | `crates/rustic-rifts-*`; `restricted/modules/rustic-rifts` | The rifts crates (DD14) are MIT clean-room rewrites at the root (RD27); the AGPL ones were retired. The C++ transport DLL (`ParadoxTransport`) was replaced by the launcher's built-in `rustic-rifts-transport` and deleted; `restricted/modules/rustic-rifts` keeps docs, the inventory and the relay self-test (its `oracle` went at RB15) |
 | DR `services/discord-bot` | not copied | The admin service (RD25) is Reforged's answer |
-| DR `legacy/UndauntedLauncher/src-tauri`, `isolation/` | `restricted/launcher/src-tauri`; [`launcher/isolation`](../../launcher/isolation) here | Section 2.6 |
+| DR `legacy/UndauntedLauncher/src-tauri`, `isolation/` | [`crates/dainty-launcher-kit`](../../crates/dainty-launcher-kit), [`crates/dainty-launcher-app`](../../crates/dainty-launcher-app); [`launcher/isolation`](../../launcher/isolation) | Section 2.6; the AGPL copy kept as an oracle (`restricted/launcher/src-tauri`) was deleted at RB15 |
 | DR `legacy/Undaunted*/` (the Node services) | not copied | Reforged's Node code is DR's modified; it is under `legacy/` here instead |
 | DR `deploy/` (Windows, Linux and OpenBSD kits) | not copied | Replaced by the host kit (section 2.5). Ideas taken earlier into the Node kit: the nftables allowlist table (`deploy/unix-common/allowlist-core.mjs`), the Wine runner on `xvfb-run`, one systemd unit per capability |
 | DR `.github/workflows/server-release.yml`, `ci.yml` | [`.forgejo/workflows/`](../../.forgejo/workflows) (`ci.yml` for both workspaces, `server-release.yml`) | Method reused (RH6, RR3); Reforged's binaries and families |
 | Reforged `ReforgedGateway/`, `ReforgedContent/`, `ReforgedHost/`, `ReforgedLauncher/` | gone | Carried under `legacy/` until 2026-10-26, then removed with the rest of the upstream line; the Rust modules below replaced them. The catch-up lists name what they still owed |
-| Reforged `upstream/` (the Paradox pin, patches, `store-captures.json`) | gone | `store-captures.json` is `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json`; the patch texts are commit messages and `restricted/docs/paradox-patches.md` |
-| Mystic Paradox `ParadoxBackend/`, `ParadoxDirector/` | `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend`, `.../ParadoxDirector` | The rustic-isles submodule from DS6 (`paradox/backend`, `paradox/director` before), in-tree since RD27. Ported to Rust and cut over in code on 2026-10-28 (RU9), then re-created clean-room as the MIT `rustic-isles-*` crates (section 2.7); the Node reference stays for one release behind `--features paradox` until RB15 |
-| Mystic Paradox's hunt-manifest module (new at `21b9ff5`) | `restricted/modules/rustic-isles/reference/1.14.7/shared/hunt-manifest` | Imported by the backend and the Director |
+| Reforged `upstream/` (the Paradox pin, patches, `store-captures.json`) | gone | `store-captures.json` is `restricted/modules/rustic-isles/game-data/1.14.7/store-captures.json`; the patch texts are commit messages and `restricted/docs/paradox-patches.md` |
+| Mystic Paradox `ParadoxBackend/`, `ParadoxDirector/` | gone; their game data is `restricted/modules/rustic-isles/game-data/1.14.7/backend` and `director` | The rustic-isles submodule from DS6, in-tree as `reference/1.14.7` since RD27. Ported to Rust and cut over on 2026-10-28 (RU9), re-created clean-room as the MIT `rustic-isles-*` crates (section 2.7), and deleted at RB15 |
+| Mystic Paradox `Items_Analysis/`, `DauntlessEndpointDocumentation/` | `restricted/modules/rustic-isles/game-data/1.14.7/exports`, `.../captures` | Moved at RB15; `setup` moves an old install's copies (`crates/dainty-hostkit/src/oldlayout.rs`) |
+| Mystic Paradox's hunt-manifest module (new at `21b9ff5`) | gone (RB15) | Was imported by the Node backend and Director; `rustic-isles-director` answers to it |
 | Mystic Paradox `ParadoxRuntime/` | gone; [`crates/rustic-isles-runtime`](../../crates/rustic-isles-runtime) | Was C++ in `restricted/modules/rustic-isles/native/runtime` (`native/paradox-runtime` before DS6), built by each host; re-created clean-room as the MIT runtime slice by slice (R0–R20) and deleted at R21 ([`spec-runtime-r21.md`](spec-runtime-r21.md)), its last tree kept by the tag `agpl-runtime-final`. See section 2.7 |
 | Mystic Paradox `tools/RuntimeLoader/` | [`native/runtime-loader`](../../native/runtime-loader) | Rewritten clean-room as MIT from [`spec-runtime-loader.md`](spec-runtime-loader.md) (RD27, [`clean-room/runtime-loader.md`](clean-room/runtime-loader.md)); a Rust crate of its own, outside both workspaces (DD13) |
 | Mystic Paradox `tools/CatalogExporter/` | `restricted/modules/rustic-isles/native/catalog-exporter`; [`native/rustic-isles-exporter`](../../native/rustic-isles-exporter) | Injected by the Host page's export session (RD9 as amended). Rewritten clean-room as MIT Rust from [`spec-catalog-exporter.md`](spec-catalog-exporter.md) (RD27): phase 1, the seven catalog exports, matches the C++ on the real client ([`clean-room/catalog-exporter-diff.md`](clean-room/catalog-exporter-diff.md)) and the Host page and the host kit build and load it; the C++ original is deleted (tag `agpl-catalog-exporter-final`) |
@@ -78,13 +79,13 @@ How to read the tables:
 | [`crates/dainty-history-ship`](../../crates/dainty-history-ship) | none | New (DH4, DD23, MIT): shipping change-log segments and database snapshots to an object-locked S3 bucket or peer log directory and restoring from them | — |
 | [`crates/dainty-store`](../../crates/dainty-store) | DR D10, D11, D21: synchronous Diesel on a blocking pool, embedded migrations | DF7 (DD15): `MultiConnection` over SQLite and Postgres (`connection`, `database`, `engine`, `portable`, `transfer`, `recovery`, `revert`, `declared`), plus DH1/DH3a/DH5 change log and hash chain (`history`, `history/chain.rs`, `history/record.rs`). The 6 SQLite helper modules (`lib.rs`, `adopt.rs`, `backup.rs`, `drizzle.rs`, `readonly.rs`, `snapshot.rs`) were rewritten clean-room from [`spec-store.md`](spec-store.md) as MIT (`DL3b`, [`clean-room/store.md`](clean-room/store.md)) | — |
 | [`crates/dainty-inject`](../../crates/dainty-inject) | none | New (RD9 as amended, MIT): loads hash-checked DLLs into a game started suspended, and the `dainty-inject.exe` helper Wine and Proton run | — |
-| [`crates/dainty-hostkit`](../../crates/dainty-hostkit) | none | New (`DL3b`, MIT, [`clean-room/hostkit.md`](clean-room/hostkit.md)): the 18 born-here host-kit modules moved from `crates/dainty-host` plus the 22 host-kit module groups rewritten clean-room from [`spec-dl3-hostkit.md`](spec-dl3-hostkit.md), leaving `crates/dainty-host` as a thin AGPL binary/legacy/isles adapter shell | — |
+| [`crates/dainty-hostkit`](../../crates/dainty-hostkit) | none | New (`DL3b`, MIT, [`clean-room/hostkit.md`](clean-room/hostkit.md)): the 18 born-here host-kit modules moved from `crates/dainty-host` plus the 22 host-kit module groups rewritten clean-room from [`spec-dl3-hostkit.md`](spec-dl3-hostkit.md), [`crates/dainty-host`](../../crates/dainty-host) composes it with the services and the 1.14.7 module | — |
 | [`crates/dainty-launcher-kit`](../../crates/dainty-launcher-kit) | none | New (`DL4b`, MIT, [`clean-room/launcher-kit.md`](clean-room/launcher-kit.md)): the born-here launcher modules (`bridge/modules`, `net/regionping`, `net/versions`) plus the 8 launcher module groups (`bridge/types`, `net/http`, `net/runtime_files`, `net/verify`, `platform/{hostkit,hostserver,requirements,loader_session,dialogs}`) rewritten clean-room from [`spec-dl4-launcher.md`](spec-dl4-launcher.md) | — |
 | [`crates/dainty-network`](../../crates/dainty-network) | none | New (DN2–DN5, DH7, MIT): node CA/certificates (`cluster`), directory (`directory`), home-server API and session tickets (`home`), replication (`replication`) and peer log shipping (`logship`) | — |
 | [`crates/dainty-chat`](../../crates/dainty-chat) | DR `services/metagame/src/chat/` at `e1c5fec` | Ported into a standalone `CorePlugin` (DN10a, DN10b), then rewritten clean-room as MIT (RD27, [`clean-room/chat.md`](clean-room/chat.md)): XMPP over WebSocket, MUC rooms, whispers, presence, and cross-node room/whisper federation over `Service::Chat` | — |
 | [`crates/dainty-server`](../../crates/dainty-server), [`crates/dainty-server-minimal`](../../crates/dainty-server-minimal) | none | The server executables (RD26), born here; moved from `restricted/` once the 1.14.7 version data was read at start instead of compiled in (RD27) | — |
-| [`crates/dainty-legacy`](../../crates/dainty-legacy) | DR's frozen 1.4.4 metagame schema, offline-save format and checks, as facts in `data/revived-1.4.4.toml` | The legacy importer and `legacy` plugin, rewritten clean-room from [`spec-legacy-import.md`](spec-legacy-import.md) as MIT (RD27). The AGPL importer stays in `restricted/legacy/` as its oracle (`tests/oracle.rs`), which runs both on every 1.4.4 history | — |
-| [`fuzz/`](../../fuzz) | DR X9: `http_body`, `proxy_headers`, `gateway_policy`, `launcher_input` | Reforged and Dainty Lass targets added, one per untrusted-input parser (RX3/DX2); the AGPL components' targets are in `restricted/fuzz/` | DR's `auth_token`, `bot_input`, `chat_frame`, `content_range` (metagame, bot and ranges) |
+| [`crates/dainty-legacy`](../../crates/dainty-legacy) | DR's frozen 1.4.4 metagame schema, offline-save format and checks, as facts in `data/revived-1.4.4.toml` | The legacy importer and `legacy` plugin, rewritten clean-room from [`spec-legacy-import.md`](spec-legacy-import.md) as MIT (RD27). The AGPL importer in `restricted/legacy/`, kept as its oracle, was deleted at RB15 | — |
+| [`fuzz/`](../../fuzz) | DR X9: `http_body`, `proxy_headers`, `gateway_policy`, `launcher_input` | Reforged and Dainty Lass targets added, one per untrusted-input parser (RX3/DX2); `restricted/fuzz/` was deleted at RB15 | DR's `auth_token`, `bot_input`, `chat_frame`, `content_range` (metagame, bot and ranges) |
 
 ### 2.3 Gateway and allowlist helper (`crates/dainty-gateway`, rows RS3 and RS4)
 
@@ -129,18 +130,18 @@ what Reforged changed. The per-line detail is in [`delta-servers.md`](delta-serv
 
 No DR counterpart: DR's kits were PowerShell and shell scripts under `deploy/`. The Rust kit follows the Node kit's
 files one to one; it is MIT in `crates/dainty-hostkit` here (`DL3b`, [`clean-room/hostkit.md`](clean-room/hostkit.md)),
-and `restricted/crates/dainty-host` is the AGPL shell that composes the services around it. Its tests run
-against fixtures generated from the Node kit (`restricted/crates/dainty-host/tests/fixtures/node/`).
+and `crates/dainty-host` composes the services around it. The parity tests against fixtures from the Node kit
+(`restricted/crates/dainty-host-parity`) were deleted at RB15.
 
 | Reforged Node (`legacy/ReforgedHost/src/`) | Rust (`crates/dainty-hostkit/src/`) | Note |
 | --- | --- | --- |
 | `cli.ts` | `cli.rs`, `commands/mod.rs`; the binaries are `crates/dainty-server` | The same commands and options: `setup`, `start`, `invite`, `doctor`, `gamedata`, `publish-runtime`, `preset`, `multipliers`, `update`, `backup`, and the Linux-only `gameserver` |
 | `hostconfig.ts` (`host.json`) | `hostconfig.rs`, `settingstoml.rs` | `settings.toml` with the same fields (RD24); a Node kit's `host.json` is read until the first write |
 | `envfile.ts`, `paths.ts`, `run.ts` | `envfile.rs`, `paths.rs`, `run.rs` | `paths.rs` knows the `modules/rustic-isles` and `native/` layout (DS6; `paradox/` before) |
-| `services.ts` (the process tree) | `services.rs`, `commands/start/` | One process tree; runs the Rust gateway, content, allowlist, admin, `rustic-isles-1-14-7` backend and `rustic-isles-director` by default (Node and MongoDB only behind `--features paradox` until RB15); each service gets the shell's environment, then its env file (`service_environment`; no `SERVER_PREFIXES` filter since the clean-room rewrite) |
+| `services.ts` (the process tree) | `services.rs`, `commands/start/` | One process tree; runs the Rust gateway, content, allowlist, admin, `rustic-isles-1-14-7` backend and `rustic-isles-director` (no Node or MongoDB since RB15); each service gets the shell's environment, then its env file (`service_environment`; no `SERVER_PREFIXES` filter since the clean-room rewrite) |
 | `doctor.ts` | `doctor.rs`, `commands/doctor.rs` | Checks `modules/rustic-isles` and `native/` instead of the patch marker |
 | `invite.ts` | `invite.rs`, `commands/invite.rs` | Admin routes on loopback only |
-| `mongo.ts` | `mongo.rs`, `mongo/wire.rs` | Retained for `update` migration and `--features paradox` rollback until RB15 |
+| `mongo.ts` | gone (RB15) | The managed `mongod` went with the rollback; `db migrate` and `db verify` read an old install's MongoDB through `crates/rustic-isles-db/src/mongo/` for `dainty-legacy import reforged` |
 | `gamedata.ts`, `gamepack.ts`, `progression.ts`, `captures.ts` | `gamedata.rs`, `gamepack.rs`, `progression.rs`, `captures.rs`, `commands/gamedata.rs` | Runs the in-process Rust generators in `rustic-isles-gamedata` and `rustic-isles-director` (RB11) |
 | `preset.ts` | `preset.rs`, `commands/preset.rs` | `preset/` hash-locked by `preset.json` |
 | `publish.ts` | `publish.rs`, `commands/publish_runtime.rs` | The Host page calls this command (RD23) |
@@ -148,15 +149,16 @@ against fixtures generated from the Node kit (`restricted/crates/dainty-host/tes
 | `upstream.ts` | gone | RP4: nothing is downloaded from Mystic Paradox |
 | `linux.ts`, `wine.ts`, `gameserver.ts` | `linux.rs`, `wine.rs`, `cli.rs` (`Gameserver`) | systemd units, Wine or Proton on `xvfb-run` |
 | `linux/setup-vps.sh`, `linux/Deploy-FromWindows.ps1` | not carried; gone with `legacy/` on 2026-10-26 | RH5 reduces them to fetching the release and calling `reforged-host`; `restricted/docs/hosting-linux.md` is the host's view |
-| — | `commands/setup/` (`database`, `firewall`, `install`, `options`, `paradox`, `secrets`), `commands/backup.rs`, `commands/multipliers.rs` | The Rust split of the Node `setup` and its helpers; `paradox` also copies a host's files from the layouts before RP4 and DS6 |
+| — | `commands/setup/` (`database`, `firewall`, `install`, `layout`, `options`, `secrets`), `commands/backup.rs`, `commands/multipliers.rs` | The Rust split of the Node `setup` and its helpers; `layout` (`paradox` before RB15) knows where Rustic Isles' parts are in a server folder; `backup` copies SQLite only |
+| — | `oldlayout.rs`, `which.rs` | New (RB15): `setup`, and `update` through it, moves an old install's game data out of `modules/rustic-isles/reference/1.14.7` into `game-data/1.14.7` once; `which` finds a program on `PATH` or in `Program Files` |
 | — | `serve.rs`, `repl.rs`, `tui.rs`, `hostconfig/yaml.rs` | New (RD26): the server as one process, its console and dashboard, and `host.yaml`. No Node counterpart, so an upstream host-kit change never lands here first |
 | — | `guarded.rs`, `hostconfig/guard.rs`, `hostconfig/modules.rs`, `hostconfig/env.rs`, `commands/history.rs`, `commands/network.rs`, `epicinstall.rs`, `commands/install_game.rs` | New (DF3, DN2/DN3, DH3b, DH6, DE6, RD24): `[guard]`, `[modules]`/`[network]` and `[env.<service>]` config, guarded action CLI, `history`/`revert` CLI, `network ca-init`/`issue-node-cert`/`list`/`status`, and `install-game` from Epic |
 
 ### 2.6 Launcher (`launcher`, rows RA1–RA13)
 
-The Rust backend is DR's Tauri launcher fitted to Reforged, in `restricted/launcher/src-tauri/src/`; the
-"Here" column is relative to it. The modules listed for `crates/dainty-launcher-kit` in section 2.2 were rewritten
-clean-room into this repository (`DL4b`). The page is dainty-dash, this repository's `ui/` (`apps/web`, built with
+The Rust backend was DR's Tauri launcher fitted to Reforged, in `restricted/launcher/src-tauri/src/` (deleted at
+RB15). The "Here" column names its modules, rewritten clean-room as MIT (`DL4b`, RD27) into
+`crates/dainty-launcher-kit/src/` at the same or a nearby path, with the shell in `crates/dainty-launcher-app`. The page is dainty-dash, this repository's `ui/` (`apps/web`, built with
 `DAINTY_MODE=launcher` or `manager` by `launcher/scripts/dashboard-page.ts`), talking to Rust through
 `ui/packages/bridge` and the bridge types copied in from `restricted/`. The per-line detail is in
 [`delta-launcher-platform.md`](delta-launcher-platform.md) and
@@ -186,21 +188,21 @@ rewritten clean-room into [`crates/dainty-manager-server`](../../crates/dainty-m
 | — | `platform/linux_runtime.rs`, `platform/updater.rs` | the same | Kept for RA10 (Proton) and RA14 (updates) |
 | — | `net/downloader.rs` | `net/epic_install.rs`, `platform/epic_{session,login,library}.rs`, `platform/keystore/epic.rs`, `controller/install.rs` | New (DE2–DE5, DD22): Epic OAuth login, token refresh in the keystore, library check, and chunked CDN installer (keeping DR's `downloader.rs` structure) |
 | — | — | `net/regionping*`, `net/versions*`, `controller/{region,versions,guarded}.rs`, `server_history.rs`, `bridge/modules.rs`, `server_gui/modules.rs` | New (DF8, DU3, DN7, DH3b, DH6): `/versions` and `/network` probe, pinned-TLS region ping, module control and declarative panels, change-log history and revert in the server GUI, and guarded-action approval |
-| test cases | — | `src-tauri/src/*/tests.rs`, this repository's `launcher/test/` and `crates/dainty-protocol/tests/cases/` | Reforged's `*.test.ts` cases ported |
+| test cases | — | the kit's `*/tests.rs`, `launcher/test/` and `crates/dainty-protocol/tests/cases/` | Reforged's `*.test.ts` cases ported |
 
 ### 2.7 Backend and Director: the `rustic-isles-*` crates (RU1–RU7, RD27)
 
 The RU rows built an AGPL port (`isles-core`, `isles-db`, `isles-chat`, `isles-director`, `isles-1-14-7`) in
 `modules/rustic-isles/crates`. On 2026-11-05 it was replaced by MIT crates at the root, each written from a
 behaviour spec (`spec-rustic-isles-*.md`) by an implementer who never saw the AGPL code, and the AGPL crates were
-retired. `restricted/modules/rustic-isles/crates/rustic-isles-mit-parity` replays the recorded goldens against the composed
-MIT module (890 of 890 matched, `restricted/modules/rustic-isles/docs/mit-parity-report.md`), and
-`rustic-isles-1-14-7-plugin` builds it as a library; both read the version data at start (`version_data`).
+retired. `rustic-isles-mit-parity` replayed the recorded goldens against the composed MIT module (890 of 890
+matched, `restricted/modules/rustic-isles/docs/mit-parity-report.md`) until RB15 deleted it with the Node reference.
+`rustic-isles-1-14-7-plugin` builds the module as a library; both read the version data at start (`version_data`).
 
-| Mystic Paradox | Reference tree (under `restricted/`) | Rust home |
+| Mystic Paradox | Reference tree (under `restricted/`, deleted at RB15) | Rust home |
 | --- | --- | --- |
 | `ParadoxBackend` (Express, `ws`, `ltx`, MongoDB) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend` | `crates/rustic-isles` (pipeline, route table, settings) and its areas: `rustic-isles-auth`, `-reforged` (`/reforged/api` and admin), `-characters`, `-economy` (inventory, reforge, progression, bounties, store), `-matchmaking`, `-chat`, `-gamedata`, on `rustic-isles-store` (SQLite + Postgres, DD15); composed for 1.14.7 by `crates/rustic-isles-1-14-7` |
-| `ParadoxBackend/scripts/` (game-data generators, admin bootstrap, data migrations) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend/scripts` | `crates/rustic-isles-gamedata`, `crates/rustic-isles-director` (hunt tables), and `crates/rustic-isles-db` (`migrate`, `verify`, `export-mongo`) and `crates/rustic-isles-replay` (RU7/RB11/RB13) |
+| `ParadoxBackend/scripts/` (game-data generators, admin bootstrap, data migrations) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend/scripts` | `crates/rustic-isles-gamedata`, `crates/rustic-isles-director` (hunt tables), and `crates/rustic-isles-db` (`migrate`, `verify`; `export-mongo` went at RB15) and `crates/rustic-isles-replay` (RU7/RB11/RB13) |
 | `ParadoxBackend/realtime/` (XMPP) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/realtime` | `crates/dainty-chat` (DN10a/b) and `crates/rustic-isles-chat` (rules and routes) |
 | `ParadoxDirector` | `modules/rustic-isles/reference/1.14.7/ParadoxDirector` | `crates/rustic-isles-director` (RU6: instance registry, hub supervisor, port leases, memory guard, hunt tables) |
 | Realms and Guard (`p2p/`, `realms/`, Guard) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend` | `crates/rustic-rifts-*` (`rustic-rifts-seam`, `rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-realms`, `rustic-rifts-guard`, `rustic-rifts-host`, `rustic-rifts-transport`; RF1–RF7, MIT clean-room), wired in by `rustic-isles-1-14-7`'s `rifts.rs`; the C++ transport DLL was replaced by `rustic-rifts-transport` and deleted |
@@ -209,9 +211,10 @@ MIT module (890 of 890 matched, `restricted/modules/rustic-isles/docs/mit-parity
 ### 2.8 The patches to Mystic Paradox
 
 Each patch's current state (kept, reduced, dropped because upstream now does the same) is the table in
-`restricted/docs/paradox-patches.md`. By where they live (all under `restricted/`) and who ports them:
+`restricted/docs/paradox-patches.md`. By where they lived (all under `restricted/`, all deleted by RB15) and who
+ported them:
 
-| Patches | Live in | Carried into Rust by |
+| Patches | Lived in | Carried into Rust by |
 | --- | --- | --- |
 | 0001 (runtime part), 0004, 0008, 0011–0016, 0020, 0024, 0026, 0027, 0029, 0031, 0035, 0037–0039 | gone (the C++ runtime, deleted at R21) | The MIT runtime slices, each behaviour where [`spec-runtime-surface.md`](spec-runtime-surface.md) section 6 maps it; the rows stay in `restricted/docs/paradox-patches.md` as history |
 | 0002 (`/reforged/api`, `AUTH_MODE=APIKEY`, HTTP-only mode), 0018 (login queue) | `modules/rustic-isles/reference/1.14.7/ParadoxBackend` | RB7; now `rustic-isles-reforged` and `rustic-isles-auth` |
@@ -241,7 +244,7 @@ and download (`content/src/runtime.rs`, launcher `net/runtime_files.rs`); the Ho
 [`director-injection.md`](../director-injection.md)); `protocol/src/text.rs`; the
 nftables backend as Reforged wrote it; the fuzz targets and the `docs/security/` checklists; `settings.toml`;
 `docker/`, `compose.yaml`, `compose.tailscale.yaml` and `.env.example` at the root, MIT and written clean-room from
-[`spec-docker.md`](spec-docker.md) (RD27); restricted's copies stay until their oracle runs retire them.
+[`spec-docker.md`](spec-docker.md) (RD27), the only Docker since RB15 deleted restricted's copies.
 
 The server structure (RD26), from the `feat/app-structure` merge (`c57f157`) as its fix branches left it, has no
 upstream either: the controller ([`crates/dainty-controller`](../../crates/dainty-controller): `controller.rs`, the
@@ -266,7 +269,7 @@ DH3a, DH5 and DD23) are new here too; `tests/db/{sqlite,postgres}` are the two-d
 `history.rs` and `history_text.rs` implement per-person keys, guarded actions and history/revert (DH2, DH3b, DH6);
 `crates/dainty-hostkit` adds `guarded.rs`, `hostconfig/guard.rs`, `hostconfig/modules.rs`, `commands/history.rs`,
 `commands/network.rs`, `epicinstall.rs` and `commands/install_game.rs`; `crates/dainty-gateway` adds `modules.rs`,
-`nodelink.rs` and `network.rs`; and `restricted/launcher/src-tauri` adds `controller/guarded.rs`, `server_history.rs`,
+`nodelink.rs` and `network.rs`; and the launcher (now `crates/dainty-launcher-kit`) adds `controller/guarded.rs`, `server_history.rs`,
 `bridge/modules.rs`, `server_gui/modules.rs`, `platform/epic_{session,login,library}.rs`, `platform/keystore/epic.rs`,
 `net/regionping*`, `net/versions*`, `net/epic_install.rs` and `controller/{region,versions,install}.rs`.
 
@@ -307,11 +310,11 @@ Place the change first; every row below names the method and where the port is r
 | The change is in | It lands in | How | Recorded in |
 | --- | --- | --- | --- |
 | A runtime change in Mystic Paradox's tree | The MIT runtime crates, `crates/rustic-isles-runtime` and `-core` (since R21 there is no AGPL runtime to patch); one touching the loader goes to the root's `native/runtime-loader` | Through a clean-room spec, never as a patch: a restricted session describes the behaviour without code in a new or amended `docs/port/spec-runtime-*.md` (the surface page's ids, offsets and log text, as R0–R21 did), and an implementer builds it from the spec alone; a loader change amends `spec-runtime-loader.md` | The spec's change note; a new module's line in section 2.7 |
-| A backend or Director patch written against Mystic Paradox's tree | `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend`, `.../ParadoxDirector` | The same rewrite (`ParadoxBackend/` to `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/`), applied as an ordinary commit; a new or changed route goes in RB1's inventory. The MIT `rustic-isles-*` crate takes it only through its spec: describe the change in `docs/port/spec-rustic-isles-<area>.md` without code, implement from the spec, and replay the goldens with `rustic-isles-mit-parity` | `restricted/docs/paradox-patches.md`; the spec's change note |
-| Game data, `store-captures.json` | `restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json`; a host's own preset | Taken as they are | The commit |
-| Mystic Paradox's own `main` | rustic-isles (its `upstream/main` branch, archived), then `restricted/modules/rustic-isles` | Advance the fork's `reforged` branch, replay the Reforged patches one by one onto the new base, keep, reduce or drop each, as `ab1830a` did. `ParadoxLauncher`, `ParadoxTransport` and the workflows stay out | The "Updated to" section and table in `restricted/docs/paradox-patches.md`; its `NOTICE.md` |
+| A backend or Director change in Mystic Paradox's tree | The MIT `rustic-isles-*` crates; there is no Node reference to patch since RB15 | Through a clean-room spec: a restricted session describes the behaviour without code in `docs/port/spec-rustic-isles-<area>.md` (a new or changed route in its route table), and an implementer builds it from the spec alone, with Rust tests. Nothing is replayed against Node | The spec's change note |
+| Game data, `store-captures.json` | `restricted/modules/rustic-isles/game-data/1.14.7` (`backend/`, `director/`, `store-captures.json`); a host's own preset | Taken as they are | The commit |
+| Mystic Paradox's own `main` | By change, with the rows above | Read the range from `21b9ff5`; each runtime, backend or Director change goes through its spec, game data as it is. `ParadoxLauncher`, `ParadoxTransport` and the workflows stay out | The specs' change notes; the pin in section 7 and `restricted/modules/rustic-isles/NOTICE.md` |
 | Dauntless Revived | nothing | RD6: the copy is final. A DR Rust fix someone still wants is found by its module in section 2 and ported by hand, naming the DR commit | The commit body |
-| A Rust service (not a migration) | its crate, in the workspace its licence puts it in (the root or `restricted/`) | AGENTS.md's rules | — |
+| A Rust service (not a migration) | its crate in the root workspace, the only one since RB15 | AGENTS.md's rules | — |
 | A new Rust module from a row | — | Its line in section 2 of this guide, by the integration pass | This guide |
 
 The upstream line this repository forked from was removed on 2026-10-26 (`main` has a new root), and nothing is
@@ -322,10 +325,9 @@ still owed, and are closed.
 
 1. **Place it** with section 4 and read its entry: the catch-up list for a Node change, Freeza's patch section for a
    Paradox change, the delta file for a file ported for the first time.
-2. **Find the Rust home** in section 2 and open the Node file and the Rust module side by side. Code copied from DR
-   (only under `restricted/` now) keeps DR's structure, so a later reader can still diff it against `e1c5fec`; make
-   the Reforged change and nothing else. An MIT crate here takes the change from a written description, never from
-   the upstream code (RD27).
+2. **Find the Rust home** in section 2 and open the Node file and the Rust module side by side. No code copied
+   from DR is left (RB15 deleted restricted's last), so every crate here takes the change from a written description,
+   never from the upstream code (RD27).
 3. **Match Node where a client can see it.** Routes as Express matches them (`service-kit::routing`), JSON as
    `JSON.stringify` writes it (`service-kit::js`, `json`), the same status codes, headers and field order. When the Node
    and Rust answers differ, the Rust one is the bug unless a decision row says otherwise. Section 3 of the plan lists
@@ -347,7 +349,7 @@ still owed, and are closed.
    `core::i18n` for the backend's dialogs) with the same keys and placeholders. At the root,
    `RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher-kit generated` regenerates, for a bridge command changed in
    the kit's `bridge/spec.rs`, its TS types, hook list and permissions. Generated files are never edited.
-9. **Check** from the root of each workspace the change touched (the root, `restricted/`):
+9. **Check** from the root:
 
    ```bash
    cargo fmt --all --check
@@ -355,16 +357,15 @@ still owed, and are closed.
    cargo test --workspace --locked --no-fail-fast
    ```
 
-   `bun run test` and `bun run lint` in `ui/`, `bun run test` in `launcher/`; in `restricted/`, `npm ci && npm test`
-   in a rustic-isles `reference/1.14.7` package the change touched, `cargo test -p rustic-isles-mit-parity` when an
-   `rustic-isles-*` crate changed, and `bash docker/run-tests.sh` when what the containers run changed. The real nftables test needs `REFORGED_TEST_NFT=1` on Linux. Nothing here plays
+   `bun run test` and `bun run lint` in `ui/`, `bun run test` in `launcher/`, and `bash docker/run-tests.sh` when
+   what the containers run changed. The real nftables test needs `DAINTY_TEST_FIREWALL=1` on Linux. Nothing here plays
    the 1.14.7 client: say so when only the tests passed.
 10. **Record it.** The catch-up entry's `Rust:` line becomes `ported` with the file and lines (section 6's format).
     The commit subject names the row, the body says what changed and why and names the source commit (`From
     FreezaMotoqueiro/Dauntless-Reforged-Revival <path> at <commit>`). The branch is `{type}/{slug}`; push it,
     report the SHA, open no pull request; no AI attribution lines (AGENTS.md, "Commits").
 11. **Leave the hands-on part to the maintainer**, written down: a runtime build and a played hunt,
-    the canary, a real `start` with MongoDB, signing and publishing.
+    the canary, signing and publishing.
 
 ## 6. Catch-up entry format
 
@@ -393,7 +394,7 @@ under its `Rust:` line, as `catchup-host.md` does for `0ba6016`.
 | Reforged `main`, the Node sources the delta lists diffed | `77fb622` | 2026-10-20 |
 | Reforged `main` last merged into `plan` (`02a8070`, patches 0034–0039) | `aea8f64` | 2026-10-23 |
 | Mystic Paradox base (Freeza's pin) | `00d3be8` | — |
-| Mystic Paradox now in `restricted/modules/rustic-isles` (and its loader in `restricted/native/runtime-loader` until 2026-11-11) | `21b9ff5` | 2026-10-18 |
+| Mystic Paradox last taken into `restricted/modules/rustic-isles` (its Node reference deleted at RB15; its loader in `restricted/native/runtime-loader` until 2026-11-11) | `21b9ff5` | 2026-10-18 |
 | Submodules (DS6): rustic-isles, rustic-rifts, legacy-revived at their `plan` (since in-tree, RD27; legacy-revived removed) | `54970ea`, `b19248c`, `8a98d83` | 2026-10-26 |
 | dainty-restricted imported as `restricted/` | `772248c2` (subtree of `e0e238b`) | 2026-11-05 |
 | SilentSpud/Mystic-Paradox `reforged` (base + patches 0001–0033) | `24e60c8` | 2026-10-22 |
@@ -408,8 +409,7 @@ under its `Rust:` line, as `catchup-host.md` does for `0ba6016`.
   [`delta-launcher-controller.md`](delta-launcher-controller.md): the file-by-file Reforged-against-DR deltas (RX1).
 - [`catchup-host.md`](catchup-host.md), [`catchup-isles.md`](catchup-isles.md): Node commits since the copy and
   their Rust state (RX2, DS5), closed.
-- `restricted/docs/paradox-patches.md`: the record of the patches to Mystic Paradox (the runtime rows are history
-  since R21).
+- `restricted/docs/paradox-patches.md`: the record of the patches to Mystic Paradox (history since RB15).
 - [`docs/architecture.md`](../architecture.md): how the parts talk and what each trusts.
 - [`docs/security/`](../security): one checklist per trust-boundary component.
 - `restricted/NOTICE.md`: where each AGPL part comes from, for attribution.

@@ -43,8 +43,8 @@ send.
 ### Credentials
 
 - [ ] `turn-rest` is the TURN REST scheme turn-rs and coturn check: user `<expiry>:<relay tag>`, password
-      base64(HMAC-SHA1(secret, user)); `tests/node_vectors.rs` matches Mystic's own output and the HMAC is checked
-      against RFC 2202.
+      base64(HMAC-SHA1(secret, user)); the oracle's vectors matched Mystic's own output (until RB15) and the HMAC
+      is checked against RFC 2202.
 - [ ] The provider never sees an account id: the relay tag is the first 32 hex digits of SHA-256 of a fixed label
       and the account (`no_request_to_the_provider_carries_the_raw_account_id`).
 - [ ] A credential lives the hunt's remaining time plus 10 minutes, within 300 seconds and the cap (3 hours, a hub's

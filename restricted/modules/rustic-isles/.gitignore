@@ -28,20 +28,15 @@ native/runtime/UtfN.hpp
 # Progression, hunt tables, store, Slayer's Path, etc. are Phoenix Labs game data and are
 # NOT distributed. Generate them with the root's CatalogExporter + dainty-host gamedata.
 # See docs/GENERATING_GAME_DATA.md. Example fixtures (*.example.json) ARE committed.
-reference/1.14.7/ParadoxBackend/game-data/*.json
-reference/1.14.7/ParadoxDirector/game-data/*.json
-!reference/1.14.7/ParadoxBackend/game-data/*.example.json
-!reference/1.14.7/ParadoxDirector/game-data/*.example.json
-reference/1.14.7/ParadoxBackend/game-data/raw/
-reference/1.14.7/ParadoxDirector/game-data/raw/
+game-data/1.14.7/backend/*.json
+game-data/1.14.7/director/*.json
+!game-data/1.14.7/backend/*.example.json
+!game-data/1.14.7/director/*.example.json
+game-data/1.14.7/backend/raw/
+game-data/1.14.7/director/raw/
 # CatalogExporter output (game data extracted from your own install)
+game-data/1.14.7/exports/
 Items_Analysis/
-
-# --- Node ---
-node_modules/
-dist/
-build/
-*.tsbuildinfo
 
 # --- Databases & logs ---
 *.db
@@ -83,4 +78,4 @@ desktop.ini
 .selfhost/
 docs/LOCAL_RELEASE_READINESS.md
 # Store captures the host kit downloads (store-captures.json)
-DauntlessEndpointDocumentation/
+game-data/1.14.7/captures/

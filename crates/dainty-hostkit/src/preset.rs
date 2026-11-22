@@ -379,10 +379,10 @@ pub fn create_preset(p: &Paths, opts: &CreateOptions, now: DateTime<Utc>) -> Res
                 "Read from an installed Dauntless {} client for interoperability: identifiers and tuning values (item catalogue, store, progression and hunt tables), no game assets.",
                 game_tag()
             ),
-            "Sources: CatalogExporter's export from the running game, converted by Rustic Isles's game-data generators and the host kit (npm run gamedata).".to_owned(),
+            "Sources: CatalogExporter's export from the running game, converted by the host kit's game-data generators (dainty-host gamedata).".to_owned(),
             exe_line,
-            "Lady Luck's Store and the platinum store are not in it: npm run gamedata builds them on each server from the live store captures (paradox/backend/store-captures.json).".to_owned(),
-            "A host's own generated game data takes precedence over this preset. Regenerate it with npm run preset -- --create; do not edit the files by hand.".to_owned(),
+            "Lady Luck's Store and the platinum store are not in it: dainty-host gamedata builds them on each server from the live store captures (modules/rustic-isles/game-data/1.14.7/store-captures.json).".to_owned(),
+            "A host's own generated game data takes precedence over this preset. Regenerate it with dainty-host preset --create; do not edit the files by hand.".to_owned(),
         ],
         name,
         game: game_tag(),
@@ -390,7 +390,7 @@ pub fn create_preset(p: &Paths, opts: &CreateOptions, now: DateTime<Utc>) -> Res
         created: now.to_rfc3339_opts(SecondsFormat::Millis, true),
         sources: vec![
             EXPORTER_SOURCE.to_owned(),
-            "Mystic Paradox game-data generators".to_owned(),
+            "Dainty Lass game-data generators".to_owned(),
             "Dainty Lass host kit".to_owned(),
         ],
         files,
@@ -433,7 +433,7 @@ pub fn apply_preset_at(p: &Paths, force: bool, now: DateTime<Utc>) -> Result<Opt
     for entry in &manifest.files {
         if PRESET_EXCLUDED.contains(&entry.path.as_str()) {
             return Err(HostError::message(format!(
-                "preset cannot include {}: npm run gamedata builds from the store captures",
+                "preset cannot include {}: dainty-host gamedata builds from the store captures",
                 entry.path
             )));
         }

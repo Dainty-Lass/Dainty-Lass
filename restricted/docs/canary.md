@@ -1,6 +1,6 @@
-# Canary rollout, shadow replay and rollback runbook (`RU9`, `RB2`, `RB12`)
+# Canary rollout and shadow replay runbook (`RU9`, `RB2`)
 
-The production shadow replay, the rollback to the pre-cutover Node and MongoDB stack, and the 7-day canary gate that has to pass before the Node reference trees go (`RB15`).
+The production shadow replay and the 7-day canary gate. The rollback to the Node backend and MongoDB is gone: RB15 retired them.
 
 ---
 
@@ -87,7 +87,7 @@ node scripts/replay-capture.mjs \
   --out /path/to/replay-report.json
 ```
 
-A capture can also be replayed live against two servers at once (for example, the legacy Node backend on `--left http://127.0.0.1:62000` and the Rust backend on `--right http://127.0.0.1:41000`) to compare their answers side by side.
+A capture can also be replayed live against two servers at once (for example, the current release on `--left http://127.0.0.1:62000` and a new build on `--right http://127.0.0.1:41000`) to compare their answers side by side.
 
 ### 2.2 Reading the diff report
 
@@ -118,66 +118,24 @@ Report counters and diff classifications in `--out <replay-report.json>`:
 
 ---
 
-## 3. Rolling back to the pre-cutover Node and MongoDB stack (`RB12`)
+## 3. The 7-day canary gate (`RU9`)
 
-> [!WARNING]
-> Since the 2026-11-06 protocol rename (`/dainty/api`, `x-dainty-*` headers), the Node backend and Director no
-> longer speak the launcher's protocol, so a rollback to them cannot serve a current launcher. Docker's `rollback`
-> profile is gone; RB15 removes the rest.
-
-Until `RB15` removes the Node reference trees after the 7-day canary window, operators could roll back to the legacy Node backend + Director + MongoDB stack without losing player progress earned on the Rust server.
-
-### 3.1 Step 1: export SQLite or PostgreSQL player data back to MongoDB
-
-Before starting the Node services, export the current SQLite (`dainty-lass.db`) or PostgreSQL store back into the MongoDB `reforged` database using `dainty-host db export-mongo`:
-
-```bash
-# Dry-run first to inspect collection document counts:
-dainty-host db export-mongo \
-  --from /opt/dainty-lass/.workspace/config/dainty-lass.db \
-  --to mongodb://127.0.0.1:27017/reforged \
-  --dry-run
-
-# Perform the live export into MongoDB:
-dainty-host db export-mongo \
-  --from /opt/dainty-lass/.workspace/config/dainty-lass.db \
-  --to mongodb://127.0.0.1:27017/reforged
-```
-
-`db export-mongo` reverses the `RB11` schema transforms (`accounts`, `launcher_accounts`, `api_keys`, `characters`, `loadouts`, `inventories`, `progressions`, `huntpasses`, `escalations`, `bounties`, `quests`, `Guilds`, `moderation`, `invites`, `friendships`, `social_blocks`) idempotently into MongoDB.
-
-### 3.2 Step 2: rollback on a native Windows or Linux host (`--features paradox`)
-
-On a native host installation:
-
-1. Build `dainty-host` with the `paradox` cargo feature enabled:
-   ```bash
-   cargo build --release -p dainty-server --features paradox --locked
-   ```
-2. Ensure MongoDB (`mongod`) and Node.js (`>= 20.19`) are installed (`dainty-host doctor` checks both when built with `--features paradox`).
-3. Run `dainty-host setup` and `dainty-host start` (or `dainty-host serve`). When compiled with `--features paradox`, `hostkit::serve::compose` supervises `mongod`, the Node `ParadoxBackend` (`build/server.js`), and the Node `ParadoxDirector` in place of the in-process Rust `isles-1-14-7` module.
-
----
-
-## 4. The 7-day canary gate (`RU9`, `RB12`, `RB15`)
-
-Per `docs/dainty-lass-plan.md` (`RU9`) and `MIGRATION_PLAN.md` (`RB12`, `RB15`), the maintainer's canary gate requires:
+Per `docs/dainty-lass-plan.md` (`RU9`), the maintainer's canary gate requires:
 
 1. Run the default Rust `1.14.7` stack (`isles-1-14-7`, dainty-lass's `rustic-isles-1-14-7` with its Director, + `store` + `gateway` + `chat`) on the maintainer's live canary server for 7 days in a row with real players and `CAPTURE_DIR` enabled.
 2. During those 7 days:
    - Zero unhandled panics in server logs (`server.log`).
    - Zero account, character, inventory, loadout, progression, quest, or guild data corruption incidents.
    - Shadow replay (`dainty-host db replay`) of the captured daily `.jsonl` files reports `unexplained_diffed: 0` (`PASS`).
-   - No rollback (`--features paradox`) triggered during the 7-day window (if a fix requires restarting or rolling back, the 7-day clock resets once the fix is deployed).
-3. Once the gate passes, `RB15` deletes the Node reference trees (`modules/rustic-isles/reference/1.14.7/{ParadoxBackend,ParadoxDirector,shared}`) and removes the `paradox` cargo feature and the `rollback` Docker profile.
+   - No fix that needed a restart during the 7-day window (one resets the clock once it is deployed).
 
 ---
 
-## 5. End-to-end synthetic capture and shadow replay proof
+## 4. End-to-end synthetic capture and shadow replay proof
 
 The end-to-end pipeline (live `Server A` with `CAPTURE_DIR` enabled in `.workspace/config/gateway.env` -> synthetic client session over the gateway covering 25 HTTP endpoints and XMPP WebSocket SASL `PLAIN` login -> redaction verification on `gateway-YYYY-MM-DD.jsonl` -> dainty-lass's `node scripts/replay-capture.mjs` against a second live `Server B` cloned from the pre-session database snapshot) was executed and verified on `2026-11-01`.
 
-### 5.1 Captured routes exercised through the gateway
+### 4.1 Captured routes exercised through the gateway
 
 1. `GET /dainty/api/RegistrationStatus`
 2. `GET /dainty/api/ServerStatus` (with `x-dainty-user-api-key: DLK_...` -> redacted to `<key:sha256>`)
@@ -206,7 +164,7 @@ The end-to-end pipeline (live `Server A` with `CAPTURE_DIR` enabled in `.workspa
 25. `GET /party/invites`
 26. `WS ws://127.0.0.1:61004/` (`Sec-WebSocket-Protocol: xmpp` -> `<open .../>`, `<auth xmlns="urn:ietf:params:xml:ns:xmpp-sasl" mechanism="PLAIN">...</auth>` redacted to `<plain:52c7ed2e-99e4-463c-8d08-7f509bc9de02>`, `<success xmlns="urn:ietf:params:xml:ns:xmpp-sasl"/>`, clean close)
 
-### 5.2 Recorded proof output
+### 4.2 Recorded proof output
 
 ```text
 === 1. Running dainty-host setup in server-a ===

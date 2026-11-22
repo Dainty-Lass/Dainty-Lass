@@ -496,7 +496,7 @@ pub fn list_invite_codes(port: u16, admin_key: &str) -> Result<Vec<Value>, HostE
     )
     .map_err(|e| {
         HostError::message(format!(
-            "could not reach the backend on 127.0.0.1:{port} ({e}). Is the server running? (npm start)"
+            "could not reach the backend on 127.0.0.1:{port} ({e}). Is the server running? (dainty-host start)"
         ))
     })?;
 

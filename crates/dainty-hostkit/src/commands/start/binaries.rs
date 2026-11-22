@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
-//! Which program runs each service. The backend and the Director are Node until RB14. The gateway,
-//! the content server and the allowlist helper move to Rust one row at a time: [`rust_ported`] is the
-//! one switch each row flips. A ported service runs inside this binary (RD26): in-process under `start`,
+//! Which program runs each service. Every service runs inside this binary (RD26): in-process under `start`,
 //! or as `<this binary> <service>` where it needs a process of its own (`--close-ports`).
 
 use std::path::{Path, PathBuf};
 
-use crate::error::HostError;
 use crate::paths::Paths;
 
 /// A service `start` runs in front of the server.
@@ -72,12 +69,10 @@ pub struct Launch {
     pub env_file_in_args: bool,
 }
 
-/// Where the programs are: Node, this binary (which runs the Rust services) and the folders searched
-/// for the Rust binaries that are not part of it.
+/// Where the programs are: this binary (which runs the Rust services) and the folders searched for the Rust
+/// binaries that are not part of it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Programs {
-    /// The Node executable; only a `paradox` build looks for it.
-    pub node: PathBuf,
     /// This binary, which runs the Rust services.
     pub host: PathBuf,
     /// Folders searched for the Rust binaries not built into this one.
@@ -85,26 +80,9 @@ pub struct Programs {
 }
 
 impl Programs {
-    /// Node from PATH (or where its Windows installer and nvm-windows put it) when built with `paradox`;
-    /// otherwise [`Self::find_rust`] without looking for `node`.
-    pub fn find(paths: &Paths) -> Result<Self, HostError> {
-        if !cfg!(feature = "paradox") {
-            return Ok(Self::find_rust(paths));
-        }
-        let node = find_node(&std::env::vars().collect::<Vec<_>>(), Path::exists).ok_or_else(|| {
-            HostError::message(
-                "Node.js (node) was not found: the backend and the Director still run on it. Install Node.js 22 or newer from https://nodejs.org",
-            )
-        })?;
-        Ok(Self {
-            node,
-            ..Self::find_rust(paths)
-        })
-    }
-
     /// This binary, and the folders with other Rust binaries: next to it (the server release), then the
-    /// workspace's `target/release` and `debug`. `node` is left as the bare name.
-    pub fn find_rust(paths: &Paths) -> Self {
+    /// workspace's `target/release` and `debug`.
+    pub fn find(paths: &Paths) -> Self {
         let exe = std::env::current_exe().unwrap_or_else(|_| PathBuf::from("dainty-host"));
         let mut rust_dirs = Vec::new();
         if let Some(dir) = exe.parent() {
@@ -119,11 +97,7 @@ impl Programs {
             }
         }
         let host = host_cli(&exe, paths, &rust_dirs);
-        Self {
-            node: PathBuf::from("node"),
-            host,
-            rust_dirs,
-        }
+        Self { host, rust_dirs }
     }
 
     /// The Rust binary `name` in the first of `rust_dirs` that has it.
@@ -166,56 +140,12 @@ fn host_cli(exe: &Path, paths: &Paths, rust_dirs: &[PathBuf]) -> PathBuf {
         .unwrap_or_else(|| exe.to_path_buf())
 }
 
-/// `node` on PATH, then in `%ProgramFiles%\nodejs` and nvm-windows' link (the launcher's `findNode`).
-pub fn find_node(env: &[(String, String)], exists: impl Fn(&Path) -> bool) -> Option<PathBuf> {
-    let windows = cfg!(windows);
-    let get = |name: &str| {
-        env.iter()
-            .find(|(k, _)| {
-                if windows {
-                    k.eq_ignore_ascii_case(name)
-                } else {
-                    k == name
-                }
-            })
-            .map(|(_, v)| v.clone())
-    };
-    let mut dirs: Vec<PathBuf> = Vec::new();
-    if let Some(path) = get("PATH") {
-        for dir in std::env::split_paths(&path) {
-            let text = dir.to_string_lossy();
-            let text = text.trim().trim_matches('"');
-            if !text.is_empty() {
-                dirs.push(PathBuf::from(text));
-            }
-        }
-    }
-    if windows {
-        for base in [
-            get("ProgramW6432"),
-            get("ProgramFiles"),
-            Some("C:\\Program Files".into()),
-        ]
-        .into_iter()
-        .flatten()
-        {
-            dirs.push(Path::new(&base).join("nodejs"));
-        }
-        if let Some(link) = get("NVM_SYMLINK") {
-            dirs.push(PathBuf::from(link));
-        }
-    }
-    let exe = if windows { "node.exe" } else { "node" };
-    dirs.into_iter().map(|d| d.join(exe)).find(|f| exists(f))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn programs(dir: &Path) -> Programs {
         Programs {
-            node: PathBuf::from("node"),
             host: dir.join("dainty-host"),
             rust_dirs: vec![dir.join("release"), dir.join("debug")],
         }
@@ -247,20 +177,5 @@ mod tests {
         assert_eq!(args, ["gateway", "serve", "--env-file", "g.env"]);
         let args = FrontService::Content.rust_args(Path::new("c.env"));
         assert_eq!(args, ["content", "serve", "--env-file", "c.env"]);
-    }
-
-    #[test]
-    fn finds_node_on_path_then_in_the_usual_places() {
-        let sep = if cfg!(windows) { ";" } else { ":" };
-        let exe = if cfg!(windows) { "node.exe" } else { "node" };
-        let env = vec![("PATH".to_string(), format!("/a{sep}\"/b\"{sep}"))];
-        let found = find_node(&env, |p| p == Path::new("/b").join(exe));
-        assert_eq!(found, Some(Path::new("/b").join(exe)));
-        assert_eq!(find_node(&env, |_| false), None);
-        if cfg!(windows) {
-            let env = vec![("ProgramFiles".to_string(), "D:\\PF".to_string())];
-            let want = Path::new("D:\\PF").join("nodejs").join(exe);
-            assert_eq!(find_node(&env, |p| p == want), Some(want.clone()));
-        }
     }
 }

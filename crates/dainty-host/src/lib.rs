@@ -8,8 +8,8 @@
 
 pub use dainty_hostkit::{
     HostError, Outcome, captures, cli, envfile, epicinstall, error, gamepack, guarded, hooks, hostconfig, hostfiles,
-    invite, linux, mongo, paths, preset, progression, publish, repl, selfupdate, services, settingstoml, tls, tui,
-    wine, with_admin_env,
+    invite, linux, paths, preset, progression, publish, repl, selfupdate, services, settingstoml, tls, tui, wine,
+    with_admin_env,
 };
 
 pub mod compose;
@@ -22,7 +22,7 @@ pub mod run {
     pub use dainty_hostkit::run::*;
 }
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use clap::Parser as _;
@@ -79,12 +79,13 @@ mod db_impl {
     use std::process::ExitCode;
 
     use crate::Outcome;
-    use crate::cli::{DbArgs, DbCommand, DbExportMongoArgs, DbMigrateArgs, DbReplayArgs, DbVerifyArgs};
+    use crate::cli::{DbArgs, DbCommand, DbMigrateArgs, DbReplayArgs, DbVerifyArgs};
     use crate::error::HostError;
     use crate::hostconfig::{HostConfig, load_host_config, read_env_file};
     use crate::paths::Paths;
-    use dainty_hostkit::commands::db::{redact_credentials_in_text, resolve_mongo_uri, resolve_store_target};
-    use dainty_hostkit::commands::update::{MONGO_MIGRATED_MARKER, redact_uri_password};
+    use dainty_hostkit::commands::db::{
+        redact_credentials_in_text, redact_uri_password, resolve_mongo_uri, resolve_store_target,
+    };
 
     fn parse_areas(raw_areas: &[String]) -> Result<BTreeSet<rustic_isles_db::Area>, HostError> {
         let mut areas = BTreeSet::new();
@@ -133,7 +134,6 @@ mod db_impl {
         match &args.command {
             DbCommand::Migrate(m) => run_migrate_cmd(paths, config.as_ref(), m, out),
             DbCommand::Verify(v) => run_verify_cmd(paths, config.as_ref(), v, out),
-            DbCommand::ExportMongo(e) => run_export_cmd(paths, config.as_ref(), e, out),
             DbCommand::Replay(r) => run_replay_cmd(paths, r, out),
         }
     }
@@ -144,7 +144,7 @@ mod db_impl {
         args: &DbMigrateArgs,
         out: &mut dyn FnMut(&str),
     ) -> Outcome {
-        let from_uri = resolve_mongo_uri(paths, config, args.from.as_deref());
+        let from_uri = resolve_mongo_uri(args.from.as_deref());
         let (to_target, allow_remote_postgres) =
             resolve_store_target(paths, config, args.to.as_deref(), args.allow_remote_postgres)?;
         let node = resolve_node(config, args.node.as_deref())?;
@@ -217,13 +217,12 @@ mod db_impl {
         args: &DbVerifyArgs,
         out: &mut dyn FnMut(&str),
     ) -> Outcome {
-        let from_uri = resolve_mongo_uri(paths, config, args.against.as_deref());
+        let from_uri = resolve_mongo_uri(args.against.as_deref());
         let (to_target, allow_remote_postgres) =
             resolve_store_target(paths, config, args.to.as_deref(), args.allow_remote_postgres)?;
         let node = resolve_node(config, args.node.as_deref())?;
         let areas = parse_areas(&args.area)?;
         let game_data_dir = resolve_game_data_dir(paths, args.game_data_dir.as_deref());
-        let all_areas = areas.is_empty();
 
         let opts = rustic_isles_db::MigrateOptions {
             from_uri: from_uri.clone(),
@@ -282,67 +281,6 @@ mod db_impl {
             )));
         }
 
-        if all_areas {
-            let marker = paths.config.join(MONGO_MIGRATED_MARKER);
-            if !marker.exists() {
-                if let Some(parent) = marker.parent() {
-                    let _ = std::fs::create_dir_all(parent);
-                }
-                let _ = std::fs::write(&marker, format!("verified against {display_against}\n"));
-            }
-        }
-
-        Ok(ExitCode::SUCCESS)
-    }
-
-    fn run_export_cmd(
-        paths: &Paths,
-        config: Option<&HostConfig>,
-        args: &DbExportMongoArgs,
-        out: &mut dyn FnMut(&str),
-    ) -> Outcome {
-        let (from_source, allow_remote_postgres) =
-            resolve_store_target(paths, config, args.from.as_deref(), args.allow_remote_postgres)?;
-        let to_uri = resolve_mongo_uri(paths, config, args.to.as_deref());
-        let areas = parse_areas(&args.area)?;
-
-        let opts = rustic_isles_db::ExportOptions {
-            from_source: from_source.clone(),
-            to_uri: to_uri.clone(),
-            areas,
-            dry_run: args.dry_run,
-            allow_remote_postgres,
-        };
-
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|e| HostError::message(format!("could not start runtime for db export-mongo: {e}")))?;
-
-        let report = runtime
-            .block_on(rustic_isles_db::run_export_mongo(&opts))
-            .map_err(|e| {
-                let msg = redact_credentials_in_text(&e.to_string(), &[&from_source, &to_uri]);
-                HostError::message(format!("db export-mongo failed: {msg}"))
-            })?;
-
-        if args.json {
-            if let Ok(s) = serde_json::to_string_pretty(&report) {
-                out(&s);
-            }
-        } else {
-            let mode = if report.dry_run { "dry-run" } else { "exported" };
-            let display_from = redact_uri_password(&from_source);
-            let display_to = redact_uri_password(&to_uri);
-            out(&format!(
-                "dainty-host db export-mongo ({mode}, from {display_from} to {display_to}):"
-            ));
-            for (collection, count) in &report.counts {
-                if *count > 0 {
-                    out(&format!("  {collection}: {count}"));
-                }
-            }
-        }
         Ok(ExitCode::SUCCESS)
     }
 
@@ -613,32 +551,6 @@ impl hooks::HostHooks for ServicesHostHooks {
         }
     }
 
-    fn db_export_mongo(&self, uri: &str, out: &Path) -> Result<Vec<(String, usize)>, HostError> {
-        #[cfg(feature = "db-tools")]
-        {
-            let opts = rustic_isles_db::ExportOptions {
-                from_source: out.to_string_lossy().into_owned(),
-                to_uri: uri.to_owned(),
-                areas: Default::default(),
-                dry_run: false,
-                allow_remote_postgres: false,
-            };
-            let runtime = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .map_err(|e| HostError::message(format!("could not start runtime: {e}")))?;
-            let report = runtime
-                .block_on(rustic_isles_db::run_export_mongo(&opts))
-                .map_err(|e| HostError::message(e.to_string()))?;
-            Ok(report.counts.into_iter().collect())
-        }
-        #[cfg(not(feature = "db-tools"))]
-        {
-            let _ = (uri, out);
-            Err(HostError::message("MongoDB export is not compiled in"))
-        }
-    }
-
     fn run_db_command(&self, paths: &paths::Paths, args: &cli::DbArgs, out: &mut dyn FnMut(&str)) -> Option<Outcome> {
         #[cfg(feature = "db-tools")]
         {
@@ -718,13 +630,9 @@ impl hooks::HostHooks for ServicesHostHooks {
                 Some(mode) => mode,
                 // Nothing here guards UDP ranges: they are refused, or held to the external helper's (DF4d)
                 None if public && !guarded && cfg!(feature = "allowlist") => {
-                    if cfg!(feature = "paradox") {
-                        AllowlistMode::Absent
-                    } else {
-                        let (first, last) = hostconfig::game_ports(config);
-                        AllowlistMode::External {
-                            base: dainty_module_api::PortRange { first, last },
-                        }
+                    let (first, last) = hostconfig::game_ports(config);
+                    AllowlistMode::External {
+                        base: dainty_module_api::PortRange { first, last },
                     }
                 }
                 None => AllowlistMode::Off,
@@ -802,7 +710,7 @@ impl hooks::HostHooks for ServicesHostHooks {
         if let Some((module, _)) = gateway {
             controller.add(module);
         }
-        #[cfg(all(feature = "chat", not(feature = "paradox")))]
+        #[cfg(feature = "chat")]
         if in_process_gateway && !chat_library {
             let node = config
                 .network
@@ -835,7 +743,7 @@ impl hooks::HostHooks for ServicesHostHooks {
         }
         #[cfg(not(feature = "gateway"))]
         let _ = (controller, paths, config, in_process_gateway);
-        #[cfg(not(all(feature = "chat", not(feature = "paradox"))))]
+        #[cfg(not(feature = "chat"))]
         let _ = chat_library;
 
         #[cfg(not(feature = "gateway"))]
@@ -1399,27 +1307,6 @@ fn isles_service_main(name: &'static str, args: &[String]) -> ExitCode {
     let host_config = paths
         .as_ref()
         .and_then(|p| hostconfig::load_host_config(p).ok().flatten());
-    if name == "backend"
-        && let Some(p) = &paths
-    {
-        if let Some(hc) = &host_config {
-            if let Err(error) = dainty_hostkit::commands::update::check_unmigrated_mongo_data(p, hc) {
-                eprintln!("Unmigrated MongoDB data: {error}");
-                return ExitCode::FAILURE;
-            }
-        } else if !p
-            .config
-            .join(dainty_hostkit::commands::update::MONGO_MIGRATED_MARKER)
-            .exists()
-            && dainty_hostkit::commands::update::has_unmigrated_mongo_dir(p)
-        {
-            eprintln!(
-                "Unmigrated MongoDB data found in {}: move it with `dainty-host db migrate` and `db verify` (or `dainty-legacy import reforged <checkout>`), or pass `dainty-host setup --fresh-start` to start with an empty database without modifying MongoDB.",
-                p.mongo_data.display()
-            );
-            return ExitCode::FAILURE;
-        }
-    }
     let identity = host_config.as_ref().and_then(|c| c.network.as_ref()).map_or_else(
         dainty_module_api::NodeIdentity::standalone,
         |n| dainty_module_api::NodeIdentity {
@@ -1785,21 +1672,6 @@ pub mod commands {
             crate::ensure_hooks();
             dainty_hostkit::commands::update::run_with(p, args, env, out)
         }
-
-        /// [`dainty_hostkit::commands::update::check_unmigrated_mongo_data`] with this binary's hooks installed.
-        pub fn check_unmigrated_mongo_data(
-            p: &crate::paths::Paths,
-            config: &crate::hostconfig::HostConfig,
-        ) -> Result<(), crate::HostError> {
-            crate::ensure_hooks();
-            dainty_hostkit::commands::update::check_unmigrated_mongo_data(p, config)
-        }
-
-        /// [`dainty_hostkit::commands::update::inspect_mongo_migration`] with this binary's hooks installed.
-        pub fn inspect_mongo_migration(p: &crate::paths::Paths) -> MongoMigrationStatus {
-            crate::ensure_hooks();
-            dainty_hostkit::commands::update::inspect_mongo_migration(p)
-        }
     }
 }
 
@@ -1899,11 +1771,9 @@ mod tests {
 
     #[cfg(feature = "db-tools")]
     #[test]
-    fn db_migrate_verify_and_export_mongo_work_with_settings_toml_defaults() {
-        use crate::cli::{DbArgs, DbCommand, DbExportMongoArgs, DbMigrateArgs, DbVerifyArgs};
-        use crate::hostconfig::{
-            DatabaseSettings, FileForm, HostConfig, MongoConfig, Registration, ServerMode, save_host_config,
-        };
+    fn db_migrate_and_verify_write_the_store_settings_toml_names() {
+        use crate::cli::{DbArgs, DbCommand, DbMigrateArgs, DbVerifyArgs};
+        use crate::hostconfig::{DatabaseSettings, FileForm, HostConfig, Registration, ServerMode, save_host_config};
         use rustic_isles_db::mongo::MockMongoServer;
         use serde_json::json;
 
@@ -1943,11 +1813,6 @@ mod tests {
             registration: Registration::Invitecode,
             share_url: None,
             max_hunt_servers: 3,
-            mongo: MongoConfig {
-                uri: mongo_uri,
-                manage: false,
-                mongod: None,
-            },
             performance: None,
             multipliers: None,
             linux: None,
@@ -1984,38 +1849,9 @@ mod tests {
             commands::db::run_with(
                 &paths,
                 &DbArgs {
-                    command: DbCommand::Migrate(DbMigrateArgs::default()),
-                },
-                &mut |l| lines.push(l.to_owned()),
-            )
-            .unwrap(),
-            ExitCode::SUCCESS
-        );
-        assert!(lines.iter().any(|l| l.contains("accounts: 1")));
-
-        lines.clear();
-        assert_eq!(
-            commands::db::run_with(
-                &paths,
-                &DbArgs {
-                    command: DbCommand::Verify(DbVerifyArgs::default()),
-                },
-                &mut |l| lines.push(l.to_owned()),
-            )
-            .unwrap(),
-            ExitCode::SUCCESS
-        );
-        assert!(lines.iter().any(|l| l.contains("dainty-host db verify: OK")));
-        assert!(paths.config.join(commands::update::MONGO_MIGRATED_MARKER).exists());
-
-        lines.clear();
-        assert_eq!(
-            commands::db::run_with(
-                &paths,
-                &DbArgs {
-                    command: DbCommand::ExportMongo(DbExportMongoArgs {
-                        dry_run: true,
-                        ..DbExportMongoArgs::default()
+                    command: DbCommand::Migrate(DbMigrateArgs {
+                        from: Some(mongo_uri.clone()),
+                        ..DbMigrateArgs::default()
                     }),
                 },
                 &mut |l| lines.push(l.to_owned()),
@@ -2023,16 +1859,29 @@ mod tests {
             .unwrap(),
             ExitCode::SUCCESS
         );
-        assert!(lines.iter().any(|l| l.contains("dainty-host db export-mongo (dry-run")));
         assert!(lines.iter().any(|l| l.contains("accounts: 1")));
+
+        lines.clear();
+        assert_eq!(
+            commands::db::run_with(
+                &paths,
+                &DbArgs {
+                    command: DbCommand::Verify(DbVerifyArgs {
+                        against: Some(mongo_uri),
+                        ..DbVerifyArgs::default()
+                    }),
+                },
+                &mut |l| lines.push(l.to_owned()),
+            )
+            .unwrap(),
+            ExitCode::SUCCESS
+        );
+        assert!(lines.iter().any(|l| l.contains("dainty-host db verify: OK")));
     }
 
     /// Free loopback ports for every `[ports]` service, the gateway's too, held until all are picked so they differ.
     /// The defaults may be lent out: Windows hands Hyper-V and WSL blocks of its dynamic range, 61000's among them.
-    #[cfg(any(
-        all(feature = "gateway", feature = "content"),
-        all(feature = "isles-1-14-7", not(feature = "paradox"))
-    ))]
+    #[cfg(any(all(feature = "gateway", feature = "content"), feature = "isles-1-14-7"))]
     fn free_ports() -> hostconfig::ports::PortsConfig {
         let held: Vec<_> = (0..8)
             .map(|_| std::net::TcpListener::bind("127.0.0.1:0").unwrap())
@@ -2054,7 +1903,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn compose_runs_gateway_and_content_in_process_without_node() {
         use commands::start::binaries::{FrontService, rust_ported};
-        use hostconfig::{DEFAULT_MONGO_URI, FileForm, HostConfig, MongoConfig, Registration, ServerMode};
+        use hostconfig::{FileForm, HostConfig, Registration, ServerMode};
 
         ensure_hooks();
         let dir = tempfile::tempdir().unwrap();
@@ -2069,11 +1918,6 @@ mod tests {
             game_dir: None,
             registration: Registration::parse("INVITECODE").unwrap(),
             share_url: None,
-            mongo: MongoConfig {
-                uri: DEFAULT_MONGO_URI.into(),
-                manage: true,
-                mongod: None,
-            },
             max_hunt_servers: 3,
             multipliers: None,
             public_port: None,
@@ -2135,10 +1979,10 @@ mod tests {
         controller.shutdown().await;
     }
 
-    #[cfg(all(feature = "isles-1-14-7", not(feature = "paradox")))]
+    #[cfg(feature = "isles-1-14-7")]
     #[tokio::test(flavor = "multi_thread")]
     async fn compose_starts_rust_1_14_7_backend_and_director_without_node_or_mongo() {
-        use hostconfig::{DEFAULT_MONGO_URI, FileForm, HostConfig, MongoConfig, Registration, ServerMode};
+        use hostconfig::{FileForm, HostConfig, Registration, ServerMode};
 
         ensure_hooks();
         let dir = tempfile::tempdir().unwrap();
@@ -2154,11 +1998,6 @@ mod tests {
             game_dir: None,
             registration: Registration::parse("INVITECODE").unwrap(),
             share_url: None,
-            mongo: MongoConfig {
-                uri: DEFAULT_MONGO_URI.into(),
-                manage: true,
-                mongod: None,
-            },
             max_hunt_servers: 3,
             multipliers: None,
             public_port: None,
@@ -2191,7 +2030,7 @@ mod tests {
         };
         serve::ensure_server_files(&paths, &c).unwrap();
         write_version_data(&paths);
-        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
+        let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..").join("..");
         let repo_paths = paths::Paths::new(&repo);
         std::fs::create_dir_all(&paths.backend_game_data).unwrap();
         std::fs::create_dir_all(&paths.director_game_data).unwrap();

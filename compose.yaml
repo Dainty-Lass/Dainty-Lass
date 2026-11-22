@@ -4,8 +4,7 @@
 #   docker compose run --rm host setup --mode public --host play.example.org --name "My Server"
 #   docker compose up -d
 # Profiles: public (the allowlist), toml (configure applies DAINTY_CONFIG_DIR/settings.toml), postgres, managed (the
-# remote agent), tools (host, run only with `run`), test, network and remote (the harnesses), mongo [RB15].
-# [RB15] marks what goes when RB15 deletes the MongoDB handling.
+# remote agent), tools (host, run only with `run`), test, network and remote (the harnesses).
 
 # Fixed: existing hosts' volumes are named after it
 name: dainty-lass
@@ -41,11 +40,10 @@ x-server: &server
   restart: unless-stopped
   volumes: &server-volumes
     - workspace:/opt/dainty-lass/.workspace
-    - mongo-data:/opt/dainty-lass/.workspace/mongodb # [RB15]
-    - backend-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
-    - director-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
-    - exports:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/Items_Analysis
-    - captures:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
+    - backend-game-data:/opt/dainty-lass/modules/rustic-isles/game-data/1.14.7/backend
+    - director-game-data:/opt/dainty-lass/modules/rustic-isles/game-data/1.14.7/director
+    - exports:/opt/dainty-lass/modules/rustic-isles/game-data/1.14.7/exports
+    - captures:/opt/dainty-lass/modules/rustic-isles/game-data/1.14.7/captures
     - ${DAINTY_GAME_DIR:-./game}:/game
 
 # The harnesses' node namespaces: a fixed cluster address, since the node certificates and tc's filters name it
@@ -177,32 +175,6 @@ services:
       test: ["CMD", "true"]
       interval: 30s
 
-  # [RB15] Imports a pre-cutover server's MongoDB data into store (host db migrate, host db verify)
-  mongo:
-    image: ${MONGO_IMAGE:-mongo:8.0}
-    profiles: [mongo]
-    network_mode: service:net
-    restart: unless-stopped
-    command: ["mongod", "--replSet", "rs0", "--bind_ip", "127.0.0.1", "--port", "27017", "--wiredTigerCacheSizeGB", "1"]
-    volumes:
-      - mongo-data:/data/db
-      - mongo-config:/data/configdb
-    # Initiates the one-member replica set the first time; healthy once primary
-    healthcheck:
-      test:
-        - CMD
-        - mongosh
-        - --quiet
-        - --eval
-        - "try { rs.status() } catch (e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: '127.0.0.1:27017' }] }) } quit(db.hello().isWritablePrimary ? 0 : 1)"
-      interval: 5s
-      timeout: 10s
-      start_period: 60s
-      retries: 12
-    depends_on:
-      net:
-        condition: service_started
-
   postgres:
     image: ${POSTGRES_IMAGE:-postgres:17}
     profiles: [postgres]
@@ -248,20 +220,16 @@ services:
     restart: "no"
     volumes:
       - workspace:/opt/dainty-lass/.workspace
-      - mongo-data:/opt/dainty-lass/.workspace/mongodb # [RB15]
-      - backend-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
-      - director-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
-      - exports:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/Items_Analysis
-      - captures:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
+      - backend-game-data:/opt/dainty-lass/modules/rustic-isles/game-data/1.14.7/backend
+      - director-game-data:/opt/dainty-lass/modules/rustic-isles/game-data/1.14.7/director
+      - exports:/opt/dainty-lass/modules/rustic-isles/game-data/1.14.7/exports
+      - captures:/opt/dainty-lass/modules/rustic-isles/game-data/1.14.7/captures
       - ${DAINTY_GAME_DIR:-./game}:/game
       # z relabels for SELinux hosts and is ignored elsewhere
       - ${DAINTY_CONFIG_DIR:-./config}:/config:ro,z
     depends_on:
       net:
         condition: service_started
-      mongo: # [RB15]
-        condition: service_healthy
-        required: false
 
   backend:
     <<: *server
@@ -384,11 +352,10 @@ services:
     restart: "no"
     volumes:
       - workspace:/opt/dainty-lass/.workspace
-      - mongo-data:/opt/dainty-lass/.workspace/mongodb # [RB15]
-      - backend-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data
-      - director-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data
-      - exports:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/Items_Analysis
-      - captures:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation
+      - backend-game-data:/opt/dainty-lass/modules/rustic-isles/game-data/1.14.7/backend
+      - director-game-data:/opt/dainty-lass/modules/rustic-isles/game-data/1.14.7/director
+      - exports:/opt/dainty-lass/modules/rustic-isles/game-data/1.14.7/exports
+      - captures:/opt/dainty-lass/modules/rustic-isles/game-data/1.14.7/captures
       - ${DAINTY_GAME_DIR:-./game}:/game
       - ${DAINTY_IMPORT_DIR:-./import}:/import:ro
 
@@ -403,8 +370,8 @@ services:
     restart: "no"
     cap_add: [NET_ADMIN]
     volumes:
-      - backend-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data:ro
-      - director-game-data:/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data:ro
+      - backend-game-data:/opt/dainty-lass/modules/rustic-isles/game-data/1.14.7/backend:ro
+      - director-game-data:/opt/dainty-lass/modules/rustic-isles/game-data/1.14.7/director:ro
 
   # The network profile (DN12): four nodes, the canary's regions, with latency between them. Run it alone:
   #   docker compose --profile network up -d --wait network
@@ -771,8 +738,6 @@ volumes:
   director-game-data:
   exports:
   captures:
-  mongo-data: # [RB15]
-  mongo-config: # [RB15]
   postgres-data:
   network-ca:
   network-oregon:

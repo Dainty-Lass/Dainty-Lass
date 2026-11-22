@@ -82,8 +82,6 @@
     "reqs": {
       "dauntless": "Dauntless 1.14.7",
       "git": "Git",
-      "node": "Node.js 22",
-      "mongodb": "MongoDB",
       "tailscale": "Tailscale",
       "visual_studio": "Visual Studio com C++",
       "rust": "Rust",
@@ -142,8 +140,7 @@
       "multipliers": "Aplicando multiplicadores",
       "upstream": "Preparando o código upstream",
       "download_project": "Baixando o projeto",
-      "backup": "Fazendo backup",
-      "migrate_mongo": "Migrando do MongoDB"
+      "backup": "Fazendo backup"
     },
     "stages": { "sdk": "1. SDK", "runtime": "2. Runtime do jogo", "data": "3. Dados do jogo" },
     "stageHints": {

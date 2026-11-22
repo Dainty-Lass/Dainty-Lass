@@ -27,7 +27,7 @@ rather than corrupting the core.
   the two sink functions.
 
 Fuzz target: `plugin_bytes` in `fuzz` (a library's bytes in any chunking, through `ChannelReader` and `read_frame`:
-the same frames or the same refusal however they are split). The frames themselves are `module_frame`'s.
+the same frames or the same refusal however they are split). The frames themselves are `module_frame`'s (`module-host.md`).
 
 ## Checklist
 

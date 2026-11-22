@@ -9,7 +9,7 @@ export const launcherDir = path.resolve(import.meta.dir, "..")
 export const repoDir = path.resolve(launcherDir, "..")
 export const generatedDir = path.join(repoDir, "crates", "dainty-launcher-kit", "generated")
 
-// The MIT Tauri shell the release builds (restricted/launcher is only its oracle tests now)
+// The MIT Tauri shell the release builds
 export const appDir = path.join(repoDir, "crates", "dainty-launcher-app")
 
 // Where `tauri build` in appDir leaves the NSIS bundles: the root workspace's target

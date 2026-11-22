@@ -10,7 +10,7 @@ rust-version.workspace = true
 license = "MIT OR Apache-2.0"
 repository.workspace = true
 publish.workspace = true
-# The bundles' file name; the package name `launcher` is restricted's
+# The bundles' file name
 default-run = "dainty-launcher"
 
 [lib]
