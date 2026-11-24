@@ -38,8 +38,6 @@ dainty-service-kit = { path = "crates/dainty-service-kit" }
 dainty-service-plugin = { path = "crates/dainty-service-plugin" }
 dainty-store = { path = "crates/dainty-store" }
 network_plugin = { package = "dainty-network", path = "crates/dainty-network", default-features = false }
-# Restricted's launcher still says server-controller.
-server-controller = { package = "dainty-controller", path = "crates/dainty-controller" }
 rustic-isles = { path = "crates/rustic-isles" }
 rustic-isles-1-14-7 = { path = "crates/rustic-isles-1-14-7" }
 rustic-isles-1-14-7-plugin = { path = "crates/rustic-isles-1-14-7-plugin" }

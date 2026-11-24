@@ -92,7 +92,6 @@ SDK (the SDK is still dumped, into `.workspace/sdk`, for the catalog exporter).
 
 | # | What | Needs |
 | --- | --- | --- |
-| RD27 | Rewrite the root workspace files that started from DR's (`Cargo.toml`'s layout, `deny.toml`, `clippy.toml`, `rustfmt.toml`, `rust-toolchain.toml`, `.cargo/config.toml`) clean-room, so nothing at the root descends from DR | — |
 | RD24 | The rest of phase 2 of [`docs/config-toml-plan.md`](docs/config-toml-plan.md) (the typed `[gateway.*]`, `[content]`, `[allowlist]`, `[backend]` and `[director]` tables, early validation through each service's loader, environment overrides with a warning), then phase 3 (the other files hosts write). The `[env.<service>]` passthrough and its denylist are in (`hostconfig/env.rs`) | — |
 | MS1–MS8 | [`docs/module-sharing-plan.md`](docs/module-sharing-plan.md): game calls in `module-api`, the event recorder, fleet game servers, the Discord bot and dainty-dash's views | The maintainer's answers to its D1–D6 |
 
