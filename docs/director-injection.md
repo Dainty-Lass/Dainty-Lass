@@ -42,10 +42,6 @@ reruns `setup`; a host who replaced the binary by hand runs `setup` once.
   until the helper passes its hands-on Proton check ([launcher-injection.md](launcher-injection.md), "Still to do").
   Once that is the default, nothing uses it, and it can go with `LOADER_DLL` in the protocol and the feed.
 - The client feed's optional `winmm.dll` stays for the same players.
-- Restricted's Node Director rollback (`DAINTY_ROLLBACK=1`) still expects `winmm.dll` and a runtime next to the
-  server exe, which nothing installs any more. It no longer starts a working server. Since R21 it copies
-  `rustic-isles-runtime.dll`, which the loader loads by its fixed name (ruling 2026-11-13, R21 call 7; restricted's
-  R-10).
 
 ## Design, as built
 

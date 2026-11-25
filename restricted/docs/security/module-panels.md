@@ -2,6 +2,9 @@
 
 # Security checklist: the server GUI's module panels (RX3)
 
+> **Moved (RL13, RL14):** this code is now the MIT `crates/dainty-launcher-kit` (spec-rd27-launcher.md); the
+> `launcher/src-tauri` paths below are the AGPL shell's, deleted in RB15, kept as the record.
+
 The checklist for what the server GUI's page may see of the server's game modules and plugins, and ask of them
 (`docs/dainty-lass-plan.md` DU3, DD5, DD11, DD25): `module_list`, `module_get`, `module_run_command`,
 `module_set_settings`, `module_load` and `module_unload`. `SECURITY_REVIEW.md` indexes it. The frame protocol and the

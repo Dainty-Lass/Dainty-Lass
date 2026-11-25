@@ -3,8 +3,7 @@
 
 //! `serve` and `start`: the server as one process (`docs/app-structure-plan.md`, RD26). The host kit
 //! composes the controller's modules from settings.toml and the env files `setup` writes: the Rust
-//! services built into this binary run in-process ([`dainty_controller::modules`]); legacy Node processes
-//! run as supervised processes when built with `paradox`.
+//! services built into this binary run in-process ([`dainty_controller::modules`]).
 //!
 //! `start` keeps the host kit's contract (RD23): no console of its own, `DAINTY_CONTROL=stdin`,
 //! the `DAINTY_SERVER_READY` line, the backend on port 61000. `serve` is the same server with the
@@ -169,68 +168,6 @@ pub fn start_process(supervisor: &Supervisor, spec: ServiceSpec, ready_timeout: 
     }
 }
 
-/// MongoDB (under `paradox`) as a module: `mongod` started when the kit manages it, the replica set
-/// checked and initiated either way.
-#[cfg(feature = "paradox")]
-fn mongod_module(paths: &Paths, config: &HostConfig, printer: Printer) -> Module {
-    let (paths, config) = (paths.clone(), config.clone());
-    Module::new(
-        "mongod",
-        Arc::new(move |mut ctx| {
-            let (paths, config, printer) = (paths.clone(), config.clone(), printer.clone());
-            Box::pin(async move {
-                ctx.status().report_starting("starting");
-                let stop = Arc::new(AtomicBool::new(false));
-                let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<Result<(), String>>();
-                let (done_tx, done_rx) = tokio::sync::oneshot::channel::<()>();
-                let worker_stop = stop.clone();
-                std::thread::Builder::new()
-                    .name("module mongod".into())
-                    .spawn(move || {
-                        let supervisor = Supervisor::new(&paths.logs, printer).with_cancel(worker_stop.clone());
-                        let started = start_cmd::prepare_database(&paths, &config, &supervisor, &|| {
-                            worker_stop.load(Ordering::SeqCst)
-                        })
-                        .map_err(|e| e.to_string())
-                        .and_then(|up| {
-                            up.then_some(())
-                                .ok_or_else(|| "stopped while MongoDB was starting".to_string())
-                        });
-                        let ok = started.is_ok();
-                        let _ = ready_tx.send(started);
-                        while ok && !worker_stop.load(Ordering::SeqCst) {
-                            std::thread::sleep(Duration::from_millis(100));
-                        }
-                        supervisor.stop_all();
-                        let _ = done_tx.send(());
-                    })
-                    .map_err(|e| format!("could not start a thread: {e}"))?;
-                match ready_rx.await {
-                    Ok(Ok(())) => ctx
-                        .status()
-                        .report_ready(Some(crate::paths::PORTS.mongo), "replica set ready"),
-                    Ok(Err(error)) => {
-                        ctx.status().failed(error.clone());
-                        return Err(error);
-                    }
-                    Err(_) => {
-                        let error = "mongod ended before it started".to_string();
-                        ctx.status().failed(error.clone());
-                        return Err(error);
-                    }
-                }
-                ctx.wait_stop().await;
-                ctx.status().report_stopping("stopping");
-                stop.store(true, Ordering::SeqCst);
-                let _ = done_rx.await;
-                ctx.status().report_stopped("stopped");
-                Ok(())
-            })
-        }),
-    )
-    .ready_within(Duration::from_secs(90))
-}
-
 /// The services `[services.<name>]` loads as libraries (RD27), paths taken from the server folder.
 pub fn service_libraries(paths: &Paths, config: &HostConfig) -> Vec<ServiceLibrary> {
     let Some(services) = &config.services else {
@@ -343,19 +280,16 @@ pub fn add_service_library(
     Ok(())
 }
 
-/// The server's modules in start order: the database, the allowlist (its table closes the game
-/// ports before any game server listens), the backend, the Director, the content server, the admin
-/// API, the gateway last. A front service runs in this process once
-/// [`rust_ported`](crate::commands::start::binaries::rust_ported) says so and this binary has it; until then
-/// its Node build runs as a supervised process. A service `[services]` lists runs as a library in its place.
+/// The server's modules in start order: the allowlist (its table closes the game ports before any game server
+/// listens), the content server, the admin API, the gateway last, then the game modules. A front service runs in
+/// this process when this binary has it; a service `[services]` lists runs as a library in its place.
 pub fn compose(
     paths: &Paths,
     config: &HostConfig,
     external_allowlist: bool,
-    printer: Printer,
+    _printer: Printer,
 ) -> Result<ServerController, HostError> {
-    use crate::services::Ready;
-    use start_cmd::binaries::{FrontService, Programs, rust_ported};
+    use start_cmd::binaries::{FrontService, rust_ported};
     let own = crate::hostconfig::service_ports(config);
 
     let public = config.mode == ServerMode::Public;
@@ -364,10 +298,6 @@ pub fn compose(
         .split
         .as_ref()
         .is_some_and(|s| s.role == hostconfig::split::SplitRole::GameServers);
-    let node_runs = cfg!(feature = "paradox");
-    if !node_runs {
-        crate::commands::update::check_unmigrated_mongo_data(paths, config)?;
-    }
     let games = vec![dainty_protocol::invite::dainty_version().to_string()];
     let mut controller = ServerController::new(config.mode.as_str(), games);
     // Made first, so the admin API can hold it; its modules are listed after the services
@@ -378,28 +308,7 @@ pub fn compose(
         dainty_controller::events::EventRecorder::database_for(&hostconfig::node_database_config(config, paths)?),
         config.events.clone().unwrap_or_default().options(),
     ));
-    let programs = if node_runs {
-        Programs::find(paths)?
-    } else {
-        Programs::find_rust(paths)
-    };
     let in_process = |service: FrontService| rust_ported(service) && service.built_in();
-    let front_process = |service: FrontService, ready: Ready| {
-        let file = start_cmd::env_file(paths, service.bin_name());
-        let launch = programs.launch(service, paths, &file);
-        process_module(
-            start_cmd::spec_from(service.bin_name(), launch, file, ready),
-            Duration::from_secs(60),
-            printer.clone(),
-            paths.logs.clone(),
-        )
-    };
-
-    #[cfg(feature = "paradox")]
-    {
-        controller.add(mongod_module(paths, config, printer.clone()));
-    }
-
     let mut libraries = service_libraries(paths, config);
     let mut take_library = |name: &str| {
         libraries
@@ -416,54 +325,9 @@ pub fn compose(
     let mut guarded = false;
     // A gateway library holds the allowlist (it serves UdpPorts). A game servers half never sees a heartbeat, so its
     // game ports are open (`split.open_game_ports`, checked when settings.toml is read)
-    if public && !external_allowlist && gateway_library.is_none() && !game_half {
-        if in_process(FrontService::Allowlist) {
-            slot = crate::hooks::get().compose_in_process_allowlist(&mut controller, paths, &registry)?;
-            guarded = slot.is_some();
-        } else if node_runs {
-            controller.add(front_process(
-                FrontService::Allowlist,
-                Ready::http(own.allowlist, "/status"),
-            ));
-        }
-    }
-
-    #[cfg(feature = "paradox")]
-    {
-        let node = |name: &str, dir: &Path, script: &[&str], ready: Ready| ServiceSpec {
-            name: name.into(),
-            cwd: dir.to_path_buf(),
-            command: programs.node.clone(),
-            args: vec![script.iter().collect::<PathBuf>().display().to_string()],
-            env_file: Some(start_cmd::env_file(paths, name)),
-            extra_env: Vec::new(),
-            ready: Some(ready),
-        };
-        controller.add(process_module(
-            node(
-                "backend",
-                &paths.backend_dir,
-                &["build", "server.js"],
-                Ready::http(own.backend, "/dauntless-status"),
-            ),
-            Duration::from_secs(120),
-            printer.clone(),
-            paths.logs.clone(),
-        ));
-        controller.add(
-            process_module(
-                node(
-                    "director",
-                    &paths.director_dir,
-                    &["dist", "server.js"],
-                    Ready::http(own.director, "/api/instances"),
-                ),
-                Duration::from_secs(60),
-                printer.clone(),
-                paths.logs.clone(),
-            )
-            .optional(),
-        );
+    if public && !external_allowlist && gateway_library.is_none() && !game_half && in_process(FrontService::Allowlist) {
+        slot = crate::hooks::get().compose_in_process_allowlist(&mut controller, paths, &registry)?;
+        guarded = slot.is_some();
     }
 
     if game_half {
@@ -472,11 +336,9 @@ pub fn compose(
         hooks.compose_service_library(&mut controller, paths, config, &registry, library)?;
     } else if in_process(FrontService::Content) {
         hooks.compose_in_process_content(&mut controller, paths, &registry)?;
-    } else if node_runs {
-        controller.add(front_process(FrontService::Content, Ready::http(own.content, "/content/v1/news")).optional());
     }
 
-    // The admin API has no Node build; it runs when setup wrote its env file (an older setup did not)
+    // The admin API runs when setup wrote its env file (an older setup did not)
     #[cfg(feature = "admin")]
     if !game_half && start_cmd::env_file(paths, "admin").is_file() {
         let host: Arc<dyn dainty_admin::host_settings::HostSettings> = Arc::new(hostconfig::logs::LogsFile {
@@ -511,16 +373,8 @@ pub fn compose(
         public,
         guarded,
     )?;
-    let gateway_runs = gateway_library.is_some();
     for library in [gateway_library, chat_library].into_iter().flatten() {
         hooks.compose_service_library(&mut controller, paths, config, &registry, library)?;
-    }
-    if !in_process_gw && node_runs && !gateway_runs {
-        let ready = match config.mode {
-            ServerMode::Public => Ready::tcp("127.0.0.1", hostconfig::gateway_port(config)),
-            ServerMode::Private => Ready::tcp(&config.game_address, crate::hostconfig::gateway_port(config)),
-        };
-        controller.add(front_process(FrontService::Gateway, ready));
     }
     crate::commands::remote::compose_remote_module(paths, config, &registry, &mut controller)?;
     if let Some(split) = &config.split {
@@ -635,35 +489,16 @@ pub fn new_registry(config: &HostConfig, controller: &ServerController) -> Modul
     let own = hostconfig::service_ports(config);
     let mut tcp: Vec<u16> = hostconfig::reserved_ports(&own).to_vec();
     tcp.push(hostconfig::gateway_port(config));
-    if !cfg!(feature = "paradox") {
-        tcp.retain(|port| *port != own.backend && *port != own.director);
-        // The compiled-in game module's ports, which a manifest names this way
-        options.port_defaults = [("backend", own.backend), ("director", own.director), ("qos", own.qos)]
-            .into_iter()
-            .map(|(name, port)| (name.to_owned(), port))
-            .collect();
-    }
-    let udp = if cfg!(feature = "paradox") {
-        vec![hostconfig::game_ports(config)]
-    } else {
-        Vec::new()
-    };
+    tcp.retain(|port| *port != own.backend && *port != own.director);
+    // The compiled-in game module's ports, which a manifest names this way
+    options.port_defaults = [("backend", own.backend), ("director", own.director), ("qos", own.qos)]
+        .into_iter()
+        .map(|(name, port)| (name.to_owned(), port))
+        .collect();
     options.reserved_ports = tcp
         .into_iter()
         .map(|port| (Transport::Tcp, PortRange::single(port)))
-        .chain(
-            udp.into_iter()
-                .map(|(first, last)| (Transport::Udp, PortRange { first, last })),
-        )
         .collect();
-    // The Node backend, when it runs, holds 1.14.7 itself
-    options.taken_versions = if cfg!(feature = "paradox") {
-        let version = dainty_protocol::invite::dainty_version();
-        let by = format!("this server's own {version} stack");
-        vec![(version, by)]
-    } else {
-        Vec::new()
-    };
     ModuleRegistry::new(options, controller.status_registry().clone())
 }
 
@@ -676,7 +511,6 @@ pub fn list_modules(
     compiled: Vec<dainty_controller::ModuleFactory>,
 ) -> Result<(), HostError> {
     let modules = config.modules.clone().unwrap_or_default();
-    let explicit_compiled = modules.compiled.is_some();
     let mut settings = modules.settings.clone();
     let mut entry = |id: dainty_module_api::ModuleId, source: ModuleSource, autoload: bool| {
         let mut mod_settings = settings.remove(&id).unwrap_or_default();
@@ -733,15 +567,7 @@ pub fn list_modules(
         built.retain(|(id, _)| wanted.contains(id));
     }
     for (id, factory) in built {
-        let autoload = if explicit_compiled {
-            true
-        } else {
-            match id.as_str() {
-                "isles-1-14-7" => !cfg!(feature = "paradox"),
-                _ => true,
-            }
-        };
-        entry(id, ModuleSource::CompiledIn(factory), autoload)?;
+        entry(id, ModuleSource::CompiledIn(factory), true)?;
     }
     for external in &modules.external {
         let path = PathBuf::from(&external.path);
@@ -811,12 +637,7 @@ pub fn ensure_server_files(paths: &Paths, config: &HostConfig) -> Result<Vec<Pat
     let reborn_files = ["backend", "director", "content", "gateway"].map(str::to_owned);
     let mut written = Vec::new();
     if missing(&reborn_files) {
-        for dir in [
-            &paths.runtime_publish,
-            &paths.branding,
-            &paths.gameserver_logs,
-            &paths.mongo_data,
-        ] {
+        for dir in [&paths.runtime_publish, &paths.branding, &paths.gameserver_logs] {
             std::fs::create_dir_all(dir).map_err(|e| HostError::io(dir, e))?;
         }
         let files = hostconfig::build_env_files(
@@ -862,15 +683,6 @@ fn load_config(paths: &Paths, config_file: Option<&Path>) -> Result<HostConfig, 
             if let Some(cfg) = hostconfig::read_host_config(file)? {
                 return Ok(cfg);
             }
-            if !cfg!(feature = "paradox")
-                && !crate::commands::update::mongo_migrated_marker(paths).is_file()
-                && crate::commands::update::has_unmigrated_mongo_dir(paths)
-            {
-                return Err(HostError::message(format!(
-                    "unmigrated MongoDB data was found in {}: move it with `dainty-host db migrate` and `db verify` (or `dainty-legacy import reforged <checkout>`), or pass --fresh-start to setup to start on a fresh database",
-                    paths.mongo_data.display()
-                )));
-            }
             Err(HostError::message(format!("{} does not exist", file.display())))
         }
         None => start_cmd::load_config(paths),
@@ -890,7 +702,6 @@ fn prepare(
     external: bool,
     printer: Printer,
 ) -> Result<ServerController, HostError> {
-    crate::commands::update::check_unmigrated_mongo_data(paths, config)?;
     ensure_server_files(paths, config)?;
     start_cmd::preflight_with(paths, config, external)?;
     compose(paths, config, external, printer)
@@ -1084,7 +895,7 @@ pub fn minimal_main() -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hostconfig::{DEFAULT_MONGO_URI, FileForm, MongoConfig, Registration};
+    use crate::hostconfig::{FileForm, Registration};
 
     fn config(mode: ServerMode) -> HostConfig {
         HostConfig {
@@ -1096,11 +907,6 @@ mod tests {
             game_dir: None,
             registration: Registration::parse("INVITECODE").unwrap(),
             share_url: None,
-            mongo: MongoConfig {
-                uri: DEFAULT_MONGO_URI.into(),
-                manage: true,
-                mongod: None,
-            },
             max_hunt_servers: 3,
             multipliers: None,
             public_port: None,
@@ -1263,21 +1069,12 @@ mod tests {
         });
         let registry = new_registry(&taken, &controller);
         list_modules(&paths, &taken, &registry, vec![isles]).unwrap();
-        if cfg!(feature = "paradox") {
-            let refused = registry
-                .load(&"isles-1-14-7".parse().unwrap())
-                .await
-                .unwrap_err()
-                .to_string();
-            assert!(refused.contains("this server's own 1.14.7 stack"), "{refused}");
-        } else {
-            registry.load(&"isles-1-14-7".parse().unwrap()).await.unwrap();
-            assert_eq!(
-                registry.info(&"isles-1-14-7".parse().unwrap()).unwrap().state,
-                dainty_controller::ModuleState::Ready
-            );
-            registry.unload_all().await;
-        }
+        registry.load(&"isles-1-14-7".parse().unwrap()).await.unwrap();
+        assert_eq!(
+            registry.info(&"isles-1-14-7".parse().unwrap()).unwrap().state,
+            dainty_controller::ModuleState::Ready
+        );
+        registry.unload_all().await;
     }
 
     #[test]

@@ -684,20 +684,6 @@ pub async fn server_config_save(c: Ctl<'_>, config: Value) -> Answer<ServerConfi
 }
 
 #[tauri::command]
-pub async fn server_migrate_mongo(c: Ctl<'_>) -> Answer<ActionResult> {
-    manager!("server_migrate_mongo", ActionResult, [], |c| c
-        .server_migrate_mongo()
-        .await)
-}
-
-#[tauri::command]
-pub async fn server_confirm_fresh_start(c: Ctl<'_>) -> Answer<ServerConfigOutcome> {
-    manager!("server_confirm_fresh_start", ServerConfigOutcome, [], |c| {
-        c.server_confirm_fresh_start().await
-    })
-}
-
-#[tauri::command]
 pub async fn server_invite_list(c: Ctl<'_>) -> Answer<ServerInviteListOutcome> {
     manager!("server_invite_list", ServerInviteListOutcome, [], |c| c
         .server_invite_list()

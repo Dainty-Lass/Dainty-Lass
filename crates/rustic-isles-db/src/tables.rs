@@ -212,7 +212,7 @@ pub(crate) fn table(name: &str) -> Option<&'static Table> {
     TABLES.iter().find(|t| t.name == name)
 }
 
-/// Rows of every table, keyed as §9.2 orders them; what migrate writes, verify compares and export reads.
+/// Rows of every table, keyed as §9.2 orders them; what migrate writes and verify compares.
 #[derive(Clone, Default, PartialEq)]
 pub struct TargetState {
     pub(crate) tables: BTreeMap<&'static str, Rows>,

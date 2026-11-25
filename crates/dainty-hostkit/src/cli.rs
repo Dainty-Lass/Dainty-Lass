@@ -60,7 +60,7 @@ pub enum Command {
     Update(UpdateArgs),
     /// Backs up the server's database into `.workspace/backups/`.
     Backup,
-    /// Migrates, verifies or exports player data, or replays captured traffic.
+    /// Migrates or verifies an old MongoDB's player data, or replays captured traffic.
     Db(DbArgs),
     /// Sets up node certificates and checks node links between servers.
     Network(NetworkArgs),
@@ -185,29 +185,6 @@ pub struct SetupArgs {
     /// A Tailscale share link from login.tailscale.com, for a private server's invites.
     #[arg(long)]
     pub share: Option<String>,
-    /// The MongoDB connection string to migrate pre-cutover player data from.
-    #[arg(
-        long = "mongo-uri",
-        value_name = "uri",
-        help = "MongoDB connection string to migrate pre-cutover player data from"
-    )]
-    pub mongo_uri: Option<String>,
-    /// Has the server start its own mongod.
-    #[arg(long = "manage-mongo", hide = !cfg!(feature = "paradox"))]
-    pub manage_mongo: bool,
-    /// Uses a MongoDB the host runs instead of starting one.
-    #[arg(long = "no-manage-mongo", hide = !cfg!(feature = "paradox"))]
-    pub no_manage_mongo: bool,
-    /// The mongod executable to start; found on PATH or under Program Files when not given.
-    #[arg(long, hide = !cfg!(feature = "paradox"))]
-    pub mongod: Option<String>,
-    /// Downloads and patches upstream Mystic Paradox again.
-    #[arg(
-        long = "force-upstream",
-        hide = !cfg!(feature = "paradox"),
-        help = "Download and patch upstream Mystic Paradox again"
-    )]
-    pub force_upstream: bool,
     /// The most hunts that run at once, 1 to 10.
     #[arg(long = "max-hunts")]
     pub max_hunts: Option<String>,
@@ -506,13 +483,10 @@ pub struct DbArgs {
     reason = "built once per run; boxing the arguments would only clutter clap's derive"
 )]
 pub enum DbCommand {
-    /// Migrates the MongoDB data into the store.
+    /// Migrates an old install's MongoDB data into the store (dainty-legacy's `import reforged` runs it).
     Migrate(DbMigrateArgs),
     /// Compares the store with the MongoDB data.
     Verify(DbVerifyArgs),
-    /// Exports the store as MongoDB collections.
-    #[command(name = "export-mongo")]
-    ExportMongo(DbExportMongoArgs),
     /// Replays a capture corpus against recorded or live servers and reports the differences.
     Replay(DbReplayArgs),
 }
@@ -520,7 +494,7 @@ pub enum DbCommand {
 /// Options of `db migrate`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
 pub struct DbMigrateArgs {
-    /// The MongoDB URI to read; backend.env's or settings.toml's when not given.
+    /// The MongoDB URI to read; mongodb://127.0.0.1:27017/reforged when not given.
     #[arg(long = "from", visible_alias = "from-mongo")]
     pub from: Option<String>,
     /// The store to write: a SQLite file or a postgres:// URL; settings.toml's when not given.
@@ -552,7 +526,7 @@ pub struct DbMigrateArgs {
 /// Options of `db verify`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
 pub struct DbVerifyArgs {
-    /// The MongoDB URI to compare with; backend.env's or settings.toml's when not given.
+    /// The MongoDB URI to compare with; mongodb://127.0.0.1:27017/reforged when not given.
     #[arg(long = "against", visible_aliases = ["from", "from-mongo"])]
     pub against: Option<String>,
     /// The store to check: a SQLite file or a postgres:// URL; settings.toml's when not given.
@@ -570,29 +544,6 @@ pub struct DbVerifyArgs {
     /// The folder holding the inventory storage policy.
     #[arg(long = "game-data-dir")]
     pub game_data_dir: Option<String>,
-    /// Allows a Postgres store off this machine.
-    #[arg(long = "allow-remote-postgres")]
-    pub allow_remote_postgres: bool,
-    /// Prints JSON.
-    #[arg(long)]
-    pub json: bool,
-}
-
-/// Options of `db export-mongo`.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Args)]
-pub struct DbExportMongoArgs {
-    /// The store to read: a SQLite file or a postgres:// URL.
-    #[arg(long, visible_alias = "from-mongo")]
-    pub from: Option<String>,
-    /// Where the collections go; the current folder when not given.
-    #[arg(long, visible_alias = "out")]
-    pub to: Option<String>,
-    /// The areas to export, comma-separated or repeated; all when not given.
-    #[arg(long)]
-    pub area: Vec<String>,
-    /// Reads without writing.
-    #[arg(long = "dry-run")]
-    pub dry_run: bool,
     /// Allows a Postgres store off this machine.
     #[arg(long = "allow-remote-postgres")]
     pub allow_remote_postgres: bool,

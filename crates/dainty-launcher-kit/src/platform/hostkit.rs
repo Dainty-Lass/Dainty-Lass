@@ -100,7 +100,7 @@ pub struct WorkspacePaths {
     pub backend_game_data: PathBuf,
     /// The director's game-data folder.
     pub director_game_data: PathBuf,
-    /// The CatalogExporter's exports (`Items_Analysis`).
+    /// The CatalogExporter's exports (`game-data/1.14.7/exports`).
     pub exports: PathBuf,
     /// Where a CatalogExporter built with an export root (`RUSTIC_ISLES_EXPORT_ROOT`) writes instead of the game's
     /// folder: the module's or the checkout's `Items_Analysis`.
@@ -129,11 +129,7 @@ impl WorkspacePaths {
         };
         let has_isles = isles.is_dir();
 
-        let paradox = if has_isles {
-            isles.join("reference").join("1.14.7")
-        } else {
-            root.join("paradox")
-        };
+        let game_data = isles.join("game-data").join("1.14.7");
 
         let loader_dir = if root.join("native").join("runtime-loader").is_dir() {
             root.join("native").join("runtime-loader")
@@ -159,22 +155,22 @@ impl WorkspacePaths {
             isles.join("gamedata").join("backend")
         } else if !has_isles
             && root.join("backend").join("data").join("GameData").is_dir()
-            && !paradox.join("ParadoxBackend").join("game-data").is_dir()
+            && !game_data.join("backend").is_dir()
         {
             root.join("backend").join("data").join("GameData")
         } else {
-            paradox.join("ParadoxBackend").join("game-data")
+            game_data.join("backend")
         };
 
         let director_game_data = if has_isles && isles.join("gamedata").join("director").is_dir() {
             isles.join("gamedata").join("director")
         } else if !has_isles
             && root.join("director").join("data").join("GameData").is_dir()
-            && !paradox.join("ParadoxDirector").join("game-data").is_dir()
+            && !game_data.join("director").is_dir()
         {
             root.join("director").join("data").join("GameData")
         } else {
-            paradox.join("ParadoxDirector").join("game-data")
+            game_data.join("director")
         };
 
         let workspace = root.join(".workspace");
@@ -199,7 +195,7 @@ impl WorkspacePaths {
             .join(EXPORTER_TARGET)
             .join("release")
             .join("CatalogExporter.dll");
-        let exports = paradox.join("Items_Analysis");
+        let exports = game_data.join("exports");
         let mut export_roots = vec![isles.join("Items_Analysis"), root.join("Items_Analysis")];
         export_roots.dedup();
         let logs = workspace.join("logs");
@@ -363,7 +359,7 @@ pub fn find_host_binary(root: &Path) -> Option<PathBuf> {
         .find(|candidate| candidate.is_file())
 }
 
-/// Returns `true` iff `root` contains `dainty-host` and either `modules/rustic-isles` or `paradox`.
+/// Returns `true` iff `root` contains `dainty-host` and `modules/rustic-isles` (or `paradox/`, before DS6).
 #[must_use]
 pub fn is_workspace(root: &Path) -> bool {
     find_host_binary(root).is_some()
@@ -373,7 +369,7 @@ pub fn is_workspace(root: &Path) -> bool {
 }
 
 /// Whether `root` is a source checkout, which builds the CatalogExporter: it holds the MIT exporter's crate, as the
-/// host kit's `setup` asks of a checkout (`missing_paradox`).
+/// host kit's `setup` asks of a checkout (`missing_sources`).
 #[must_use]
 pub fn is_checkout(root: &Path) -> bool {
     WorkspacePaths::new(root).exporter_crate.join("Cargo.toml").is_file()
@@ -1030,7 +1026,7 @@ mod tests {
     fn checkout(root: &Path) {
         std::fs::create_dir_all(root.join("native/rustic-isles-exporter")).unwrap();
         std::fs::write(root.join("native/rustic-isles-exporter/Cargo.toml"), b"[workspace]").unwrap();
-        std::fs::create_dir_all(root.join("restricted/modules/rustic-isles/reference/1.14.7")).unwrap();
+        std::fs::create_dir_all(root.join("restricted/modules/rustic-isles/game-data/1.14.7")).unwrap();
         std::fs::write(root.join("Cargo.toml"), b"[workspace]").unwrap();
     }
 

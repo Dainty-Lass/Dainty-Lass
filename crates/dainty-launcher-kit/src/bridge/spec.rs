@@ -185,8 +185,6 @@ pub const EXTERNAL_TARGETS: &[&str] = &[
     "dumper7",
     "visual_studio",
     "rust",
-    "nodejs",
-    "mongodb",
     "git",
     "visual_studio_installer",
     "rust_installer",
@@ -545,8 +543,6 @@ pub const COMMANDS: &[CommandSpec] = &[
         ServerGui,
         false,
     ),
-    cmd("server_migrate_mongo", &[], ServerGui, false),
-    cmd("server_confirm_fresh_start", &[], ServerGui, false),
     cmd("server_invite_list", &[], ServerGui, false),
     cmd(
         "admin_action",
@@ -746,7 +742,7 @@ mod tests {
 
     #[test]
     fn the_table_has_a_hundred_and_eleven_unique_commands() {
-        assert_eq!(COMMANDS.len(), 111);
+        assert_eq!(COMMANDS.len(), 109);
         let mut seen = HashSet::new();
         for spec in COMMANDS {
             assert!(seen.insert(spec.name), "{} twice", spec.name);
@@ -759,7 +755,7 @@ mod tests {
     #[test]
     fn groups_follow_the_names() {
         let count = |g| COMMANDS.iter().filter(|c| c.group == g).count();
-        assert_eq!(count(Group::ServerGui), 27);
+        assert_eq!(count(Group::ServerGui), 25);
         assert_eq!(count(Group::Realms), 4);
         for spec in COMMANDS {
             let expected = if spec.name.starts_with("realm_") {

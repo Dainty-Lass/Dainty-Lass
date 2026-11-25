@@ -1,4 +1,4 @@
-# The root crates ship in restricted/'s AGPL-3.0-only release, so every licence below must be one it can carry.
+# The root crates ship in the AGPL-3.0-only server release, so every licence below must be one it can carry.
 
 [graph]
 all-features = true
@@ -20,7 +20,7 @@ ignore = [
 [licenses]
 version = 2
 confidence-threshold = 0.9
-# Shared with restricted/'s release, so some entries match no crate here.
+# What that release can carry, so some entries match no crate here.
 unused-allowed-license = "allow"
 allow = [
     "AGPL-3.0-only",

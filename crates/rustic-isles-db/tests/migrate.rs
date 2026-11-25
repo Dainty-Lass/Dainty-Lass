@@ -354,7 +354,7 @@ async fn invalid_documents_stop_the_run_unless_skipped() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn missing_sqlite_files_are_refused_by_verify_and_export() {
+async fn a_missing_sqlite_file_is_refused_by_verify() {
     let dir = tempfile::tempdir().unwrap();
     let missing = dir.path().join("typo.db");
     // A closed port: nothing may be contacted before the refusal
@@ -362,18 +362,6 @@ async fn missing_sqlite_files_are_refused_by_verify_and_export() {
     opts.from_uri = "mongodb://127.0.0.1:1/dauntless".into();
     let err = run_verify(&opts).await.unwrap_err().to_string();
     assert!(err.contains("does not exist"), "{err}");
-    let export = rustic_isles_db::ExportOptions {
-        from_source: missing.to_str().unwrap().into(),
-        to_uri: "mongodb://127.0.0.1:1/dauntless".into(),
-        areas: BTreeSet::new(),
-        dry_run: false,
-        allow_remote_postgres: false,
-    };
-    let err = rustic_isles_db::run_export_mongo(&export)
-        .await
-        .unwrap_err()
-        .to_string();
-    assert!(err.starts_with("invalid argument: the database "), "{err}");
     assert!(!missing.exists());
 }
 

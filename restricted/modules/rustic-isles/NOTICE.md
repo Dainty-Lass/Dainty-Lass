@@ -16,12 +16,12 @@ project, and Mystic Paradox does not endorse it. Every change is recorded in the
 > "Mystic Paradox's Dauntless 1.12.0 and 1.14.7 ports and related modifications were developed by MysticFox / Pranav
 > Karande. See NOTICE.md for contribution and provenance information."
 
-Every crate and file in this repository (`crates/rustic-isles-plugin`, `crates/rustic-isles-mit-parity` with the goldens
-recorded from the Node reference, `version-data/`, `reference/`, `native/` and `preset/`) is licensed under
-`AGPL-3.0-only` ([LICENSE](LICENSE)) with Mystic Paradox's section 7 additional terms
+Every file in this repository (`version-data/`, `game-data/` with its examples and store captures, and `docs/`) is
+licensed under `AGPL-3.0-only` ([LICENSE](LICENSE)) with Mystic Paradox's section 7 additional terms
 ([ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md)). The Rust port of the backend and Director (`isles-core`, `isles-director`,
-`isles-chat`, `isles-db`, `isles-1-14-7`) was replaced by Dainty Lass's clean-room MIT crates and removed (RD27); it
-stays in the commit history under the same terms. Mystic Paradox's own modification and provenance notices follow
+`isles-chat`, `isles-db`, `isles-1-14-7`) was replaced by Dainty Lass's clean-room MIT crates and removed (RD27); the
+Node reference (`reference/1.14.7`) and the goldens recorded from it (`crates/rustic-isles-mit-parity`) were deleted
+at RB15. All of them stay in the commit history under the same terms. Mystic Paradox's own modification and provenance notices follow
 below.
 
 Mystic Paradox is a modified version of Undaunted (AGPLv3 §5).

@@ -4,7 +4,7 @@ Draft, 2026-10-24, kept as a design record: nothing here is open work. **Superse
 (2026-10-25): this is the design the `feat/app-structure` merge (`c57f157`) was built from, kept for its reasoning.
 What shipped differs: two server binaries and the launcher's two, not twelve crates; `protocol::Game` and the
 `legacy` feature, not Refined and Reforged editions; the host kit's `secrets.env` and env files, not secrets the
-controller makes; the backend and Director as Rustic Isles's Node processes, not Rust listeners; and each service
+controller makes; the backend and Director as Rustic Isles's Node processes, not Rust listeners (Rust modules since RU9); and each service
 still runnable alone as a `dainty-host` subcommand.
 
 This document specifies the architectural conversion of the Dainty Lass Rust codebase into:

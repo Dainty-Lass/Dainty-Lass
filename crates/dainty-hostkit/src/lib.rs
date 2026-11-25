@@ -19,7 +19,7 @@ pub mod hostconfig;
 pub mod hostfiles;
 pub mod invite;
 pub mod linux;
-pub mod mongo;
+pub mod oldlayout;
 pub mod paths;
 pub mod preset;
 pub mod progression;
@@ -32,6 +32,7 @@ pub mod services;
 pub mod settingstoml;
 pub mod tls;
 pub mod tui;
+pub mod which;
 pub mod wine;
 pub mod winports;
 

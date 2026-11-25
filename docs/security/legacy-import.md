@@ -6,9 +6,9 @@ The checklist for `crates/dainty-legacy`, the MIT clean-room rewrite of the lega
 ([`docs/port/spec-legacy-import.md`](../port/spec-legacy-import.md), RD27, section 12). `SECURITY_REVIEW.md` indexes
 it.
 
-How to use it: before the MIT importer replaces `restricted/legacy`, copy this list into the switch's commit or
-review, check each item in the code (not from memory), link the code or test that shows it, and sign at the end
-with the date and the commit reviewed. An item that does not hold is a bug to fix before the switch, not a box to
+How to use it: the AGPL importer it replaced (`restricted/legacy`) was deleted in RB15. Before a release, copy this
+list into its review, check each item in the code (not from memory), link the code or test that shows it, and sign at the end
+with the date and the commit reviewed. An item that does not hold is a bug to fix before the release, not a box to
 leave open.
 
 ## What it is and where the boundary is

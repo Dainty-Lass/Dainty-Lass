@@ -13,9 +13,9 @@ use crate::error::HostError;
 use crate::hostconfig::discord::DiscordConfig;
 use crate::hostconfig::oauth::OAuthConfig;
 use crate::hostconfig::{
-    DEFAULT_MONGO_URI, DEFAULT_PERFORMANCE, HostConfig, LinuxOptions, Multipliers, PerformanceOptions, Platform,
-    Registration, ServerMode, game_ports, is_dns_name, is_ipv4, is_public_ipv4, is_tailscale_ipv4, is_valid_share_url,
-    linux_options, performance_options,
+    DEFAULT_PERFORMANCE, HostConfig, LinuxOptions, Multipliers, PerformanceOptions, Platform, Registration, ServerMode,
+    game_ports, is_dns_name, is_ipv4, is_public_ipv4, is_tailscale_ipv4, is_valid_share_url, linux_options,
+    performance_options,
 };
 use crate::paths::{GAME_VERSION_TEXT, MAX_HUNTS, game_exe_relative};
 
@@ -447,36 +447,6 @@ pub fn host_config_from_args(
         existing.and_then(|c| c.share_url.clone())
     };
 
-    let mongo_uri = args
-        .mongo_uri
-        .as_ref()
-        .map(|s| s.trim().to_owned())
-        .or_else(|| existing.map(|c| c.mongo.uri.clone()))
-        .unwrap_or_else(|| DEFAULT_MONGO_URI.to_owned());
-
-    let manage_mongo = if args.no_manage_mongo {
-        false
-    } else if args.manage_mongo {
-        true
-    } else if args.mongo_uri.is_some() && mongo_uri != DEFAULT_MONGO_URI {
-        false
-    } else if let Some(c) = existing {
-        c.mongo.manage
-    } else {
-        true
-    };
-
-    let mongod = if !manage_mongo {
-        None
-    } else if let Some(ref m) = args.mongod {
-        let trimmed = m.trim();
-        (!trimmed.is_empty()).then(|| trimmed.to_owned())
-    } else if let Some(existing_mongod) = existing.and_then(|c| c.mongo.mongod.clone()) {
-        Some(existing_mongod)
-    } else {
-        env.find_mongod()?
-    };
-
     let max_hunt_servers = if let Some(ref mh) = args.max_hunts {
         mh.trim()
             .parse::<u32>()
@@ -550,12 +520,6 @@ pub fn host_config_from_args(
     doc.insert("gameDir".into(), json!(game_dir));
     doc.insert("registration".into(), json!(registration.as_str()));
     doc.insert("shareUrl".into(), json!(share_url));
-
-    let mut mongo_obj = Map::new();
-    mongo_obj.insert("uri".into(), json!(mongo_uri));
-    mongo_obj.insert("manage".into(), json!(manage_mongo));
-    mongo_obj.insert("mongod".into(), json!(mongod));
-    doc.insert("mongo".into(), Value::Object(mongo_obj));
 
     doc.insert("maxHuntServers".into(), json!(max_hunt_servers));
     if let Some(pp) = public_port {

@@ -156,6 +156,9 @@ line, `restricted/AGENTS.md`'s `docker/test-in-image.sh` line, and `.github/work
 
 ## 7. The oracle runs, for the maintainer
 
+**Moot since RB15**, which deleted restricted's Docker copies (`restricted/docker/`, `restricted/compose*.yaml`) with
+the Node rollback without these runs: the root `docker/` and `compose.yaml` are the only Docker. Kept as the record.
+
 Not run by an agent (2026-11-13): the image builds use every core (the Dockerfile has no job limit, and the PC
 shares cargo with other sessions), and spec 8 wants a Linux Docker host with `CAP_NET_ADMIN` and `sch_netem`.
 Restricted's three harnesses take `COMPOSE_FILE` from the environment since `chore/restricted-housekeeping` (D-8),

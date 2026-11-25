@@ -533,10 +533,6 @@ pub enum RequirementId {
     Dauntless,
     /// Git.
     Git,
-    /// Node.js.
-    Node,
-    /// MongoDB.
-    Mongodb,
     /// Tailscale, for private mode.
     Tailscale,
     /// Visual Studio with the C++ workload.
@@ -698,8 +694,6 @@ pub enum HostJobKind {
     DownloadProject,
     /// Writing a backup.
     Backup,
-    /// Migrating a MongoDB database into the store.
-    MigrateMongo,
 }
 
 /// Progress of a host job.
@@ -802,10 +796,6 @@ pub enum ExternalTarget {
     VisualStudio,
     /// Rust's download page.
     Rust,
-    /// Node.js's download page.
-    Nodejs,
-    /// MongoDB's download page.
-    Mongodb,
     /// Git's download page.
     Git,
     /// The Visual Studio installer download.

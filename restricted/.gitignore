@@ -39,9 +39,6 @@ Thumbs.db
 .idea/
 .vscode/
 
-# The host kit's test fixtures hold fake secrets on purpose (crates/dainty-host-parity/tests/fixtures)
-!crates/dainty-host-parity/tests/fixtures/node/*/secrets/
-
 # Session folders the desktop app makes
 .claude/
 

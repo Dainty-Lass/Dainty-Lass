@@ -13,8 +13,8 @@ from memory), link the code or test that shows it, and sign at the end with the 
 `start` runs as the host's user (administrator on Windows in public mode, for the allowlist helper; the `reforged`
 systemd unit on Linux). On the default path (since the RU9 code cutover), it runs the compiled-in Rust `isles-1-14-7`
 backend (port 41000) and in-process Director (port 41001), dainty-lass's MIT `rustic-isles-1-14-7`, on `store`
-(SQLite or Postgres), the content server, the admin API, the allowlist helper (public) and the gateway, each with its env file, and stops them all (MongoDB and
-the Node backend/Director run only in opt-in `--features paradox` rollback builds until RB15).
+(SQLite or Postgres), the content server, the admin API, the allowlist helper (public) and the gateway, each with its env file, and stops them all. No Node or MongoDB process
+is started (RB15).
 
 - **In:** `settings.toml` (or a Node kit's `host.json`) and the `.env` files under `.workspace/config` (trusted: whoever can write them chooses what
   runs), the process environment, and with `DAINTY_CONTROL=stdin` the launcher's stdin pipe.
@@ -28,8 +28,7 @@ line and compared with one word.
 
 ## Checklist
 
-- [ ] Every program is started with an argument list, never a shell string (`services.rs` `launch`, `run.rs`); `npm`
-      and `npx` on Windows are the only `.cmd` files, with fixed arguments.
+- [ ] Every program is started with an argument list, never a shell string (`services.rs` `launch`, `run.rs`).
 - [ ] A service's environment is the system's variables, then its env file: no `DAINTY_`, `RUSTIC_ISLES_`,
       `GATEWAY_`, `ALLOWLIST_`, `MONGODB_` or other server setting left in the shell reaches it
       (`service_environment`, tested).

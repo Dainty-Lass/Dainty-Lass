@@ -326,8 +326,7 @@
       "multipliers": "Setting the multipliers",
       "upstream": "Fetching the runtime source",
       "download_project": "Downloading the project",
-      "backup": "Writing a backup",
-      "migrate_mongo": "Migrating from MongoDB"
+      "backup": "Writing a backup"
     },
     "workspace": "Workspace",
     "noWorkspace": "No workspace chosen. Download the project, or choose a checkout you already have.",
@@ -445,8 +444,6 @@
     "reqs": {
       "dauntless": "Dauntless 1.14.7",
       "git": "Git",
-      "node": "Node.js 22",
-      "mongodb": "MongoDB",
       "tailscale": "Tailscale",
       "visual_studio": "Visual Studio with C++",
       "rust": "Rust",

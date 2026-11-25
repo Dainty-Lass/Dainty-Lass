@@ -3,17 +3,12 @@
 # push to main or plan, a manual run and any change to the workflows run every family.
 #  - Rust (the MIT workspace at the root): fmt, clippy and tests on Linux and Windows, every package MIT and
 #    independent of restricted/, cargo-deny, a short run of every fuzz target
-#  - UI (ui/, dainty-dash): bun install, typecheck, test and build in every mode, with the AGPL bridge types from restricted/ (RD27)
-#  - Rust restricted (restricted/: the host parity tests, the launcher oracle and the game modules): fmt, clippy and
-#    tests on Linux and Windows, cargo-deny, a short run of every fuzz target
-#  - Paradox (ParadoxBackend, ParadoxDirector in restricted/modules/rustic-isles/reference/1.14.7): npm ci and tests,
-#    and the route inventory
-#  - Legacy (restricted/legacy, the 1.4.4 importer): fmt, clippy, tests, cargo-deny and a short fuzz run
+#  - UI (ui/, dainty-dash): bun install, typecheck, test and build in every mode
+#  - Launcher (launcher/, the Tauri shell): the bridge tests and the Windows NSIS installers
 #  - Native (native/: the runtime loader and the catalog exporter): fmt, clippy, tests and the DLLs on Windows
-#  - Docker (docker/, compose*.yaml, and restricted's until they retire; everything the images copy): the images, the suites inside
-#    them, the smoke test
-#  - Network (the gateway and host kit, restricted/docker/, restricted/compose*.yaml): four nodes in Docker with
-#    injected latency, their links and the launcher's region ping (restricted/docker/network/test.sh, DN12)
+#  - Docker (docker/, compose*.yaml; everything the images copy): the images, the suites inside them, the smoke test
+#  - Network (the gateway and host kit, docker/, compose*.yaml): four nodes in Docker with injected latency, their
+#    links and the launcher's region ping (docker/network/test.sh, DN12)
 #
 # Forgejo Actions (DX3). Runner labels: docker (a job container), linux-host (the runner's own Docker) and
 # windows-msvc; docs/ci-runners.md sets them up. Actions are pinned by commit. .github/workflows/ci.yml is GitHub's
@@ -52,9 +47,6 @@ jobs:
     outputs:
       rust: ${{ steps.pick.outputs.rust }}
       ui: ${{ steps.pick.outputs.ui }}
-      rust-restricted: ${{ steps.pick.outputs.rust-restricted }}
-      paradox: ${{ steps.pick.outputs.paradox }}
-      legacy: ${{ steps.pick.outputs.legacy }}
       launcher: ${{ steps.pick.outputs.launcher }}
       docker: ${{ steps.pick.outputs.docker }}
       network: ${{ steps.pick.outputs.network }}
@@ -98,66 +90,29 @@ jobs:
               - rustfmt.toml
               - crates/**
               - fuzz/**
+              - restricted/modules/**
             ui:
               - ui/**
-            rust_restricted:
-              - crates/**
-              - restricted/Cargo.toml
-              - restricted/Cargo.lock
-              - restricted/.cargo/**
-              - restricted/rust-toolchain.toml
-              - restricted/deny.toml
-              - restricted/clippy.toml
-              - restricted/rustfmt.toml
-              - restricted/crates/**
-              - restricted/launcher/src-tauri/**
-              - restricted/fuzz/**
-              - restricted/modules/**
-            paradox:
-              - restricted/modules/rustic-isles/**
-            legacy:
-              - crates/**
-              - restricted/legacy/**
             launcher:
               - launcher/**
               - ui/**
               - crates/dainty-launcher-app/**
               - crates/dainty-manager-server/**
-              - restricted/launcher/**
-              - restricted/Cargo.toml
+              - restricted/modules/rustic-isles/version-data/**
             docker:
               - crates/**
-              - .dockerignore
               - docker/**
               - compose*.yaml
               - .env.example
-              - restricted/docker/**
-              - restricted/compose*.yaml
-              - restricted/.env.example
-              - restricted/Cargo.toml
-              - restricted/Cargo.lock
-              - restricted/.cargo/**
-              - restricted/rust-toolchain.toml
-              - restricted/deny.toml
-              - restricted/clippy.toml
-              - restricted/rustfmt.toml
-              - restricted/crates/**
-              - restricted/launcher/src-tauri/**
-              - restricted/fuzz/**
               - native/**
               - restricted/modules/**
+              - restricted/NOTICE.md
+              - restricted/ADDITIONAL_TERMS.md
             network:
               - crates/**
               - docker/**
               - compose*.yaml
               - .env.example
-              - restricted/docker/**
-              - restricted/compose*.yaml
-              - restricted/.env.example
-              - restricted/Cargo.toml
-              - restricted/Cargo.lock
-              - restricted/crates/**
-              - restricted/launcher/**
             native:
               - native/**
 
@@ -167,16 +122,13 @@ jobs:
           ALL: ${{ (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/plan')) || github.event_name == 'workflow_dispatch' || steps.filter.outputs.workflow == 'true' }}
           RUST: ${{ steps.filter.outputs.rust }}
           UI: ${{ steps.filter.outputs.ui }}
-          RUST_RESTRICTED: ${{ steps.filter.outputs.rust_restricted }}
-          PARADOX: ${{ steps.filter.outputs.paradox }}
-          LEGACY: ${{ steps.filter.outputs.legacy }}
           LAUNCHER: ${{ steps.filter.outputs.launcher }}
           DOCKER: ${{ steps.filter.outputs.docker }}
           NETWORK: ${{ steps.filter.outputs.network }}
           NATIVE: ${{ steps.filter.outputs.native }}
         run: |
           set -euo pipefail
-          for family in rust ui rust_restricted paradox legacy launcher docker network native; do
+          for family in rust ui launcher docker network native; do
             var="${family^^}"
             value="${!var}"
             [ "$ALL" = true ] && value=true
@@ -400,322 +352,12 @@ jobs:
       - run: bun run build:launcher
       - run: bun run build:manager
 
-  rust-restricted:
-    name: Rust workspace (restricted)
-    needs: changes
-    if: needs.changes.outputs.rust-restricted == 'true'
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [docker, windows-msvc]
-    defaults:
-      run:
-        shell: bash
-        working-directory: restricted
-    steps:
-      - name: Long paths for git
-        if: runner.os == 'Windows'
-        working-directory: .
-        run: git config --global core.longpaths true
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install rustup
-        if: runner.os == 'Linux'
-        run: |
-          if ! command -v rustup > /dev/null; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
-            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          fi
-
-      - name: Install the pinned toolchain
-        run: rustup show active-toolchain || rustup toolchain install
-
-      - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          workspaces: restricted
-          key: rust-restricted
-
-      # windows-msvc is the maintainer's PC, where restricted/ builds with 6 jobs or fewer (AGENTS.md)
-      - name: Six build jobs on the maintainer's PC
-        if: runner.os == 'Windows'
-        run: echo "CARGO_BUILD_JOBS=6" >> "$GITHUB_ENV"
-
-      # The launcher oracle's Secret Service keystore (dainty-launcher-kit); nothing here builds Tauri any more
-      - name: Install the launcher kit's Linux build dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo=""; [ "$(id -u)" = 0 ] || sudo=sudo
-          $sudo apt-get update
-          $sudo apt-get install -y --no-install-recommends libdbus-1-dev pkg-config
-
-      - name: No crate from the silentspud registry in Cargo.lock
-        run: |
-          if grep -n 'sparse+https://git.silentspud.com/' Cargo.lock; then
-            echo "::error::restricted/Cargo.lock takes a crate from the silentspud registry: a [patch] went unused (DF1)"
-            exit 1
-          fi
-
-      - name: Start Postgres for the two-engine store tests
-        if: runner.os == 'Linux'
-        run: |
-          sudo=""; [ "$(id -u)" = 0 ] || sudo=sudo
-          $sudo apt-get update
-          $sudo apt-get install -y --no-install-recommends postgresql
-          $sudo service postgresql start
-          $sudo su - postgres -c "psql -c \"ALTER USER postgres WITH PASSWORD 'postgres';\""
-          echo "DAINTY_TEST_POSTGRES_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres" >> "$GITHUB_ENV"
-
-      # The same on every platform, so once
-      - name: Format
-        if: runner.os == 'Linux'
-        run: cargo fmt --all --check
-
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
-
-      # The gateway library comes from the MIT root, where the root's dainty-host tests below load it
-      - name: The module and service libraries
-        run: |
-          cargo build --locked --manifest-path ../Cargo.toml -p dainty-gateway-plugin
-
-      - name: Tests
-        run: cargo test --workspace --locked --no-fail-fast
-
-      # The launcher oracle's realms and embedded-server cases (spec-tauri-shell §12.1); Linux only, sparing the PC
-      - name: The launcher oracle with the manager's server
-        if: runner.os == 'Linux'
-        run: cargo test -p dainty-launcher --locked --no-fail-fast --features server-gui,realms
-
-
-  rust-restricted-deny:
-    name: Rust licences and advisories (restricted)
-    needs: changes
-    if: needs.changes.outputs.rust-restricted == 'true'
-    runs-on: docker
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - id: toolchain
-        run: echo "channel=$(grep '^channel' restricted/rust-toolchain.toml | cut -d '"' -f 2)" >> "$GITHUB_OUTPUT"
-
-      - uses: https://github.com/EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
-        with:
-          manifest-path: restricted/Cargo.toml
-          command: check
-          arguments: --all-features
-          rust-version: ${{ steps.toolchain.outputs.channel }}
-
-  fuzz-restricted:
-    name: Fuzz the untrusted-input parsers (restricted)
-    needs: changes
-    if: needs.changes.outputs.rust-restricted == 'true'
-    runs-on: docker
-    timeout-minutes: 45
-    env:
-      NIGHTLY: nightly-2026-10-20
-    defaults:
-      run:
-        working-directory: restricted/fuzz
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install rustup
-        run: |
-          if ! command -v rustup > /dev/null; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
-            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          fi
-
-      - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          workspaces: restricted/fuzz
-          key: fuzz-restricted
-
-      - name: Install the pinned nightly and cargo-fuzz
-        run: |
-          rustup toolchain install "$NIGHTLY" --profile minimal
-          cargo "+$NIGHTLY" install cargo-fuzz --version 0.13.2 --locked
-
-      - name: Run every target for 45 seconds
-        run: bash ../../scripts/ci/fuzz.sh
-
-      - name: Keep the inputs that crashed
-        if: failure()
-        uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
-        with:
-          name: fuzz-restricted-crashes
-          path: restricted/fuzz/artifacts/
-          if-no-files-found: ignore
-          retention-days: 14
-
-  paradox:
-    name: Paradox tests
-    needs: changes
-    if: needs.changes.outputs.paradox == 'true'
-    runs-on: docker
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        package: [ParadoxBackend, ParadoxDirector]
-    defaults:
-      run:
-        working-directory: restricted/modules/rustic-isles/reference/1.14.7/${{ matrix.package }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-      # Not setup-node's cache: it runs npm at the root, whose devEngines refuses anything but bun
-      - uses: https://github.com/actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
-        with:
-          path: ~/.npm
-          key: npm-${{ matrix.package }}-${{ hashFiles(format('restricted/modules/rustic-isles/reference/1.14.7/{0}/package-lock.json', matrix.package)) }}
-      - run: npm ci --no-audit --no-fund
-      - run: npm test
-
-  legacy:
-    name: Rust workspace (1.4.4 importer)
-    needs: changes
-    if: needs.changes.outputs.legacy == 'true'
-    runs-on: docker
-    timeout-minutes: 40
-    defaults:
-      run:
-        shell: bash
-        working-directory: restricted/legacy
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install rustup
-        run: |
-          if ! command -v rustup > /dev/null; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
-            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          fi
-
-      - name: Install the pinned toolchain
-        run: rustup show active-toolchain || rustup toolchain install
-
-      - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          workspaces: restricted/legacy
-          key: legacy
-
-      - name: Format
-        run: cargo fmt --all --check
-
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets --locked -- -D warnings
-
-      - name: Tests
-        run: cargo test --workspace --locked --no-fail-fast
-
-  legacy-deny:
-    name: Rust licences and advisories (1.4.4 importer)
-    needs: changes
-    if: needs.changes.outputs.legacy == 'true'
-    runs-on: docker
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - id: toolchain
-        run: echo "channel=$(grep '^channel' restricted/legacy/rust-toolchain.toml | cut -d '"' -f 2)" >> "$GITHUB_OUTPUT"
-
-      - uses: https://github.com/EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
-        with:
-          manifest-path: restricted/legacy/Cargo.toml
-          command: check
-          rust-version: ${{ steps.toolchain.outputs.channel }}
-
-  fuzz-legacy:
-    name: Fuzz the 1.4.4 importer's readers
-    needs: changes
-    if: needs.changes.outputs.legacy == 'true'
-    runs-on: docker
-    timeout-minutes: 20
-    env:
-      NIGHTLY: nightly-2026-10-20
-    defaults:
-      run:
-        working-directory: restricted/legacy/fuzz
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install rustup
-        run: |
-          if ! command -v rustup > /dev/null; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
-            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          fi
-
-      - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-        with:
-          workspaces: restricted/legacy/fuzz
-          key: fuzz-legacy
-
-      - name: Install the pinned nightly and cargo-fuzz
-        run: |
-          rustup toolchain install "$NIGHTLY" --profile minimal
-          cargo "+$NIGHTLY" install cargo-fuzz --version 0.13.2 --locked
-
-      - name: Run every target for 45 seconds
-        run: bash ../../../scripts/ci/fuzz.sh
-
-      - name: Keep the inputs that crashed
-        if: failure()
-        uses: https://code.forgejo.org/forgejo/upload-artifact@16871d9e8cfcf27ff31822cac382bbb5450f1e1e # v4 (v4.3.1, GHES check disabled)
-        with:
-          name: fuzz-legacy-crashes
-          path: restricted/legacy/fuzz/artifacts/
-          if-no-files-found: ignore
-          retention-days: 14
-
-  # Every Express route the 1.14.7 backend and Director register, against docs/inventory/routes-1.14.7.json (RU3a)
-  paradox-routes:
-    name: Paradox route inventory
-    needs: changes
-    if: needs.changes.outputs.paradox == 'true'
-    runs-on: docker
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-      # No dependencies: a static pass over the TypeScript source
-      - run: node restricted/modules/rustic-isles/scripts/check-route-inventory.mjs
-
   docker:
     name: Docker images (build, tests in the image, smoke test)
     needs: changes
     if: needs.changes.outputs.docker == 'true'
     runs-on: linux-host
     timeout-minutes: 150
-    defaults:
-      run:
-        working-directory: restricted
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -727,19 +369,10 @@ jobs:
           NETWORK_REGION_PING: skip
         run: bash docker/run-tests.sh
 
-      # The root's MIT images (lane D); restricted's run above until its oracle runs retire it
-      - name: Build the root's images and run their full test run
-        working-directory: .
-        env:
-          DAINTY_COMMIT: ${{ github.sha }}
-          # The network job runs the region ping, with the libraries its build needs
-          NETWORK_REGION_PING: skip
-        run: bash docker/run-tests.sh
-
   installers-windows:
     name: Windows NSIS installers (client and manager)
     needs: changes
-    if: needs.changes.outputs.rust-restricted == 'true' || needs.changes.outputs.launcher == 'true'
+    if: needs.changes.outputs.rust == 'true' || needs.changes.outputs.launcher == 'true'
     runs-on: windows-msvc
     timeout-minutes: 45
     defaults:
@@ -809,9 +442,6 @@ jobs:
     if: needs.changes.outputs.network == 'true'
     runs-on: linux-host
     timeout-minutes: 100
-    defaults:
-      run:
-        working-directory: restricted
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -829,7 +459,6 @@ jobs:
 
       - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
-          workspaces: restricted
           key: network
 
       - name: The launcher's Linux build dependencies
@@ -841,13 +470,6 @@ jobs:
           sudo -n apt-get install -y --no-install-recommends $pkgs
 
       - name: Build the images and run the harness
-        env:
-          DAINTY_COMMIT: ${{ github.sha }}
-          NETWORK_REGION_PING: require
-        run: bash docker/network/test.sh
-
-      - name: The root's harness
-        working-directory: .
         env:
           DAINTY_COMMIT: ${{ github.sha }}
           NETWORK_REGION_PING: require
@@ -886,7 +508,7 @@ jobs:
   # failed or cancelled job, or a failed change detection, fails it.
   ci-ok:
     name: CI ok
-    needs: [changes, rust, rust-deny, fuzz, ui, rust-restricted, rust-restricted-deny, fuzz-restricted, paradox, paradox-routes, legacy, legacy-deny, fuzz-legacy, native, docker, installers-windows, network]
+    needs: [changes, rust, rust-deny, fuzz, ui, native, docker, installers-windows, network]
     if: always()
     runs-on: docker
     timeout-minutes: 5

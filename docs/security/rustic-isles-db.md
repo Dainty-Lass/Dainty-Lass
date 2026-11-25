@@ -2,7 +2,7 @@
 
 # Security checklist: Rustic Isles database tool (RX3)
 
-The checklist for `crates/rustic-isles-db`, the MIT library behind `dainty-host db migrate`, `verify` and `export-mongo`
+The checklist for `crates/rustic-isles-db`, the MIT library behind `dainty-host db migrate` and `verify`
 (RD27, `docs/port/spec-rustic-isles-db.md`).
 
 How to use it: before a change to this crate merges, and before its cutover is signed (RD10), copy this list into the
@@ -11,19 +11,19 @@ date and the commit reviewed. An item that does not hold is a bug to fix first, 
 
 ## What it is and where the boundary is
 
-A host runs the tool by hand, once, to move a Node 1.14.7 deployment into the store (and, for one release, back). It
+A host runs the tool once, by hand or through `dainty-legacy import reforged`, to move an old Node 1.14.7
+deployment's MongoDB into the store (RB15 deleted `export-mongo`, the way back). It
 parses untrusted input on two fronts: **the MongoDB server's replies** (network bytes, plaintext TCP) and **the
 documents** (the host's own database, but filled by players: names, JSON blobs, arbitrary keys).
 
-- **In:** the command line or the host kit's options (`cli.rs`, `MigrateOptions`, `ExportOptions`); OP_MSG replies
+- **In:** the command line or the host kit's options (`cli.rs`, `MigrateOptions`); OP_MSG replies
   (`mongo/mod.rs`, `mongo/bson.rs`); SCRAM-SHA-256 server messages (`mongo/scram.rs`); the documents
   (`extract.rs`, `read.rs`); the storage policy file under `--game-data-dir` (`lib.rs`, `load_policy`).
-- **Out:** the store, through `store::Database` and bound SQL only (`tables.rs`); MongoDB `insert`/`delete` for
-  export only (`MongoWriter`); stdout reports and one warn line per skipped document.
+- **Out:** the store, through `store::Database` and bound SQL only (`tables.rs`); stdout reports and one warn line per skipped document.
 - **Settings:** none. The crate reads no environment variable; the host kit resolves every default first.
 
 Code: `crates/rustic-isles-db/src/` (`lib.rs`, `cli.rs`, `mongo/{mod,bson,scram,uri,mock}.rs`, `read.rs`, `ids.rs`,
-`extract.rs`, `repair.rs`, `tables.rs`, `verify.rs`, `export.rs`, `target.rs`).
+`extract.rs`, `repair.rs`, `tables.rs`, `verify.rs`, `target.rs`).
 
 Fuzz targets in `fuzz`:
 
@@ -33,8 +33,8 @@ Fuzz targets in `fuzz`:
   panic and answer documents or an error.
 - `rustic_isles_db_uri`: arbitrary text into the MongoDB URI and Postgres URL parsers never panics, and a parsed
   address's `Debug` is the same whatever its password, so it can't show it.
-- `rustic_isles_db_extract`: arbitrary JSON documents as every collection, through extraction, the RB11 repairs and
-  the export builder, never panic; every JSON text column parses, every loadout keeps at least one slot, every
+- `rustic_isles_db_extract`: arbitrary JSON documents as every collection, through extraction and the RB11 repairs,
+  never panic; every JSON text column parses, every loadout keeps at least one slot, every
   repaired item id is 26 characters of `A`-`Z0`-`9`.
 - `rustic_isles_db_scram`: arbitrary server-first and server-final payloads never panic and are refused unless
   well-formed, with the client's nonce and an iteration count within the cap; a random signature never passes.
@@ -44,9 +44,7 @@ Fuzz targets in `fuzz`:
 ### Read-only source
 
 - [ ] `MongoClient` can send only `hello`, `saslStart`, `saslContinue`, `find` and `getMore`; it has no write method
-      (`mongo/mod.rs`). migrate and verify use nothing else.
-- [ ] The write commands (`delete`, `insert`) live in `MongoWriter`, which exists only with the `export-mongo`
-      feature; `cargo build --no-default-features` has no way to write to MongoDB.
+      (`mongo/mod.rs`). Nothing in the crate writes to MongoDB.
 
 ### Bounded parsing
 
@@ -58,7 +56,7 @@ Fuzz targets in `fuzz`:
       7): `deep_nesting_is_an_error_not_a_crash` decodes 10 000 levels.
 - [ ] A kind-1 section is skipped by its declared size only after checking it fits; an unknown section kind is an
       error.
-- [ ] A collection is held whole in memory (as restricted): acceptable for one host's data, and noted.
+- [ ] A collection is held whole in memory (as the Node tool did): acceptable for one host's data, and noted.
 
 ### Authentication
 
@@ -73,7 +71,7 @@ Fuzz targets in `fuzz`:
 
 ### Secrets
 
-- [ ] `MongoUri`'s `Debug` has no password; `MigrateOptions` and `ExportOptions` print their URIs with the password
+- [ ] `MongoUri`'s `Debug` has no password; `MigrateOptions` prints its URI with the password
       as `***` (`redact`); `PostgresConfig` keeps its own redacted `Debug`.
 - [ ] `TargetState`'s `Debug` prints table names and counts only, never a record: password hashes, token, code and
       key hashes, verifiers, CSRF tokens and Guard challenges stay out.
@@ -94,17 +92,12 @@ Fuzz targets in `fuzz`:
 
 ### Destructive paths
 
-- [ ] verify and export-mongo refuse a SQLite path that does not exist, before opening it and before any MongoDB
-      connection (coordinator item 1; `missing_sqlite_files_are_refused_by_verify_and_export`). migrate still creates
-      its target.
-- [ ] export-mongo replaces whole collections and is not transactional; a dry run connects to nothing.
-- [ ] A document with a key holding NUL is refused before anything is sent (`BSON key contains NUL: <collection>`;
-      coordinator item 7).
+- [ ] verify refuses a SQLite path that does not exist, before opening it and before any MongoDB connection
+      (coordinator item 1; `a_missing_sqlite_file_is_refused_by_verify`). migrate still creates its target.
 - [ ] A failed verify prints its per-table report and exits 1 (coordinator item 4; `main_with`).
 
 ### Known weak spots (kept for parity, spec §17)
 
-- [ ] `characters` alone exports, and so replaces, the whole `playerJourney` collection (§17 item 10).
 - [ ] The banner and glider repair turns a 1.14.7 instance-id string in `persistent` into the legacy object (§17 item
       2): check a real 1.14.7 MongoDB before running migrate.
 - [ ] Postgres URLs are not percent-decoded (P11).

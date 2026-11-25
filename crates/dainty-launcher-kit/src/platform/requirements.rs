@@ -13,8 +13,6 @@ use crate::platform::hostkit::{Toolchain, any_visual_studio, system_env};
 /// A store backend the server can run on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Database {
-    /// MongoDB, which the store migrates from.
-    MongoDb,
     /// PostgreSQL.
     Postgres,
     /// SQLite, the default.
@@ -80,10 +78,6 @@ pub fn list_dir(dir: &Path) -> Vec<String> {
     names
 }
 
-fn version_parts(text: &str) -> Vec<u32> {
-    text.split('.').map(|part| part.parse::<u32>().unwrap_or(0)).collect()
-}
-
 fn program_roots(probes: &Probes<'_>) -> Vec<PathBuf> {
     let mut roots = Vec::new();
     for var in ["ProgramW6432", "ProgramFiles"] {
@@ -99,36 +93,6 @@ fn program_roots(probes: &Probes<'_>) -> Vec<PathBuf> {
         roots.push(fallback);
     }
     roots
-}
-
-/// Searches standard Windows installation paths and `PATH` for `mongod.exe` / `mongod`.
-#[must_use]
-pub fn find_mongod(probes: &Probes<'_>) -> Option<PathBuf> {
-    let exe_name = if cfg!(windows) { "mongod.exe" } else { "mongod" };
-    if let Some(path_var) = (probes.env)("PATH") {
-        for dir in std::env::split_paths(&path_var) {
-            if !dir.as_os_str().is_empty() {
-                let candidate = dir.join(exe_name);
-                if (probes.exists)(&candidate) {
-                    return Some(candidate);
-                }
-            }
-        }
-    }
-
-    for root in program_roots(probes) {
-        let server_dir = root.join("MongoDB").join("Server");
-        let mut versions = (probes.list_dir)(&server_dir);
-        versions.sort_by_key(|a| std::cmp::Reverse(version_parts(a)));
-        for ver in versions {
-            let candidate = server_dir.join(ver).join("bin").join("mongod.exe");
-            if (probes.exists)(&candidate) {
-                return Some(candidate);
-            }
-        }
-    }
-
-    None
 }
 
 /// Searches standard installation paths and `PATH` for PostgreSQL (`pg_ctl` + `initdb`),
@@ -283,7 +247,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn reports_six_requirements_in_order_without_mongodb_or_git() {
+    async fn reports_six_requirements_in_order_without_git() {
         let toolchain = Toolchain {
             visual_studio: None,
             major_version: None,
@@ -333,16 +297,14 @@ mod tests {
     }
 
     #[test]
-    fn finds_newest_mongod_and_postgres_versions() {
+    fn finds_the_newest_postgres_version() {
         let probes = Probes {
             env: &|k| (k == "ProgramW6432").then(|| OsString::from(r"C:\Program Files")),
             exists: &|p| {
                 matches!(
                     p.to_str(),
                     Some(
-                        r"C:\Program Files\MongoDB\Server\7.0\bin\mongod.exe"
-                            | r"C:\Program Files\MongoDB\Server\8.0\bin\mongod.exe"
-                            | r"C:\Program Files\PostgreSQL\16\bin\pg_ctl.exe"
+                        r"C:\Program Files\PostgreSQL\16\bin\pg_ctl.exe"
                             | r"C:\Program Files\PostgreSQL\16\bin\initdb.exe"
                             | r"C:\Program Files\PostgreSQL\17\bin\pg_ctl.exe"
                             | r"C:\Program Files\PostgreSQL\17\bin\initdb.exe"
@@ -350,9 +312,6 @@ mod tests {
                 )
             },
             list_dir: &|p| match p.to_str() {
-                Some(r"C:\Program Files\MongoDB\Server") => {
-                    vec!["7.0".to_owned(), "8.0".to_owned()]
-                }
                 Some(r"C:\Program Files\PostgreSQL") => {
                     vec!["16".to_owned(), "17".to_owned()]
                 }
@@ -360,10 +319,6 @@ mod tests {
             },
         };
 
-        assert_eq!(
-            find_mongod(&probes),
-            Some(PathBuf::from(r"C:\Program Files\MongoDB\Server\8.0\bin\mongod.exe"))
-        );
         assert_eq!(
             find_postgres(&probes),
             Some((

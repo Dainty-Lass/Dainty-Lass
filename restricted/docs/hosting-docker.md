@@ -21,7 +21,6 @@ a private server over Tailscale works too.
 | `host` | server | Not a service: `docker compose run --rm host <command>` runs `dainty-host` |
 | `configure` | server | The `toml` profile only: runs setup from `settings.toml` and exits, before the others start |
 | `postgres` | `postgres:17` | The `postgres` profile only: Postgres on 127.0.0.1:5432 for a `settings.toml` whose `[database]` picks it |
-| `mongo`, `backend-rollback`, `director-rollback` | `mongo:8.0`, server-rollback | The `rollback` profile only: MongoDB (`rs0`) and the Node 1.14.7 backend and Director for one release after RU9/RB14 ([below](#migrating-existing-mongodb-data-and-rollback-rollback-profile)) |
 | `net-*`, `netem-*`, `gateway-*`, `configure-*`, `network-init`, `network` | front, server, netem | The `network` profile only: four nodes of a network with injected latency, for tests ([below](#the-network-profile-four-nodes-on-one-machine)) |
 
 **One network namespace.** Every container joins `net`'s, so they reach each other on 127.0.0.1 exactly as
@@ -37,9 +36,8 @@ the host kit's, unchanged, and a `.workspace` can move between a container host 
 | Volume | Path | Holds |
 | --- | --- | --- |
 | `workspace` | `/opt/dainty-lass/.workspace` | Configuration and secrets, the certificate, the published runtime, branding, logs, the Wine prefix |
-| `backend-game-data`, `director-game-data` | `/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/*/game-data` | Your game data |
-| `exports`, `captures` | `/opt/dainty-lass/modules/rustic-isles/reference/1.14.7/Items_Analysis`, `…/DauntlessEndpointDocumentation` | CatalogExporter exports and store captures, for `gamedata` |
-| `mongo-data`, `mongo-config` | `/data/db` in `mongo`, `/opt/dainty-lass/.workspace/mongodb` in `server` | Pre-cutover MongoDB data (moved into `store` by `host db migrate` and `host db verify`, and used by the `rollback` profile) |
+| `backend-game-data`, `director-game-data` | `/opt/dainty-lass/modules/rustic-isles/game-data/1.14.7/backend`, `…/director` | Your game data |
+| `exports`, `captures` | `/opt/dainty-lass/modules/rustic-isles/game-data/1.14.7/exports`, `…/captures` | CatalogExporter exports and store captures, for `gamedata` |
 | `postgres-data` | Postgres's | The `postgres` profile's database |
 | bind mount `DAINTY_GAME_DIR` | `/game` | Your Dauntless 1.14.7 folder (the one with `Archon`), or the folder `install-game` makes `1.14.7` in |
 | bind mount `DAINTY_IMPORT_DIR` | `/import` (read-only, `host` only) | Files to bring in: the runtime's DLLs, game data packs |
@@ -53,9 +51,6 @@ the host kit's, unchanged, and a `.workspace` can move between a container host 
   try-out.
 - The kernel's nftables (`nf_tables`, loaded on any distribution whose Docker uses iptables-nft, which is the
   default on Debian 12 and 13 and Ubuntu 22.04 and newer).
-- A Linux kernel older than 6.19 or at least 7.0.14: the `mongo:8.0` image refuses to start in between (its
-  memory allocator and those kernels' `rseq` disagree, mongodb.org SERVER-121912), which `docker compose logs
-  mongo` shows as "MongoDB cannot start". Ubuntu 26.04 ships 6.19; Debian 13 and Ubuntu 24.04 are fine.
 - Your Dauntless 1.14.7 folder on the server, as for [a Linux host](hosting-linux.md) (about 15 GB), owned by
   or writable for uid 1000: the game servers write their logs and a switch file next to the executable. Or an
   empty folder of that kind and `install-game` ([below](#getting-the-game-from-epic)), which fetches it from your
@@ -67,7 +62,7 @@ the host kit's, unchanged, and a `.workspace` can move between a container host 
 
 ```bash
 git clone ssh://git@git.silentspud.com:222/silentspud/dainty-lass.git
-cd dainty-lass/restricted
+cd dainty-lass
 cp .env.example .env
 ```
 
@@ -78,10 +73,10 @@ DAINTY_COMMIT=$(git rev-parse --short=12 HEAD) docker compose build
 docker compose run --rm host setup --mode public --host play.example.org --name "Friday Hunts"
 ```
 
-Every crate is in the checkout: the images build with the monorepo root as context (Compose's `context: ..`), so
-`restricted/` reaches the root's MIT crates by path and the build needs no SSH key. The server binary is built with
+Every crate is in the checkout: the images build with the repository root as context, so the build needs no SSH
+key. The server binary is built with
 `all-modules`, as the release is; to build without any game module, set the build argument
-`DAINTY_MODULES=` (from the root: `docker build -f restricted/docker/Dockerfile --build-arg DAINTY_MODULES= --target server .`).
+`DAINTY_MODULES=` (from the root: `docker build -f docker/Dockerfile --build-arg DAINTY_MODULES= --target server .`).
 The server image also holds the libraries `settings.toml` can pin (RD27) in `/opt/dainty-lass/plugins`, so a
 `[[modules.external]]` or `[services.<name>]` path there reads `plugins/librustic_isles_1_14_7_plugin.so` and the like
 ([hosting.md](hosting.md#game-modules-and-plugins)). It holds the 1.14.7 version data the server reads at start in
@@ -143,7 +138,7 @@ hunts** (`--max-hunts 10`): `DAINTY_GAME_PORTS=8766-8777`.
 
 ## A private server (Tailscale)
 
-The `net` container becomes a Tailscale node of its own ([compose.tailscale.yaml](../compose.tailscale.yaml)):
+The `net` container becomes a Tailscale node of its own ([compose.tailscale.yaml](../../compose.tailscale.yaml)):
 the server's Tailscale address is inside the shared namespace, the gateway and the game servers listen on it,
 and nothing is published on the host. Make a reusable auth key in the Tailscale admin console, then in `.env`:
 
@@ -230,7 +225,7 @@ For testing, not for running a network: `docker compose --profile network up -d 
 one network (DD16) on a private Docker network, with latency between them that matches the canary's regions
 (DN12). Each node is a gateway with node links on, set up from a `settings.toml` that lists the other three as
 `[[network.nodes]]`, from the same images as a server and with volumes of its own. Nothing else of a server runs in
-them (no backend, MongoDB or game): the gateway answers the node links and the launcher's region ping, which is
+them (no backend or game): the gateway answers the node links and the launcher's region ping, which is
 what the harness checks. The other services have no profile, so name the target `network`: a bare
 `--profile network up` would start the single server too.
 
@@ -338,7 +333,7 @@ namespace and the optional dependencies depend on Compose's own behaviour. Rootl
 | --- | --- |
 | Stop, start | `docker compose stop`, `docker compose up -d`; a clean stop includes the game servers |
 | Change a setting | `docker compose run --rm host setup …` (or `multipliers`), then `docker compose up -d --force-recreate`. With the `toml` profile: edit `config/settings.toml`, then the same `up` |
-| Update | `git pull`, `docker compose build`, `docker compose up -d`. On a server updating from the pre-RU9 Node backend with existing `mongo-data`, run the one-time migration below first (`backend` refuses to start while `mongo-data` is unmigrated). `dainty-host update` is not used in Docker |
+| Update | `git pull`, `docker compose build`, `docker compose up -d`. The game data moves out of the old paths on its own: the volumes keep their names and mount the new ones ([below](#upgrading-from-an-older-install)). `dainty-host update` is not used in Docker |
 | Back up | `docker compose run --rm host backup` (into the `workspace` volume, `backups/`), and keep a copy of the `workspace` volume: it holds the certificate every invite names and the secrets |
 | A shell | `docker compose run --rm --entrypoint bash host` |
 
@@ -361,13 +356,11 @@ images:
 
 1. It builds `front`, `server` and `test`. The `test` image is the Debian slim `server` image plus the Rust
    toolchain, with the server crates' tests compiled in, so the code is tested on the OS, Wine and paths
-   production runs on (without Node or MongoDB).
+   production runs on.
 2. Inside the `test` image: `cargo test` for the server crates (protocol, proxy, remote, service-kit, store,
    gateway, content, admin, hostkit, host, controller), with the allowlist's firewall test applying its nftables
    rules for real in the container's own network namespace (`DAINTY_TEST_FIREWALL=1`).
-3. The compose smoke test (`docker/smoke-test.sh`): a pre-cutover `mongo-data` volume seeded with an account and
-   invite, `backend` refusing to start before migration, `host db migrate` and `host db verify` moving the data into
-   the SQLite store, the `toml` profile's `configure` applying an edited `settings.toml`, every service healthy, the
+3. The compose smoke test (`docker/smoke-test.sh`): setup, the `toml` profile's `configure` applying an edited `settings.toml`, every service healthy, the
    gateway serving setup's certificate and answering `/dainty/api/ServerStatus` and account checks from the
    Rust backend, the allowlist's table in place, an invite, a clean stop.
 
@@ -382,34 +375,13 @@ A fourth step, `docker/network/test.sh`, starts the `network` profile and checks
 
 Stop the systemd units, then copy the host's `.workspace` into the `workspace` volume and its game data into
 the game-data volumes (`docker compose run --rm -v /home/reforged/Reforged:/old:ro --entrypoint bash host`,
-then `cp -a` from `/old`). If the host still has pre-RU9 MongoDB data, copy its `mongodb` folder into the
-`mongo-data` volume (or run `dainty-host setup` on the host before moving `.workspace`). Run `setup` in
-the container once, so the env files name the container's paths; if `mongo-data` was copied unmigrated, migrate it as
-below before starting it.
+then `cp -a` from `/old`). Run `setup` in the container once, so the env files name the container's paths. An
+old Node kit's MongoDB data goes into the store with `dainty-legacy import reforged` on the old host first
+([hosting.md](hosting.md#upgrading-from-an-older-install)).
 
-## Migrating existing MongoDB data and rollback (`rollback` profile)
+## Upgrading from an older install
 
-The `mongo-data` volume is mounted at `/opt/dainty-lass/.workspace/mongodb` inside `backend`, `configure` and `host`.
-While `mongo-data` is non-empty and `/opt/dainty-lass/.workspace/.mongo-migrated` has not been written, `backend`
-refuses to start so an updated server never comes up silently on an empty database.
-
-To migrate an existing `mongo-data` volume from the pre-RU9 Node backend:
-
-1. Start `mongo` from the `rollback` profile for the duration of the migration:
-   `docker compose --profile rollback up -d --wait mongo`
-2. Run `docker compose run --rm host setup` (or `COMPOSE_PROFILES=public,toml,rollback docker compose run --rm configure`
-   when using the `toml` profile), then `docker compose run --rm host db migrate` and
-   `docker compose run --rm host db verify`. `db migrate` moves every collection from `mongo` into the configured
-   store (SQLite in `/opt/dainty-lass/.workspace/config/dainty-lass.db` or the `postgres` profile); `db verify` checks
-   every collection and writes `.mongo-migrated` only when it finds no difference, leaving `mongo-data` untouched.
-   (To start on a fresh empty database without migrating, pass `--fresh-start` to `host setup` or set
-   `fresh_start = true` under `[database]` in `settings.toml`.)
-3. Stop `mongo` and bring up the Rust services:
-   `docker compose --profile rollback rm -sf mongo && docker compose up -d`
-
-For one release after the RU9/RB14 cutover (until RB15), rolling back to the Node backend and MongoDB in Docker uses
-the `rollback` Compose profile (`mongo`, `backend-rollback` and `director-rollback`, built from the `server-rollback`
-Dockerfile stage): start `mongo` (`docker compose --profile rollback up -d --wait mongo`), export the store back to
-MongoDB with `docker compose run --rm host db export-mongo --to mongodb://127.0.0.1:27017/reforged` (source and target
-default from `settings.toml`), and start `mongo`, `backend-rollback` and `director-rollback` in place of `backend` and
-`director` ([hosting.md](hosting.md#rollback-to-the-node-backend-and-mongodb-paradox-feature)).
+The Node backend, MongoDB and the `mongo` and `rollback` profiles were retired in RB15. The game-data volumes keep
+their names and are mounted at `modules/rustic-isles/game-data/1.14.7/{backend,director,exports,captures}`, so they
+need no move. A `[mongo]` table in `settings.toml` is ignored with a warning and dropped the next time the file is
+written. The `mongo-data` and `mongo-config` volumes can be deleted (`docker volume rm`, with the project's prefix).

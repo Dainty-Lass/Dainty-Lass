@@ -434,35 +434,6 @@ outcome!(
     DoctorReportView
 );
 
-/// Whether an old MongoDB database was carried over.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(any(test, feature = "ts"), derive(ts_rs::TS))]
-#[serde(rename_all = "lowercase")]
-pub enum MongoMigrationState {
-    /// There was none.
-    None,
-    /// Carried over.
-    Migrated,
-    /// The host chose not to.
-    Skipped,
-    /// There is one, not carried over yet.
-    Unmigrated,
-    /// There is one, but it could not be reached.
-    Unreachable,
-}
-
-/// The MongoDB migration's state.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(any(test, feature = "ts"), derive(ts_rs::TS))]
-pub struct MongoMigrationView {
-    /// Where it stands.
-    pub state: MongoMigrationState,
-    /// The database found.
-    pub source: Option<String>,
-    /// More words.
-    pub detail: Option<String>,
-}
-
 /// The server's config, as the manager edits it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(any(test, feature = "ts"), derive(ts_rs::TS))]
@@ -486,8 +457,6 @@ pub struct ServerConfigView {
     pub max_hunts: u32,
     /// The next start wipes the data.
     pub fresh_start: bool,
-    /// The MongoDB migration.
-    pub mongo_migration: MongoMigrationView,
     /// The config file's path.
     pub config_file: Option<String>,
 }

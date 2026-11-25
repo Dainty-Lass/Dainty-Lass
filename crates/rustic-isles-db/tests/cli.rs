@@ -36,22 +36,13 @@ fn migrate_takes_every_flag() {
 }
 
 #[test]
-fn verify_and_export_parse() {
+fn verify_parses() {
     let Command::Verify { opts, json } = parse("verify --against M --to T").unwrap() else {
         panic!("not verify");
     };
     assert_eq!((opts.from_uri.as_str(), json), ("M", false));
     assert!(opts.areas.is_empty());
     assert_eq!(opts.effective_areas().len(), 7);
-    let Command::ExportMongo { opts, json } = parse(
-        "export-mongo --from sqlite.db --to M --area auth --area characters --dry-run --allow-remote-postgres --json",
-    )
-    .unwrap() else {
-        panic!("not export");
-    };
-    assert!(json && opts.dry_run && opts.allow_remote_postgres);
-    assert_eq!((opts.from_source.as_str(), opts.to_uri.as_str()), ("sqlite.db", "M"));
-    assert_eq!(opts.areas.len(), 2);
 }
 
 #[test]
@@ -61,7 +52,7 @@ fn help_errors_and_requirements() {
     assert_eq!(parse("migrate --from M --help --bogus").unwrap(), Command::Help);
     assert_eq!(
         error("unknown"),
-        "invalid argument: unknown subcommand \"unknown\"; expected 'migrate', 'verify', 'export-mongo', or 'replay'"
+        "invalid argument: unknown subcommand \"unknown\"; expected 'migrate', 'verify' or 'replay'"
     );
     assert!(error("migrate --area nope").contains(
         "unknown area \"nope\"; valid areas: auth, characters, inventory, progression, bounties, parties, reforged"
@@ -86,14 +77,7 @@ fn help_errors_and_requirements() {
         error("migrate --bogus"),
         "invalid argument: unexpected flag \"--bogus\""
     );
-    assert_eq!(
-        error("export-mongo --against M"),
-        "invalid argument: unexpected flag \"--against\""
-    );
-    assert_eq!(
-        error("export-mongo --from F"),
-        "invalid argument: missing required --to <mongodb://...>"
-    );
+    assert!(error("export-mongo --from F").contains("unknown subcommand \"export-mongo\""));
     assert!(error("migrate --from M --to T --node ''").starts_with("invalid argument: invalid --node"));
     // A value flag takes the next argument whatever it is
     let Command::Migrate { opts, .. } = parse("migrate --from M --to --dry-run").unwrap() else {

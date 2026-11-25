@@ -31,16 +31,16 @@ moves = [
   ["native/runtime/SDK", "modules/rustic-isles/native/runtime/SDK"],
   ["native/runtime/x64", "modules/rustic-isles/native/runtime/x64"],
   ["native/catalog-exporter/x64", "modules/rustic-isles/native/catalog-exporter/x64"],
-  ["paradox/Items_Analysis", "modules/rustic-isles/reference/1.14.7/Items_Analysis"],
-  ["paradox/ParadoxBackend/game-data", "modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data"],
-  ["paradox/ParadoxDirector/game-data", "modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data"],
+  ["paradox/Items_Analysis", "modules/rustic-isles/game-data/1.14.7/exports"],
+  ["paradox/ParadoxBackend/game-data", "modules/rustic-isles/game-data/1.14.7/backend"],
+  ["paradox/ParadoxDirector/game-data", "modules/rustic-isles/game-data/1.14.7/director"],
   [".workspace/Mystic-Paradox/MysticParadox/<sdk>", "modules/rustic-isles/native/runtime/<sdk>"],
   [".workspace/Mystic-Paradox/MysticParadox/SDK", "modules/rustic-isles/native/runtime/SDK"],
   [".workspace/Mystic-Paradox/MysticParadox/x64", "modules/rustic-isles/native/runtime/x64"],
   [".workspace/Mystic-Paradox/CatalogExporter/x64", "modules/rustic-isles/native/catalog-exporter/x64"],
-  [".workspace/Mystic-Paradox/Items_Analysis", "modules/rustic-isles/reference/1.14.7/Items_Analysis"],
-  [".workspace/Mystic-Paradox/ParadoxBackend/game-data", "modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data"],
-  [".workspace/Mystic-Paradox/ParadoxDirector/game-data", "modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data"],
+  [".workspace/Mystic-Paradox/Items_Analysis", "modules/rustic-isles/game-data/1.14.7/exports"],
+  [".workspace/Mystic-Paradox/ParadoxBackend/game-data", "modules/rustic-isles/game-data/1.14.7/backend"],
+  [".workspace/Mystic-Paradox/ParadoxDirector/game-data", "modules/rustic-isles/game-data/1.14.7/director"],
 ]
 old_folders = [".workspace/Mystic-Paradox", "paradox", "native/runtime", "native/catalog-exporter"]
 

@@ -31,7 +31,7 @@ fn ps_quote(s: &str) -> String {
 #[must_use]
 pub fn firewall_script(config: &HostConfig, gateway_program: &str) -> String {
     let mut lines = vec![
-        "# Dainty Lass: Windows Firewall rules for this server. Written by `npm run setup`.".to_owned(),
+        "# Dainty Lass: Windows Firewall rules for this server. Written by dainty-host setup.".to_owned(),
         "# Run once in PowerShell as administrator:  powershell -ExecutionPolicy Bypass -File firewall.ps1".to_owned(),
         "$ErrorActionPreference = 'Stop'".to_owned(),
         "function Add-Rule($Name, $Display, $Protocol, $Port, $Program, $Remote, $Enabled) {".to_owned(),

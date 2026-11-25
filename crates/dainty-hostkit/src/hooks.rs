@@ -6,7 +6,6 @@
 //! compiled-in services, generators and database migration tables.
 
 use std::any::Any;
-use std::path::Path;
 use std::process::ExitCode;
 use std::sync::OnceLock;
 
@@ -60,11 +59,6 @@ pub trait HostHooks: Send + Sync {
         Err(HostError::message(
             "database verification is not registered in this build",
         ))
-    }
-
-    /// Exports the store as MongoDB collections into `_out`; returns the documents per collection. The default fails.
-    fn db_export_mongo(&self, _uri: &str, _out: &Path) -> Result<Vec<(String, usize)>, HostError> {
-        Err(HostError::message("MongoDB export is not registered in this build"))
     }
 
     /// Runs a `db` command in place of the host kit's own; `None` leaves it to the kit.

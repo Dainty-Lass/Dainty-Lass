@@ -10,7 +10,6 @@ scan:
     - crates/dainty-content/tests/parity
     - crates/dainty-protocol/tests/cases
     - fuzz/corpus
-    - restricted/fuzz/corpus
 timeout: 15m
 vulnerability:
   # A finding with no fixed version has nothing to upgrade to; cargo-deny's advisories cover the Rust side.

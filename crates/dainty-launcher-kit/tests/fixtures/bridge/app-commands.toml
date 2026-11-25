@@ -95,8 +95,6 @@ permissions = [
   "allow-server-backup",
   "allow-server-config-get",
   "allow-server-config-save",
-  "allow-server-migrate-mongo",
-  "allow-server-confirm-fresh-start",
   "allow-server-invite-list",
   "allow-admin-action",
   "allow-remote-status",

@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
-//! The tool's own MongoDB client (spec §4): OP_MSG over plain TCP, no `mongodb` crate (RB15). Reading and
-//! writing are two types: [`MongoClient`] can send only `hello`, `saslStart`, `saslContinue`, `find` and
-//! `getMore`, so migrate and verify are read-only by construction; [`MongoWriter`] exists only with
-//! `export-mongo`.
+//! The tool's own MongoDB client (spec §4): OP_MSG over plain TCP, no `mongodb` crate. [`MongoClient`] can send
+//! only `hello`, `saslStart`, `saslContinue`, `find` and `getMore`, so migrate and verify are read-only by
+//! construction.
 
 mod bson;
 #[cfg(any(test, feature = "test-support"))]
@@ -325,67 +324,6 @@ impl MongoClient {
             .and_then(Value::as_array)
             .is_some_and(|b| !b.is_empty()))
     }
-}
-
-/// The writing side, for export-mongo only (RB13): replaces whole collections.
-#[cfg(feature = "export-mongo")]
-pub struct MongoWriter {
-    conn: Connection,
-    database: String,
-}
-
-#[cfg(feature = "export-mongo")]
-impl MongoWriter {
-    /// The first host that connects, answers `hello` and (with credentials) authenticates.
-    pub fn connect(uri: &MongoUri) -> Result<Self, MongoError> {
-        Ok(Self {
-            conn: connect(uri)?,
-            database: uri.database.clone(),
-        })
-    }
-
-    /// Deletes every document, then inserts `documents` 500 at a time. Not transactional.
-    pub fn replace_collection(&mut self, collection: &str, documents: &[Map<String, Value>]) -> Result<(), MongoError> {
-        if documents.iter().any(has_nul_key) {
-            return Err(MongoError::Command(format!("BSON key contains NUL: {collection}")));
-        }
-        let db = self.database.clone();
-        self.conn.send(
-            "delete",
-            &[
-                ("delete", B::Str(collection)),
-                (
-                    "deletes",
-                    B::Arr(vec![B::Doc(vec![("q", B::Doc(Vec::new())), ("limit", B::I32(0))])]),
-                ),
-                ("$db", B::Str(&db)),
-            ],
-        )?;
-        for chunk in documents.chunks(BATCH as usize) {
-            let values: Vec<Value> = chunk.iter().cloned().map(Value::Object).collect();
-            self.conn.send(
-                "insert",
-                &[
-                    ("insert", B::Str(collection)),
-                    ("documents", B::Arr(values.iter().map(B::Json).collect())),
-                    ("$db", B::Str(&db)),
-                ],
-            )?;
-        }
-        Ok(())
-    }
-}
-
-#[cfg(feature = "export-mongo")]
-fn has_nul_key(document: &Map<String, Value>) -> bool {
-    fn value(v: &Value) -> bool {
-        match v {
-            Value::Object(m) => has_nul_key(m),
-            Value::Array(items) => items.iter().any(value),
-            _ => false,
-        }
-    }
-    document.iter().any(|(k, v)| k.contains('\0') || value(v))
 }
 
 #[cfg(test)]

@@ -2,6 +2,9 @@
 
 # Inventory of realms (RF1)
 
+> **Historical.** The Node sources it cites (`ParadoxBackend`, `ParadoxDirector`) were deleted at RB15; they stay in
+> the history.
+
 What rustic-rifts takes over from Mystic Paradox's 1.14.7 line, item by item, with the DD2 crate that should own
 it: `rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-realms`, `rustic-rifts-guard` (server side, linked by `isles-1-14-7`) and
 `rustic-rifts-host` (client side, linked by Dainty Lass's launcher).

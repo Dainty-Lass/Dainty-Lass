@@ -29,18 +29,22 @@ fuzz
 native
 
 # A host's own game data and exports: mounted as volumes, never baked in
-**/game-data/*.json
-!**/game-data/*.example.json
-**/game-data/raw
+**/game-data/*/backend/*.json
+**/game-data/*/director/*.json
+!**/game-data/*/backend/*.example.json
+!**/game-data/*/director/*.example.json
+**/game-data/*/backend/raw
+**/game-data/*/director/raw
+**/game-data/*/exports
+**/game-data/*/captures
 **/Items_Analysis
-**/DauntlessEndpointDocumentation
 
 # Nothing from restricted/ but the data files the server image ships (D-7, spec-docker.md 2.4)
 restricted
 !restricted/modules/rustic-isles/version-data/1.14.7/version_data.json
-!restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/*.example.json
-!restricted/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/*.example.json
-!restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json
+!restricted/modules/rustic-isles/game-data/1.14.7/backend/*.example.json
+!restricted/modules/rustic-isles/game-data/1.14.7/director/*.example.json
+!restricted/modules/rustic-isles/game-data/1.14.7/store-captures.json
 !restricted/modules/rustic-isles/LICENSE
 !restricted/modules/rustic-isles/NOTICE.md
 !restricted/modules/rustic-isles/ADDITIONAL_TERMS.md

@@ -3,7 +3,7 @@
 
 //! The controller's part of `/metrics` (`dainty_service_kit::metrics`): each component's phase, restarts and uptime,
 //! and the CPU and memory of this process and of every process it started, found by parentage: the game
-//! servers, and mongod or turn-rs when the kit runs them. Read at each scrape, never in between.
+//! servers, and turn-rs when the kit runs it. Read at each scrape, never in between.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex, PoisonError};

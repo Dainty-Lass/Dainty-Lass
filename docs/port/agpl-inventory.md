@@ -6,7 +6,8 @@
 > clean-room (RD27): the MIT crates are at the root, the AGPL ones are under `restricted/`, and `dainty-lass-ui` and
 > the `rust/` folder are gone. The provenance records that replace it are in `clean-room/`. Since R21
 > (`spec-runtime-r21.md`) the AGPL game runtime is gone too: `rustic-isles-runtime.dll` (MIT) is the only runtime,
-> and the C++ source is kept only by the tag `agpl-runtime-final`.
+> and the C++ source is kept only by the tag `agpl-runtime-final`. RB15 then deleted restricted's Cargo workspace,
+> the Node reference and every oracle: `restricted/` holds docs, attribution and data only.
 
 This document inventories every crate in `dainty-lass/rust` (including `fuzz`), `native/runtime-loader`, and every
 package in the `ui/` workspace (`silentspud/dainty-lass-ui`) at `plan` (`b190010` / `5dd3e28`). It records each file's

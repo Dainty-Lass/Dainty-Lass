@@ -1,6 +1,6 @@
 [package]
 name = "rustic-isles-db"
-description = "Rustic Isles' database tool: migrate a MongoDB 1.14.7 deployment into the store with the RB11 repairs, verify it, and export it back (RB13)"
+description = "Rustic Isles' database tool: migrate a MongoDB 1.14.7 deployment into the store with the RB11 repairs, and verify it"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -10,9 +10,6 @@ repository.workspace = true
 publish.workspace = true
 
 [features]
-default = ["export-mongo"]
-# RB13's one-release rollback; RB15 turns it off and deletes it
-export-mongo = []
 # MockMongoServer: an OP_MSG server on 127.0.0.1:0 for this crate's tests and the host's
 test-support = []
 

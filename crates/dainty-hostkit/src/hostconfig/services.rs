@@ -187,8 +187,7 @@ mod tests {
     use crate::hostconfig::HostConfig;
 
     const BASE: &str = "version = 1\nmode = \"private\"\nname = \"Friday Hunts\"\nhost = \"100.101.102.103\"\n\
-        game_address = \"100.101.102.103\"\nregistration = \"INVITECODE\"\nmax_hunt_servers = 3\n\
-        [mongo]\nuri = \"mongodb://127.0.0.1:27017\"\nmanage = false\n";
+        game_address = \"100.101.102.103\"\nregistration = \"INVITECODE\"\nmax_hunt_servers = 3\n";
 
     fn digest() -> String {
         "ab".repeat(32)

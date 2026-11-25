@@ -1,5 +1,9 @@
 # Changes to Mystic Paradox
 
+**A record since RB15.** The Node services under `reference/1.14.7` were deleted with the rollback, so every row
+below is history; their game data lives on in `modules/rustic-isles/game-data/1.14.7`. A new upstream change reaches
+the MIT crates through a clean-room spec (the root's `docs/port/migration-guide.md` section 4).
+
 rustic-isles (`modules/rustic-isles`, in-tree since RD27 and a submodule from DS6: the Node services under
 `reference/1.14.7` and the CatalogExporter under `native/`; `paradox/` and `native/` here before DS6) is
 Mystic Paradox at commit `21b9ff5` (`pranav158/Mystic-Paradox`, upstream `main` on 2026-10-23) with the changes

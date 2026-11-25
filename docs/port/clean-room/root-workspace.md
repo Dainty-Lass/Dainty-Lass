@@ -31,3 +31,8 @@ The root `Cargo.toml`'s workspace layout, `deny.toml`, `clippy.toml`, `rustfmt.t
 - **Text.** What the old and new files share is values a spec has to name (crate names, versions, feature names,
   lint names, SPDX identifiers, advisory IDs, SQLite flags, URLs) and the TOML keys cargo, clippy, rustfmt, rustup
   and cargo-deny define. No comment or line arrangement is reused.
+
+## Since
+
+RB15 (2026-11-24) deleted restricted's workspace: `exclude` lost `restricted`, the `server-controller` alias (its last
+user was restricted's launcher) went, and the comments that cited restricted/ were reworded. No value moved otherwise.

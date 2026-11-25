@@ -988,7 +988,7 @@ runtimeChanged: boolean, };
 /**
  * A program or component the host kit checks for.
  */
-export type RequirementId = "dauntless" | "git" | "node" | "mongodb" | "tailscale" | "visual_studio" | "rust" | "dumper7" | "vc_redist";
+export type RequirementId = "dauntless" | "git" | "tailscale" | "visual_studio" | "rust" | "dumper7" | "vc_redist";
 /**
  * How one requirement checked out.
  */
@@ -1084,7 +1084,7 @@ export type HostComponentPhase = "stopped" | "starting" | "ready" | "stopping" |
 /**
  * A long-running host-kit task; one runs at a time.
  */
-export type HostJobKind = "inject" | "build_runtime" | "build_loader" | "build_exporter" | "import_sdk" | "copy_exports" | "synthetic_data" | "import_gamedata" | "publish_runtime" | "setup" | "generate_gamedata" | "export_gamedata" | "create_invite" | "update" | "multipliers" | "upstream" | "download_project" | "backup" | "migrate_mongo";
+export type HostJobKind = "inject" | "build_runtime" | "build_loader" | "build_exporter" | "import_sdk" | "copy_exports" | "synthetic_data" | "import_gamedata" | "publish_runtime" | "setup" | "generate_gamedata" | "export_gamedata" | "create_invite" | "update" | "multipliers" | "upstream" | "download_project" | "backup";
 /**
  * Progress of a host job.
  */
@@ -1112,7 +1112,7 @@ logFile: string | null, };
 /**
  * An external page or download the page may open; the URL is fixed on the Rust side.
  */
-export type ExternalTarget = "tailscale_download" | "tailscale_share" | "vc_redist" | "server_source" | "project_source" | "project_license" | "project_issues" | "project_docs_players" | "project_docs_hosting" | "project_docs_sdk" | "installing_guide" | "legendary" | "dumper7" | "visual_studio" | "rust" | "nodejs" | "mongodb" | "git" | "visual_studio_installer" | "rust_installer" | "dumper7_zip" | "revived_source" | "mystic_source" | "undaunted_source";
+export type ExternalTarget = "tailscale_download" | "tailscale_share" | "vc_redist" | "server_source" | "project_source" | "project_license" | "project_issues" | "project_docs_players" | "project_docs_hosting" | "project_docs_sdk" | "installing_guide" | "legendary" | "dumper7" | "visual_studio" | "rust" | "git" | "visual_studio_installer" | "rust_installer" | "dumper7_zip" | "revived_source" | "mystic_source" | "undaunted_source";
 /**
  * A host-kit step the page starts directly.
  */
@@ -1842,26 +1842,6 @@ warnings: number,
  */
 problems: number, };
 /**
- * Whether an old MongoDB database was carried over.
- */
-export type MongoMigrationState = "none" | "migrated" | "skipped" | "unmigrated" | "unreachable";
-/**
- * The MongoDB migration's state.
- */
-export type MongoMigrationView = { 
-/**
- * Where it stands.
- */
-state: MongoMigrationState, 
-/**
- * The database found.
- */
-source: string | null, 
-/**
- * More words.
- */
-detail: string | null, };
-/**
  * The server's config, as the manager edits it.
  */
 export type ServerConfigView = { 
@@ -1901,10 +1881,6 @@ maxHunts: number,
  * The next start wipes the data.
  */
 freshStart: boolean, 
-/**
- * The MongoDB migration.
- */
-mongoMigration: MongoMigrationView, 
 /**
  * The config file's path.
  */
@@ -2214,4 +2190,4 @@ export type RemoteStatusOutcome = { ok: true; status: RemoteStatusView } | { ok:
 export type RemoteInviteOutcome = { ok: true; invite: RemoteInviteView } | { ok: false; error: LauncherError };
 export type RemoteExecOutcome = { ok: true; result: RemoteExecView } | { ok: false; error: LauncherError };
 export type UninstallOutcome = { ok: true; plan: UninstallPlan } | { ok: false; error: LauncherError };
-export type CommandName = "get_snapshot" | "check_invite" | "submit_invite" | "retry_connect" | "forget_server" | "switch_server" | "remove_saved_server" | "register" | "sign_in" | "link_sign_in" | "use_existing_key" | "import_key_file" | "save_key_backup" | "dismiss_backup_offer" | "choose_game_folder" | "use_game_path" | "use_detected_game" | "verify_game" | "revived_install" | "revived_choose_folder" | "revived_use_detected" | "trust_runtime" | "install_runtime" | "choose_local_runtime" | "clear_local_runtime" | "cancel_task" | "play" | "set_settings" | "set_status_polling" | "refresh_status" | "get_news" | "get_branding" | "open_external" | "open_game_folder" | "open_logs_folder" | "logout" | "install_update" | "host_get" | "host_choose_workspace" | "host_choose_dumper" | "host_import_gamedata" | "host_import_sdk_folder" | "host_download_project" | "host_action" | "host_open" | "host_server_get" | "host_server_start" | "host_server_stop" | "host_server_restart" | "host_setup" | "host_create_invite" | "host_update" | "host_set_multipliers" | "copy_text" | "take_invite_link" | "game_log_get" | "dismiss_notice" | "dismiss_error" | "subscribe_progress" | "epic_sign_in_start" | "epic_sign_in_code" | "epic_get" | "epic_sign_out" | "epic_library_check" | "game_version_list" | "game_install_start" | "game_install_pause" | "game_install_resume" | "game_install_cancel" | "game_install_get" | "game_install_choose_folder" | "game_install_discard" | "region_ping" | "module_list" | "module_get" | "module_run_command" | "module_set_settings" | "module_load" | "module_unload" | "realm_host" | "realm_join" | "realm_stop" | "realm_get" | "history_query" | "history_revert_dry_run" | "history_revert_apply" | "guarded_list" | "guarded_approve" | "guarded_cancel" | "server_doctor" | "server_backup" | "server_config_get" | "server_config_save" | "server_migrate_mongo" | "server_confirm_fresh_start" | "server_invite_list" | "admin_action" | "remote_status" | "remote_init_controller" | "remote_invite" | "remote_enroll" | "remote_revoke" | "remote_leave" | "remote_exec" | "update_launcher" | "game_uninstall_plan" | "game_uninstall" | "get_playtime" | "leave_queue" | "crash_report_send" | "crash_report_dismiss";
+export type CommandName = "get_snapshot" | "check_invite" | "submit_invite" | "retry_connect" | "forget_server" | "switch_server" | "remove_saved_server" | "register" | "sign_in" | "link_sign_in" | "use_existing_key" | "import_key_file" | "save_key_backup" | "dismiss_backup_offer" | "choose_game_folder" | "use_game_path" | "use_detected_game" | "verify_game" | "revived_install" | "revived_choose_folder" | "revived_use_detected" | "trust_runtime" | "install_runtime" | "choose_local_runtime" | "clear_local_runtime" | "cancel_task" | "play" | "set_settings" | "set_status_polling" | "refresh_status" | "get_news" | "get_branding" | "open_external" | "open_game_folder" | "open_logs_folder" | "logout" | "install_update" | "host_get" | "host_choose_workspace" | "host_choose_dumper" | "host_import_gamedata" | "host_import_sdk_folder" | "host_download_project" | "host_action" | "host_open" | "host_server_get" | "host_server_start" | "host_server_stop" | "host_server_restart" | "host_setup" | "host_create_invite" | "host_update" | "host_set_multipliers" | "copy_text" | "take_invite_link" | "game_log_get" | "dismiss_notice" | "dismiss_error" | "subscribe_progress" | "epic_sign_in_start" | "epic_sign_in_code" | "epic_get" | "epic_sign_out" | "epic_library_check" | "game_version_list" | "game_install_start" | "game_install_pause" | "game_install_resume" | "game_install_cancel" | "game_install_get" | "game_install_choose_folder" | "game_install_discard" | "region_ping" | "module_list" | "module_get" | "module_run_command" | "module_set_settings" | "module_load" | "module_unload" | "realm_host" | "realm_join" | "realm_stop" | "realm_get" | "history_query" | "history_revert_dry_run" | "history_revert_apply" | "guarded_list" | "guarded_approve" | "guarded_cancel" | "server_doctor" | "server_backup" | "server_config_get" | "server_config_save" | "server_invite_list" | "admin_action" | "remote_status" | "remote_init_controller" | "remote_invite" | "remote_enroll" | "remote_revoke" | "remote_leave" | "remote_exec" | "update_launcher" | "game_uninstall_plan" | "game_uninstall" | "get_playtime" | "leave_queue" | "crash_report_send" | "crash_report_dismiss";

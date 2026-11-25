@@ -2,6 +2,9 @@
 
 # Security checklist: runtime download (RX3)
 
+> **Moved (RL13, RL14):** this code is now the MIT `crates/dainty-launcher-kit` (spec-rd27-launcher.md); the
+> `launcher/src-tauri` paths below are the AGPL shell's, deleted in RB15, kept as the record.
+
 The checklist for the launcher's handling of a server's game runtime: the manifest, the player's acceptance, the
 download, the check before every launch and the 1.14.7 executable hash (MIGRATION_PLAN.md RA7, RD10, RD22, section 6).
 `SECURITY_REVIEW.md` indexes it.

@@ -6,16 +6,14 @@
 #      bin/              the server in one binary (RD26), built here for that platform: dainty-server,
 #                        the same as dainty-host (the name update, the systemd units and the Director's
 #                        game-server wrapper run), and dainty-server-minimal. The 1.14.7 Rust backend and
-#                        Director (isles-1-14-7), gateway, allowlist, content server, admin API and database
-#                        migration/rollback commands (`dainty-host db migrate|verify|export-mongo`) are inside it
+#                        Director (isles-1-14-7), gateway, allowlist, content server and admin API are inside it
 #                        dainty-legacy, the legacy importer (MIT, from the root's crates/dainty-legacy)
 #                        rustic-isles-runtime.dll and its .sha256, the prebuilt MIT game runtime (spec-runtime-r21 B-2)
 #      data/1.14.7/version_data.json  Mystic Paradox's version data (AGPL), which the MIT binaries read at start
 #      data/1.14.7/version_facts.json the 1.14.7 version facts (MIT), read beside version_data.json
 #      plugins/          the libraries settings.toml can pin (RD27): the 1.14.7 module ([[modules.external]]) and, once
 #                        their crates land, the content, chat and gateway services ([services.<name>])
-#      modules/rustic-isles/reference/1.14.7/ParadoxBackend and ParadoxDirector, built with their node_modules
-#                        (kept for one release only as the documented RB13/RU9 rollback artefact until RB15)
+#      modules/rustic-isles/game-data/1.14.7/  the game data's examples and store-captures.json (AGPL), from the tree
 #      release.json      the version, commit, platform and repository, and every file of the release with its SHA-256
 #  - SHA256SUMS.txt for the archives
 #
@@ -123,7 +121,6 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: restricted
     env:
       TARGET: ${{ matrix.target }}
       PLATFORM: ${{ matrix.platform }}
@@ -133,7 +130,6 @@ jobs:
       # Before the checkout: a submodule's objects under a deep path fail to clone without it (DF1)
       - name: Long paths for git
         if: runner.os == 'Windows'
-        working-directory: .
         run: git config --global core.longpaths true
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -160,41 +156,28 @@ jobs:
         run: |
           rustup show active-toolchain || rustup toolchain install
           rustup target add "$TARGET"
-          # windows-msvc is the maintainer's PC, where restricted/ builds with 6 jobs or fewer (AGENTS.md)
+          # windows-msvc is the maintainer's PC, which builds with 6 jobs or fewer (AGENTS.md)
           if [ "$RUNNER_OS" = Windows ]; then echo "CARGO_BUILD_JOBS=6" >> "$GITHUB_ENV"; fi
 
       # No build cache in a release: every file is built from this commit alone.
-      # The 1.14.7 Rust backend, Director and `dainty-host db` commands are compiled into dainty-server and
-      # dainty-server-minimal (with all-modules). For one release after RU9/RB14 (until RB15), the archive also carries
-      # the Node ParadoxBackend and ParadoxDirector bundle below as the documented rollback artefact.
+      # The 1.14.7 Rust backend and Director are compiled into dainty-server and dainty-server-minimal (all-modules).
       # DAINTY_RELEASE_REPOSITORY stays .cargo/config.toml's: the releases are on GitHub until DX5
       - name: Build the release binaries
-        run: cargo build --release --locked --target "$TARGET" --manifest-path ../Cargo.toml -p dainty-server -p dainty-server-minimal --features dainty-server/all-modules,dainty-server-minimal/all-modules --bins
+        run: cargo build --release --locked --target "$TARGET" -p dainty-server -p dainty-server-minimal --features dainty-server/all-modules,dainty-server-minimal/all-modules --bins
 
       # The libraries the core loads (RD27), all from the MIT root: the 1.14.7 module and the services
       - name: Build the libraries
         run: |
           set -euo pipefail
-          cargo build --release --locked --target "$TARGET" --manifest-path ../Cargo.toml \
+          cargo build --release --locked --target "$TARGET" \
             -p rustic-isles-1-14-7-plugin -p dainty-content-plugin -p dainty-chat-plugin -p dainty-gateway-plugin --lib
           # The legacy importer, MIT since RD27: the external plugin `dainty-host legacy` runs
-          cargo build --release --locked --target "$TARGET" --manifest-path ../Cargo.toml -p dainty-legacy --bin dainty-legacy
+          cargo build --release --locked --target "$TARGET" -p dainty-legacy --bin dainty-legacy
 
+      # release.json is written with Node
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
-
-      # Every dependency, dev ones included: gamedata runs Rustic Isles's generators, some of them with tsx.
-      # node_modules is installed on each platform, for the packages with a native build (@node-rs/argon2).
-      - name: Build the Node rollback bundle (kept for one release until RB15)
-        run: |
-          set -euo pipefail
-          isles=modules/rustic-isles/reference/1.14.7
-          for dir in "$isles/ParadoxBackend" "$isles/ParadoxDirector"; do
-            echo "::group::$dir"
-            (cd "$dir" && npm ci --no-audit --no-fund && npm run build)
-            echo "::endgroup::"
-          done
 
       - uses: https://code.forgejo.org/forgejo/download-artifact@d8d0a99033603453ad2255e58720b460a0555e1e # v4 (v4.1.4, GHES check disabled)
         with:
@@ -209,10 +192,10 @@ jobs:
           out="$WORK/assemble/$name"
           rm -rf "$WORK/assemble" && mkdir -p "$out"
           # The commit's server source, as git has it (no .workspace, nothing git ignores); rustic-isles is in-tree (RD27)
-          git -C .. archive --format=tar "$COMMIT:restricted" | tar -x -C "$out"
+          git archive --format=tar "$COMMIT:restricted" | tar -x -C "$out"
           mkdir -p "$out/bin"
           for bin in dainty-host dainty-server dainty-server-minimal dainty-legacy; do
-            cp "../target/$TARGET/release/$bin$ext" "$out/bin/"
+            cp "target/$TARGET/release/$bin$ext" "$out/bin/"
           done
           # The prebuilt MIT runtime and its SHA-256: setup and publish-runtime publish it when the host built none
           # (spec-runtime-r21 call 6)
@@ -220,21 +203,15 @@ jobs:
           (cd "$out/bin" && sha256sum -c rustic-isles-runtime.dll.sha256)
           # Mystic Paradox's 1.14.7 version data, AGPL, beside the MIT binaries: the server reads it at start (RD27)
           mkdir -p "$out/data/1.14.7"
-          cp modules/rustic-isles/version-data/1.14.7/version_data.json "$out/data/1.14.7/"
+          cp restricted/modules/rustic-isles/version-data/1.14.7/version_data.json "$out/data/1.14.7/"
           # The 1.14.7 version facts (MIT) beside the design (port plan item 9)
-          cp ../crates/rustic-isles-1-14-7/data/version_facts.json "$out/data/1.14.7/"
+          cp crates/rustic-isles-1-14-7/data/version_facts.json "$out/data/1.14.7/"
           # The libraries beside them, under the names settings.toml's paths give (RD27)
           mkdir -p "$out/plugins"
           if [ "$RUNNER_OS" = Windows ]; then prefix=""; suffix=".dll"; else prefix="lib"; suffix=".so"; fi
           for lib in rustic_isles_1_14_7_plugin dainty_content_plugin dainty_chat_plugin dainty_gateway_plugin; do
-            cp "../target/$TARGET/release/$prefix$lib$suffix" "$out/plugins/"
+            cp "target/$TARGET/release/$prefix$lib$suffix" "$out/plugins/"
           done
-          # Kept for one release only as the documented RB13/RU9 rollback artefact (until RB15)
-          isles=modules/rustic-isles/reference/1.14.7
-          cp -R "$isles/ParadoxBackend/build" "$isles/ParadoxBackend/node_modules" "$out/$isles/ParadoxBackend/"
-          cp -R "$isles/ParadoxDirector/dist" "$isles/ParadoxDirector/node_modules" "$out/$isles/ParadoxDirector/"
-          # node_modules/.bin holds links to the packages' commands: nothing a host runs needs them
-          find "$out" -type d -name .bin -path '*/node_modules/*' -prune -exec rm -rf {} +
           echo "$COMMIT" > "$out/COMMIT"
           # release.json: what update reads, and every file with its SHA-256 (update removes the files an older
           # release had and this one has not, and checks what it installed)
@@ -268,9 +245,10 @@ jobs:
           test -s "$bin/../data/1.14.7/version_data.json"
           test -s "$bin/../data/1.14.7/version_facts.json"
           test -s "$bin/rustic-isles-runtime.dll"
+          test -s "$bin/../modules/rustic-isles/game-data/1.14.7/store-captures.json"
           # Each service the binary runs alone, as the systemd units and the containers run it
           for service in gateway allowlist content backend director; do "$bin/dainty-host$ext" "$service" --help > /dev/null; done
-          for db_cmd in migrate verify export-mongo; do "$bin/dainty-host$ext" db "$db_cmd" --help > /dev/null; done
+          for db_cmd in migrate verify; do "$bin/dainty-host$ext" db "$db_cmd" --help > /dev/null; done
           "$bin/dainty-host$ext" admin schema > /dev/null
           "$bin/dainty-host$ext" --help
 

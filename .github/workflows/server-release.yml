@@ -1,7 +1,7 @@
 # GitHub Actions' copy of .forgejo/workflows/server-release.yml (RR3; MIGRATION_PLAN.md RD8, RH6): the same archives,
 # release.json, SHA256SUMS.txt and install check, on GitHub's hosted runners, plus a CycloneDX SBOM of each archive.
 #  - DaintyLassServer-<version>-windows-x64.zip and -linux-x64.tar.gz hold dainty-lass-server-<version>/
-#    (bin/, plugins/, the Node rollback bundle until RB15, release.json); the Forgejo file says what each holds
+#    (bin/, plugins/, data/, the game data's examples, release.json); the Forgejo file says what each holds
 #  - SHA256SUMS.txt for the archives
 #  - server-sbom, a separate artifact: <archive>.cdx.json for each, from Trivy. Not among the release files, which
 #    dainty-host update reads
@@ -161,7 +161,6 @@ jobs:
     defaults:
       run:
         shell: bash
-        working-directory: restricted
     env:
       TARGET: ${{ matrix.target }}
       PLATFORM: ${{ matrix.platform }}
@@ -170,7 +169,6 @@ jobs:
     steps:
       - name: Long paths for git
         if: runner.os == 'Windows'
-        working-directory: .
         run: git config --global core.longpaths true
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -191,32 +189,21 @@ jobs:
 
       # DAINTY_RELEASE_REPOSITORY stays .cargo/config.toml's until DX5 moves the releases
       - name: Build the release binaries
-        run: cargo build --release --locked --target "$TARGET" --manifest-path ../Cargo.toml -p dainty-server -p dainty-server-minimal --features dainty-server/all-modules,dainty-server-minimal/all-modules --bins
+        run: cargo build --release --locked --target "$TARGET" -p dainty-server -p dainty-server-minimal --features dainty-server/all-modules,dainty-server-minimal/all-modules --bins
 
       # The libraries the core loads (RD27), all from the MIT root: the 1.14.7 module and the services
       - name: Build the libraries
         run: |
           set -euo pipefail
-          cargo build --release --locked --target "$TARGET" --manifest-path ../Cargo.toml \
+          cargo build --release --locked --target "$TARGET" \
             -p rustic-isles-1-14-7-plugin -p dainty-content-plugin -p dainty-chat-plugin -p dainty-gateway-plugin --lib
           # The legacy importer, MIT since RD27: the external plugin `dainty-host legacy` runs
-          cargo build --release --locked --target "$TARGET" --manifest-path ../Cargo.toml -p dainty-legacy --bin dainty-legacy
+          cargo build --release --locked --target "$TARGET" -p dainty-legacy --bin dainty-legacy
 
+      # release.json is written with Node
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
-
-      # Every dependency, dev ones included: gamedata runs Rustic Isles's generators, some of them with tsx.
-      # node_modules is installed on each platform, for the packages with a native build (@node-rs/argon2).
-      - name: Build the Node rollback bundle (kept for one release until RB15)
-        run: |
-          set -euo pipefail
-          isles=modules/rustic-isles/reference/1.14.7
-          for dir in "$isles/ParadoxBackend" "$isles/ParadoxDirector"; do
-            echo "::group::$dir"
-            (cd "$dir" && npm ci --no-audit --no-fund && npm run build)
-            echo "::endgroup::"
-          done
 
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -231,10 +218,10 @@ jobs:
           out="$WORK/assemble/$name"
           rm -rf "$WORK/assemble" && mkdir -p "$out"
           # The commit's server source, as git has it (no .workspace, nothing git ignores); rustic-isles is in-tree (RD27)
-          git -C .. archive --format=tar "$COMMIT:restricted" | tar -x -C "$out"
+          git archive --format=tar "$COMMIT:restricted" | tar -x -C "$out"
           mkdir -p "$out/bin"
           for bin in dainty-host dainty-server dainty-server-minimal dainty-legacy; do
-            cp "../target/$TARGET/release/$bin$ext" "$out/bin/"
+            cp "target/$TARGET/release/$bin$ext" "$out/bin/"
           done
           # The prebuilt MIT runtime and its SHA-256: setup and publish-runtime publish it when the host built none
           # (spec-runtime-r21 call 6)
@@ -242,21 +229,15 @@ jobs:
           (cd "$out/bin" && sha256sum -c rustic-isles-runtime.dll.sha256)
           # Mystic Paradox's 1.14.7 version data, AGPL, beside the MIT binaries: the server reads it at start (RD27)
           mkdir -p "$out/data/1.14.7"
-          cp modules/rustic-isles/version-data/1.14.7/version_data.json "$out/data/1.14.7/"
+          cp restricted/modules/rustic-isles/version-data/1.14.7/version_data.json "$out/data/1.14.7/"
           # The 1.14.7 version facts (MIT) beside the design (port plan item 9)
-          cp ../crates/rustic-isles-1-14-7/data/version_facts.json "$out/data/1.14.7/"
+          cp crates/rustic-isles-1-14-7/data/version_facts.json "$out/data/1.14.7/"
           # The libraries beside them, under the names settings.toml's paths give (RD27)
           mkdir -p "$out/plugins"
           if [ "$RUNNER_OS" = Windows ]; then prefix=""; suffix=".dll"; else prefix="lib"; suffix=".so"; fi
           for lib in rustic_isles_1_14_7_plugin dainty_content_plugin dainty_chat_plugin dainty_gateway_plugin; do
-            cp "../target/$TARGET/release/$prefix$lib$suffix" "$out/plugins/"
+            cp "target/$TARGET/release/$prefix$lib$suffix" "$out/plugins/"
           done
-          # Kept for one release only as the documented RB13/RU9 rollback artefact (until RB15)
-          isles=modules/rustic-isles/reference/1.14.7
-          cp -R "$isles/ParadoxBackend/build" "$isles/ParadoxBackend/node_modules" "$out/$isles/ParadoxBackend/"
-          cp -R "$isles/ParadoxDirector/dist" "$isles/ParadoxDirector/node_modules" "$out/$isles/ParadoxDirector/"
-          # node_modules/.bin holds links to the packages' commands: nothing a host runs needs them
-          find "$out" -type d -name .bin -path '*/node_modules/*' -prune -exec rm -rf {} +
           echo "$COMMIT" > "$out/COMMIT"
           # release.json: what update reads, and every file with its SHA-256 (update removes the files an older
           # release had and this one has not, and checks what it installed)
@@ -290,9 +271,10 @@ jobs:
           test -s "$bin/../data/1.14.7/version_data.json"
           test -s "$bin/../data/1.14.7/version_facts.json"
           test -s "$bin/rustic-isles-runtime.dll"
+          test -s "$bin/../modules/rustic-isles/game-data/1.14.7/store-captures.json"
           # Each service the binary runs alone, as the systemd units and the containers run it
           for service in gateway allowlist content backend director; do "$bin/dainty-host$ext" "$service" --help > /dev/null; done
-          for db_cmd in migrate verify export-mongo; do "$bin/dainty-host$ext" db "$db_cmd" --help > /dev/null; done
+          for db_cmd in migrate verify; do "$bin/dainty-host$ext" db "$db_cmd" --help > /dev/null; done
           "$bin/dainty-host$ext" admin schema > /dev/null
           "$bin/dainty-host$ext" --help
 
@@ -354,7 +336,7 @@ jobs:
           sha256sum -- * > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      # What each archive holds, as Trivy reads it: the Cargo.lock in its source and the rollback bundle's packages
+      # What each archive holds, as Trivy reads it
       - name: An SBOM of each archive
         run: |
           set -euo pipefail

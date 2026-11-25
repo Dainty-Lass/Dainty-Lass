@@ -31,11 +31,10 @@ the launcher runs on `127.0.0.1:61100`.
 
 Dainty Lass is a monorepo with a strict licence boundary (RD27): the root workspace and everything outside
 [`restricted/`](restricted) is **MIT OR Apache-2.0** ([LICENSE-MIT.txt](LICENSE-MIT.txt),
-[LICENSE-APACHE.txt](LICENSE-APACHE.txt)); [`restricted/`](restricted) is a separate
-Cargo workspace licensed under **GNU AGPL-3.0-only** ([restricted/LICENSE.txt](restricted/LICENSE.txt),
-[restricted/NOTICE.md](restricted/NOTICE.md)) holding the Node reference the backend was ported from and the oracle
-and parity tests run against the MIT crates, the 1.4.4 importer's oracle, the AGPL Docker copies, and the host and
-player guides. No MIT crate at the root depends on anything in `restricted/`.
+[LICENSE-APACHE.txt](LICENSE-APACHE.txt)); [`restricted/`](restricted) is licensed under **GNU AGPL-3.0-only**
+([restricted/LICENSE.txt](restricted/LICENSE.txt), [restricted/NOTICE.md](restricted/NOTICE.md)) and holds no code since
+RB15: Mystic Paradox's version data and game data, and the host and player guides. No MIT crate at the root depends on
+anything in `restricted/`; the server reads its data at run time.
 
 | Folder | Licence | What |
 | --- | --- | --- |
@@ -44,7 +43,7 @@ player guides. No MIT crate at the root depends on anything in `restricted/`.
 | [`launcher/`](launcher) | MIT OR Apache-2.0 | The launcher's JavaScript side: the isolation hook, the scripts the Tauri shell and the release run, and their tests |
 | [`scripts/`](scripts) | MIT OR Apache-2.0 | `replay-capture.mjs`, the shadow-replay wrapper |
 | [`docs/`](docs) | MIT OR Apache-2.0 | The architecture, the plans and the MIT components' security checklists ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)) |
-| [`restricted/`](restricted) | AGPL-3.0-only | Separate Cargo workspace: the host kit's parity tests (`restricted/crates/dainty-host-parity`), the launcher's oracle tests (`restricted/launcher/src-tauri`, test-only), Rustic Isles' Node reference, version data and parity replay and Rustic Rifts' oracle (`restricted/modules/`), the 1.4.4 importer's oracle (`restricted/legacy/`), the AGPL Docker copies (`restricted/docker/`, `restricted/compose.yaml`), and the host and player guides ([restricted/SECURITY_REVIEW.md](restricted/SECURITY_REVIEW.md)) |
+| [`restricted/`](restricted) | AGPL-3.0-only | Docs and data, no code: Rustic Isles' version data and game data (`restricted/modules/rustic-isles/version-data`, `game-data/1.14.7`), the Rustic Rifts docs and relay self-test, and the host and player guides ([restricted/SECURITY_REVIEW.md](restricted/SECURITY_REVIEW.md)) |
 
 What is left to do: [MIGRATION_PLAN.md](MIGRATION_PLAN.md). The design record behind it:
 [docs/dainty-lass-plan.md](docs/dainty-lass-plan.md).
@@ -72,10 +71,11 @@ cargo build --release --locked -p dainty-server --features all-modules --bins
 ## Credits and licence
 
 Dainty Lass stands on [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) (Pranav Karande), whose Node
-backend and Director (the behaviour the Rust port follows) live in `restricted/modules/rustic-isles` and whose C++
+backend and Director (the behaviour the Rust port follows) lived in `restricted/modules/rustic-isles` until RB15, whose
+version data and game data still do, and whose C++
 runtime the MIT runtime re-created (its source is kept by the tag `agpl-runtime-final`);
 on [Dauntless Revived](https://github.com/mixutin/dauntless-revived)
-(mixutin and contributors), whose Rust crates the workspace started from and whose invite and account-key design
+(mixutin and contributors), whose Rust crates the project started from and whose invite and account-key design
 the launcher follows; and on [Undaunted](https://github.com/SyST3MDeV/Undaunted) (gwog and contributors), which both
 of those build on.
 

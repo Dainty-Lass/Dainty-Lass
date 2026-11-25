@@ -98,8 +98,6 @@ function initialHostKit(): HostKit {
     requirements: [
       { id: "dauntless", state: "ok", detail: "1.14.7", problem: null },
       { id: "git", state: "ok", detail: "2.51.0", problem: null },
-      { id: "node", state: "ok", detail: "22.23.4", problem: null },
-      { id: "mongodb", state: "ok", detail: "8.0", problem: null },
       { id: "tailscale", state: "ok", detail: "1.92", problem: null },
       { id: "visual_studio", state: "ok", detail: "17.14", problem: null },
       { id: "rust", state: "ok", detail: "1.93.0", problem: null },

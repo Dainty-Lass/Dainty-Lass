@@ -2,10 +2,9 @@
 // Copyright (c) 2026 Silent Spud
 
 //! Rustic Isles' database tool (RD27, written clean-room from `docs/port/spec-rustic-isles-db.md`): `migrate`
-//! moves a MongoDB 1.14.7 deployment into the store with the RB11 repairs on the way (RU7), `verify` compares
-//! the two table by table, and `export-mongo` writes the store back into MongoDB (RB13's rollback, behind the
-//! default-on `export-mongo` feature RB15 removes). A library with a command-line front, [`main_with`], for
-//! restricted's `isles-db` binary; the 1.14.7 starter values are the caller's ([`LegacyStarter`]).
+//! moves a MongoDB 1.14.7 deployment into the store with the RB11 repairs on the way (RU7), and `verify` compares
+//! the two table by table. RB15 deleted RB13's `export-mongo`, the way back. A library with a command-line front,
+//! [`main_with`]; the 1.14.7 starter values are the caller's ([`LegacyStarter`]).
 
 #![cfg_attr(
     test,
@@ -13,8 +12,6 @@
 )]
 
 mod cli;
-#[cfg(feature = "export-mongo")]
-mod export;
 #[doc(hidden)]
 pub mod extract;
 pub mod ids;
@@ -35,9 +32,7 @@ use dainty_store::Database;
 use rustic_isles_economy::inventory::storage_policy::{POLICY_FILE, StoragePolicy};
 use serde::{Deserialize, Serialize};
 
-pub use cli::{Command, main_with, parse_args, print_export_report, print_migrate_report, print_verify_report};
-#[cfg(feature = "export-mongo")]
-pub use export::{Collections, state_to_mongo_collections};
+pub use cli::{Command, main_with, parse_args, print_migrate_report, print_verify_report};
 pub use repair::LegacyStarter;
 pub use tables::TargetState;
 pub use target::parse_postgres_url;
@@ -78,7 +73,7 @@ pub enum DbError {
     Replay(Vec<String>),
 }
 
-/// One `--area`: a group of tables migrated, verified or exported together.
+/// One `--area`: a group of tables migrated or verified together.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum Area {
     /// Accounts and launcher approvals.
@@ -225,40 +220,6 @@ impl fmt::Debug for MigrateOptions {
     }
 }
 
-/// `export-mongo`'s options. `Debug` hides URI credentials.
-#[derive(Clone, PartialEq, Eq)]
-pub struct ExportOptions {
-    /// The store read from (`--from`): a SQLite file, `sqlite://<file>` or a Postgres URL.
-    pub from_source: String,
-    /// The MongoDB URI written to (`--to`).
-    pub to_uri: String,
-    /// The selected areas; empty means all of them.
-    pub areas: BTreeSet<Area>,
-    /// Build the collections but write nothing (`--dry-run`).
-    pub dry_run: bool,
-    /// Accept a Postgres host off this machine, over a plaintext connection (`--allow-remote-postgres`).
-    pub allow_remote_postgres: bool,
-}
-
-impl ExportOptions {
-    /// The selected areas, or every area when none was given.
-    pub fn effective_areas(&self) -> BTreeSet<Area> {
-        effective(&self.areas)
-    }
-}
-
-impl fmt::Debug for ExportOptions {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ExportOptions")
-            .field("from_source", &redact(&self.from_source))
-            .field("to_uri", &redact(&self.to_uri))
-            .field("areas", &self.areas)
-            .field("dry_run", &self.dry_run)
-            .field("allow_remote_postgres", &self.allow_remote_postgres)
-            .finish()
-    }
-}
-
 /// What `migrate` did, or would do on a dry run.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MigrateReport {
@@ -276,15 +237,6 @@ pub struct MigrateReport {
     pub rb11_starter_instances_repaired: usize,
     /// Loadouts whose slot count was reconciled with entitlements (RB11).
     pub rb11_loadout_slots_reconciled: usize,
-}
-
-/// What `export-mongo` wrote, or would write on a dry run.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ExportReport {
-    /// Whether this was a dry run, so nothing was written.
-    pub dry_run: bool,
-    /// Documents per MongoDB collection.
-    pub counts: BTreeMap<String, usize>,
 }
 
 /// The storage policy under `--game-data-dir`, at its root or in `data/`; none loaded is no repair, silently
@@ -404,33 +356,6 @@ pub async fn run_verify(opts: &MigrateOptions) -> Result<VerifyReport, DbError> 
     }
 }
 
-/// `export-mongo` (§11): replaces each produced collection, in name order. Not transactional.
-#[cfg(feature = "export-mongo")]
-pub async fn run_export_mongo(opts: &ExportOptions) -> Result<ExportReport, DbError> {
-    let uri = if opts.dry_run {
-        None
-    } else {
-        Some(MongoUri::parse(&opts.to_uri)?)
-    };
-    let database = target::open(&opts.from_source, opts.allow_remote_postgres, true).await?;
-    let state = database.read(tables::read_state).await?;
-    let collections = state_to_mongo_collections(&state, &opts.effective_areas());
-    let report = ExportReport {
-        dry_run: opts.dry_run,
-        counts: collections.iter().map(|(k, v)| (k.clone(), v.len())).collect(),
-    };
-    let Some(uri) = uri else { return Ok(report) };
-    blocking(move || {
-        let mut writer = mongo::MongoWriter::connect(&uri)?;
-        for (name, documents) in &collections {
-            writer.replace_collection(name, documents)?;
-        }
-        Ok(())
-    })
-    .await?;
-    Ok(report)
-}
-
 #[doc(hidden)]
 pub mod fuzzing {
     //! Entry points for the fuzz targets.
@@ -439,7 +364,7 @@ pub mod fuzzing {
     use super::*;
     use crate::read::Doc;
 
-    /// Extraction, the RB11 repairs and (with `export-mongo`) the export builder over in-memory collections.
+    /// Extraction and the RB11 repairs over in-memory collections.
     pub fn extract_documents(
         collections: BTreeMap<String, Vec<Doc>>,
         skip_invalid: bool,
@@ -454,8 +379,6 @@ pub mod fuzzing {
         };
         let mut source = collections;
         let extraction = extract::extract(&mut source, &settings, Resolver::new("local", Vec::new(), Vec::new()))?;
-        #[cfg(feature = "export-mongo")]
-        let _ = state_to_mongo_collections(&extraction.state, &areas);
         Ok(extraction.state)
     }
 
@@ -464,7 +387,7 @@ pub mod fuzzing {
         state.rows(table).map(|(_, r)| r).collect()
     }
 
-    /// A store read back as verify and export read it (§10.2).
+    /// A store read back as verify reads it (§10.2).
     pub async fn read_target(target: &str) -> Result<TargetState, DbError> {
         let database = crate::target::open(target, false, true).await?;
         database.read(tables::read_state).await

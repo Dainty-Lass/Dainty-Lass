@@ -122,10 +122,6 @@ impl GeneratorKind {
 pub struct Step<'a> {
     /// Its name, as the output and [`GenerateOptions::only`] name it.
     pub title: &'static str,
-    /// The reference service folder the step belongs to (backend or Director).
-    pub cwd: PathBuf,
-    /// The reference service's npm script name for the step.
-    pub script: &'static str,
     /// The generator it runs.
     pub generator: GeneratorKind,
     paths: &'a Paths,
@@ -468,64 +464,50 @@ pub fn copy_supplied_sources(p: &Paths, from_dir: &Path) -> Result<Vec<String>, 
 /// The generation steps in the order they run.
 pub fn game_data_steps(p: &Paths, examples_for_missing: bool) -> Vec<Step<'_>> {
     let has_ladyluck_source = p.raw_game_data.join(SUPPLIED_SOURCES[1].1).is_file();
-    let (ll_script, ll_gen) = if has_ladyluck_source {
-        ("generate:ladyluck-store:apply", GeneratorKind::LadyLuckGenerate)
+    let ll_gen = if has_ladyluck_source {
+        GeneratorKind::LadyLuckGenerate
     } else {
-        ("ladyluck:enrich", GeneratorKind::LadyLuckEnrich)
+        GeneratorKind::LadyLuckEnrich
     };
     vec![
         Step {
             title: "Progression config",
-            cwd: p.backend_dir.clone(),
-            script: "generate:progression-config:apply",
             generator: GeneratorKind::ProgressionConfig,
             paths: p,
             examples_for_missing,
         },
         Step {
             title: "Director hunt tables",
-            cwd: p.director_dir.clone(),
-            script: "hunts:import:apply",
             generator: GeneratorKind::HuntTables,
             paths: p,
             examples_for_missing,
         },
         Step {
             title: "Slayer's Path graph",
-            cwd: p.backend_dir.clone(),
-            script: "generate:slayers-path:apply",
             generator: GeneratorKind::SlayersPath,
             paths: p,
             examples_for_missing,
         },
         Step {
             title: "Slayer's Path definitions",
-            cwd: p.backend_dir.clone(),
-            script: "generate:slayers-path-definitions:apply",
             generator: GeneratorKind::SlayersPathDefinitions,
             paths: p,
             examples_for_missing,
         },
         Step {
             title: "Reward Cache store",
-            cwd: p.backend_dir.clone(),
-            script: "reward-cache:generate",
             generator: GeneratorKind::RewardCache,
             paths: p,
             examples_for_missing,
         },
         Step {
             title: "Lady Luck store",
-            cwd: p.backend_dir.clone(),
-            script: ll_script,
             generator: ll_gen,
             paths: p,
             examples_for_missing,
         },
         Step {
             title: "Platinum store and storage policy",
-            cwd: p.backend_dir.clone(),
-            script: "platinum-store:generate",
             generator: GeneratorKind::PlatinumAndStoragePolicy,
             paths: p,
             examples_for_missing,
@@ -716,10 +698,10 @@ mod tests {
     #[test]
     fn every_seeded_file_has_a_committed_example() {
         // Else seeding writes the example into the checkout, where it shows up untracked.
-        let reference =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../restricted/modules/rustic-isles/reference/1.14.7");
-        let backend = reference.join("ParadoxBackend").join("game-data");
-        let director = reference.join("ParadoxDirector").join("game-data");
+        let game_data =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../restricted/modules/rustic-isles/game-data/1.14.7");
+        let backend = game_data.join("backend");
+        let director = game_data.join("director");
         let all = BACKEND_GAME_DATA
             .iter()
             .chain(&EXTRA_BACKEND_EXAMPLES)

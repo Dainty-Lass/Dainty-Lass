@@ -141,7 +141,7 @@ async fn folders_move_and_nothing_is_overwritten() {
             .exists()
     );
     assert!(
-        root.join("modules/rustic-isles/reference/1.14.7/Items_Analysis/items.json")
+        root.join("modules/rustic-isles/game-data/1.14.7/exports/items.json")
             .exists()
     );
     assert_eq!(report.skipped.len(), 1);

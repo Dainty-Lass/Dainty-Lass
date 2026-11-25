@@ -13,9 +13,9 @@ and serves the core plugins only; each feature adds one module to `crates/dainty
 
 ## Features
 
-The same names on restricted's `host`, `server-console`, `server-minimal` and, for the server GUI, `launcher`
-(`--features server-gui,...`). `server-console` and `server-minimal` default to `isles-1-14-7` and `realms`
-(RU9/RB14); `controller` at the root has only `stub-module`.
+The same names on `dainty-host`, `dainty-server`, `dainty-server-minimal` and, for the server GUI,
+`dainty-launcher-app` (`--features server-gui,...`). `dainty-server` and `dainty-server-minimal` default to
+`isles-1-14-7` and `realms` (RU9/RB14); `dainty-controller` has only `stub-module`.
 
 | Feature | Links | State |
 | --- | --- | --- |
@@ -23,23 +23,21 @@ The same names on restricted's `host`, `server-console`, `server-minimal` and, f
 | `realms` | the Rustic Rifts crates (`crates/rustic-rifts-*`) inside `rustic-isles-1-14-7` (RF2); on its own it does nothing | linked |
 | `stub-module` | `module_api::stub::StubModule` (id `stub`, game version 0.0.1) | for tests and trying a build |
 | `all-modules` | `isles-1-14-7`, `realms` (never the stub) | what the release builds |
-| `paradox` | the Node backend and Director on MongoDB, the rollback path until RB15 | opt-in |
 
 ## How the real crates link
 
-`restricted/Cargo.toml` lists the root's crates in `[workspace.dependencies]` as path dependencies
-(`path = "../crates/<name>"`), `rustic-isles-1-14-7` with default features off among them, so a change at the root
-reaches restricted's build at once. `host` takes the module crates as optional dependencies, and `compose.rs` builds
-the controller's `GameModule` with `rustic_isles_1_14_7::spec_with(<version data>)`.
+The root `Cargo.toml` lists every crate in `[workspace.dependencies]`. `dainty-host` takes the module crates as
+optional dependencies, and `compose.rs` builds the controller's `GameModule` with
+`rustic_isles_1_14_7::spec_with(<version data>)`.
 
 ## Adding the next module crate
 
 For a crate that implements `GameModule` (say `<id>`):
 
-1. `restricted/Cargo.toml`: `<id> = { path = "../crates/<crate>" }` in `[workspace.dependencies]` (or a path under
-   `modules/` if the crate is AGPL).
+1. The root `Cargo.toml`: `<id> = { path = "crates/<crate>" }` in `[workspace.dependencies]` (through the
+   integration pass). The crate is MIT: AGPL code can't link into these binaries (RD27).
 2. `crates/dainty-host/Cargo.toml`: the optional dependency, and `<id> = ["dep:<id>"]`; the same feature on
-   `dainty-server`, `dainty-server-minimal` and `launcher`, and in their `all-modules`.
+   `dainty-server`, `dainty-server-minimal` and `dainty-launcher-app`, and in their `all-modules`.
 3. `crates/dainty-host/src/compose.rs`: a `#[cfg(feature = "<id>")]` push in `game_modules()` returning the
    module.
 4. `crates/dainty-server/tests/support/modules.rs`: add it to `expected()`.

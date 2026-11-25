@@ -45,6 +45,8 @@ Fuzz targets in `fuzz`:
 - `gateway_capture`: the capture's redaction of bodies, headers, targets and chat frames never panics and never
   writes an account key or a whole token from its input; the chat frame reader gives the same messages however the
   bytes are split.
+- `proxy_headers`: what `dainty-proxy` forwards drops every hop-by-hop header, every name a `Connection` header
+  lists and every name the caller drops, and passes everything else on unchanged.
 
 ## Checklist
 
@@ -77,8 +79,9 @@ Fuzz targets in `fuzz`:
       slashes folded, trailing slashes dropped (`canonical_path`).
 - [ ] Under `/reforged`, only `POST register`, `GET`/`HEAD getuserinfo`, `serverstatus`, `registrationstatus`,
       `playtime` (ours, no Node route) and `POST`/`DELETE loginqueue` under `/dainty/api/` pass; every other route
-      (invites, account status) is 403 `admin_route`, even with a valid admin key and even as an upgrade. The test reads every route from `modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`, so a
-      route added there is covered (`policy.rs` and `tests/gateway.rs`, `only_the_public_reforged_routes_*`).
+      (invites, account status) is 403 `admin_route`, even with a valid admin key and even as an upgrade. The test lists
+      the backend's `/dainty/api` routes (`policy.rs`, `backend_reforged_api_routes`), so a route added to
+      `crates/rustic-isles-launcher-api` needs a line there.
 - [ ] `/admin`, `/launcher`, `/internal` and `/health`, and everything under them, are 403 `host_only_route`
       (Rustic Isles's admin API, its own launcher API, metrics and readiness probes), but for the realm routes below.
       The launcher's auth, account, game-session and policy routes (`/launcher/v1/auth`, `/me`, `/username`,
@@ -188,10 +191,10 @@ in DD5's frames, and the library is in the core's process, so what crosses is a 
 - [ ] Only a 2xx answer to `POST /account/api/oauth/token`, or to `POST /heartbeat` that carried a bearer token,
       reports the peer's address (`policy.rs`, `gateway.rs`). Nothing else does; in particular not `/game/login`
       (Dauntless Revived's route, which Paradox does not have) nor Paradox's `POST /login` (RD20).
-- [ ] Known weakness, the same as the Node gateway: Paradox answers `POST /heartbeat` 200 without checking the token
-      (`modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/system.ts`), so the gateway's `has_bearer` is the only check, and any
+- [ ] Known weakness, the same as the Node gateway: the backend answers `POST /heartbeat` 200 without checking the token
+      (`crates/rustic-isles-gamedata/src/areas.rs`, as Paradox did), so the gateway's `has_bearer` is the only check, and any
       `Authorization: Bearer <anything>` opens the game ports for its sender. The token route does check credentials.
-      Closing this needs the backend to check the bearer on `/heartbeat` (a Paradox fix, RD2) or the gateway to feed
+      Closing this needs the backend to check the bearer on `/heartbeat` (a spec change, RD27) or the gateway to feed
       from a route that does.
 - [ ] The feed never delays a player's request and backs off from a helper that is down (3 failures in a row, then
       2 s doubling to 60 s; `feed.rs`).

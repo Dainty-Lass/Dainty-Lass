@@ -3,7 +3,7 @@
 
 //! The allowlist's rules applied to the real firewall, which every other test only describes: nftables on Linux
 //! (root or CAP_NET_ADMIN), Windows Firewall on Windows (an elevated prompt). Opt-in with `DAINTY_TEST_FIREWALL=1`;
-//! `restricted/docker/test-in-image.sh` sets it when the container has the capability. Each works in a table or
+//! `docker/test-in-image.sh` sets it when the container has the capability. Each works in a table or
 //! rule of its own on ports nothing uses and removes it, pass or fail (docs/security/allowlist.md, live checks).
 #![cfg(any(target_os = "linux", windows))]
 #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]

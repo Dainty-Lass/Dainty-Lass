@@ -942,7 +942,7 @@ pub fn verify_attestation(archive: &Path, candidate: &Candidate, log_file: &Path
             "release did not come from a GitHub repository".to_owned(),
         ));
     };
-    let gh_found = crate::mongo::search_path("gh", std::env::var_os("PATH").as_deref());
+    let gh_found = crate::which::search_path("gh", std::env::var_os("PATH").as_deref());
     let Some(gh_bin) = gh_found else {
         return Ok(Attestation::Skipped("gh CLI is not installed".to_owned()));
     };
@@ -1335,17 +1335,16 @@ pub fn install(staged: &Path, root: &Path, previous: Option<&Manifest>) -> Updat
     }
     fs::write(&marker, format!("{}\n", next.version))?;
 
-    if previous.is_none() {
-        for rel in [
-            "modules/rustic-isles/reference/1.14.7/ParadoxBackend/node_modules",
-            "modules/rustic-isles/reference/1.14.7/ParadoxDirector/node_modules",
-            "ParadoxBackend/node_modules",
-            "ParadoxDirector/node_modules",
-        ] {
-            let nm = rel.split('/').fold(root.to_path_buf(), |p, s| p.join(s));
-            if nm.is_dir() {
-                let _ = fs::remove_dir_all(&nm);
-            }
+    // What the retired Node services installed beside the release (RB15); setup moves the game data beside them
+    for rel in [
+        "modules/rustic-isles/reference/1.14.7/ParadoxBackend/node_modules",
+        "modules/rustic-isles/reference/1.14.7/ParadoxDirector/node_modules",
+        "ParadoxBackend/node_modules",
+        "ParadoxDirector/node_modules",
+    ] {
+        let nm = rel.split('/').fold(root.to_path_buf(), |p, s| p.join(s));
+        if nm.is_dir() {
+            let _ = fs::remove_dir_all(&nm);
         }
     }
 

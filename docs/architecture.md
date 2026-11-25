@@ -22,7 +22,7 @@ under [security/](security) go through each trust boundary line by line; the AGP
 | Game modules | the server (in-process or child process) | `crates/rustic-isles-1-14-7` composing the `rustic-isles-*` areas (MIT), with `restricted/`'s version data | loopback ports assigned by the controller (`41000`/`41001` by default or settings.toml's `[ports]`, shifted on collision) |
 | Realms & TURN relay | the server & realm hosts' PCs | `crates/rustic-rifts-*` (`rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-realms`, `rustic-rifts-guard`, `rustic-rifts-host`, `rustic-rifts-transport`), `restricted/modules/rustic-rifts` (`ParadoxTransport.dll`) and `turn-rs` | `turn-rs` on UDP/TCP 3478, TLS 5349 and its UDP relay range (the one listener exception, DD24) |
 | Game servers | the server | the game executable, with the host's runtime | UDP 8770-8777 (down to 8766 with ten hunts), guarded by the allowlist |
-| Host kit | the server | `crates/dainty-hostkit` and `restricted/crates/dainty-host`, bin `dainty-host` | nothing; writes `.workspace/config`, manages modules, certs and history, runs `start` |
+| Host kit | the server | `crates/dainty-hostkit` and `crates/dainty-host`, bin `dainty-host` | nothing; writes `.workspace/config`, manages modules, certs and history, runs `start` |
 
 **The gateway is the only listener off loopback, with one written exception for the TURN relay (DD24).**
 Every HTTP and control service binds `127.0.0.1`, and the gateway refuses the host-only routes (`/admin`,
@@ -39,7 +39,7 @@ TLS 5349 plus its UDP relay port range) because STUN/TURN traffic cannot sit beh
 Dainty Lass separates **core plugins** from **game modules** ([`crates/dainty-module-api`](../crates/dainty-module-api)):
 
 - **Core plugins (`CorePlugin`)** live in this repository (`gateway` with `allowlist`, `content`, `admin`,
-  `network`, `chat`) and provide shared infrastructure for every game version on the host; `restricted/crates/dainty-host`
+  `network`, `chat`) and provide shared infrastructure for every game version on the host; `crates/dainty-host`
   composes them.
 - **Game modules (`GameModule`)** sit beside them. The one there is, `crates/rustic-isles-1-14-7`, is
   `"Rustic Isles 1.14.7"`. A module declares a `ModuleManifest` with an exact `GameVersion` (`1.14.7`), invite
@@ -98,8 +98,9 @@ Dainty Lass separates **core plugins** from **game modules** ([`crates/dainty-mo
 ## The launcher API
 
 The backend's `/dainty/api` is the one contract between the launcher, the content server, the admin API and
-the host kit (`crates/rustic-isles-launcher-api/src/reforged_api.rs`, written clean-room from the behaviour of
-`restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/src/routes/reforgedApi.ts`).
+the host kit (`crates/rustic-isles-launcher-api/src/reforged_api.rs`, written clean-room from
+[spec-rustic-isles-reforged-public.md](port/spec-rustic-isles-reforged-public.md) and
+[-admin.md](port/spec-rustic-isles-reforged-admin.md)).
 
 | Route | Who calls it | Through the gateway |
 | --- | --- | --- |
@@ -112,8 +113,8 @@ the host kit (`crates/rustic-isles-launcher-api/src/reforged_api.rs`, written cl
 | `POST /dainty/api/SetAccountStatus`, `POST /dainty/api/Kick` | host kit, admin API | refused |
 
 Everything else under `/dainty/api` is refused at the gateway with 403, admin key or not: the backend
-accepts those calls only from its own machine anyway. The gateway's tests read the route file, so a route
-added there without a policy decision fails CI.
+accepts those calls only from its own machine anyway. The gateway's policy tests list the backend's routes
+(`crates/dainty-gateway/src/policy.rs`), so a new route needs a policy decision there.
 
 ## What each part trusts
 
@@ -140,7 +141,6 @@ added there without a policy decision fails CI.
 
 ## Where the design is going
 
-[MIGRATION_PLAN.md](../MIGRATION_PLAN.md)'s "What's left" table says what is still to do, among it RB15, which
-removes the Node backend and MongoDB rollback path. [dainty-lass-plan.md](dainty-lass-plan.md) is the plan behind the controller, the game
+[MIGRATION_PLAN.md](../MIGRATION_PLAN.md)'s "What's left" table says what is still to do. [dainty-lass-plan.md](dainty-lass-plan.md) is the plan behind the controller, the game
 modules, the multi-region network, installing the game from a player's Epic library, and change history with
 rollback.

@@ -21,8 +21,8 @@ use dainty_host::envfile::parse_env;
 use dainty_host::epicinstall::{self, Files, Plan, load_session, save_session};
 use dainty_host::error::HostError;
 use dainty_host::hostconfig::{
-    DEFAULT_MONGO_URI, HostConfig, Platform, Secrets, build_env_files, load_host_config, read_host_config,
-    write_env_files, write_host_config,
+    HostConfig, Platform, Secrets, build_env_files, load_host_config, read_host_config, write_env_files,
+    write_host_config,
 };
 use dainty_host::paths::{Paths, game_exe_relative};
 use serde_json::json;
@@ -143,7 +143,7 @@ fn config(extra: serde_json::Value) -> HostConfig {
     let mut doc = json!({
         "version": 1, "mode": "private", "host": "100.101.102.103", "gameAddress": "100.101.102.103",
         "name": "Friday Hunts", "gameDir": null, "registration": "INVITECODE", "shareUrl": null,
-        "mongo": { "uri": DEFAULT_MONGO_URI, "manage": true, "mongod": null }, "maxHuntServers": 3,
+        "maxHuntServers": 3,
     });
     for (k, v) in extra.as_object().unwrap() {
         doc[k] = v.clone();

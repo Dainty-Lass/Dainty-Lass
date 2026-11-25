@@ -87,7 +87,7 @@ module that emitted it, null for the server itself, and an `events.lagged` row (
 where the recorder fell behind. Rows go after `[events] retention_days` (90 by default). A server built without the
 recorder answers `NOT_SUPPORTED`, and a standalone admin API `MODULES_UNAVAILABLE`.
 
-Which game a player is in: the Node backend answers for 1.14.7 until a module for 1.14.7 is loaded, and each game
+Which game a player is in: the backend answers for 1.14.7 until a module for 1.14.7 is loaded, and each game
 module that registers admin actions answers for its own game. The API asks every game for the name at once. A name
 that more than one game has is refused with `AMBIGUOUS_PLAYER` until `game` names one (`game: "1.4.4"`); a game this
 server doesn't run is `UNKNOWN_GAME`. A kick, ban or timeout waits for every game to answer: while one doesn't, it is
@@ -341,7 +341,7 @@ component's metrics in Prometheus' text format, read at the moment of the scrape
 | --- | --- |
 | `dainty_http_requests_total`, `dainty_http_request_duration_ms` | Requests by `service` (`gateway`, `admin`), `route` (the gateway's upstream: `backend`, `content`, `ws`, or `node`, `network`, `enroll`, `refused`), method and status class; time to the response head |
 | `dainty_component_phase`, `_restarts`, `_uptime_seconds` | Each service and module the controller runs |
-| `dainty_process_cpu_percent`, `_memory_bytes`, `_uptime_seconds` | The host process (`role="host"`) and every process it started (`role="child"`): the game servers, and mongod or turn-rs when the kit runs them. CPU reads 0 at the first scrape |
+| `dainty_process_cpu_percent`, `_memory_bytes`, `_uptime_seconds` | The host process (`role="host"`) and every process it started (`role="child"`): the game servers, and turn-rs when the kit runs it. CPU reads 0 at the first scrape |
 | `dainty_players_online`, `dainty_hunts_active`, `dainty_hunts_max` | The server's own counts |
 | `dainty_game_server_players`, `_max_players`, `dainty_director_up` | Each running game server, from the Director |
 | `dainty_chat_messages_total`, `dainty_chat_dashboard_posts_total` | Chat lines by channel and filter verdict; posts to the staff dashboard |

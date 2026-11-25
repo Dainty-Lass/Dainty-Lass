@@ -1,22 +1,20 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Silent Spud
 
-//! `dainty-host db migrate | verify | export-mongo | replay`: MongoDB-to-SQLite/Postgres
-//! migration, verification, and shadow replay commands.
+//! `dainty-host db migrate | verify | replay`: an old install's MongoDB moved into the store and checked
+//! (dainty-legacy's `import reforged` runs them), and the shadow replay.
 
-use std::path::Path;
+use std::path::PathBuf;
 use std::process::ExitCode;
 
 use crate::Outcome;
-use crate::cli::{DbArgs, DbCommand, DbExportMongoArgs, DbMigrateArgs, DbReplayArgs, DbVerifyArgs};
-use crate::commands::update::{
-    mongo_migrated_marker, mongo_uri_with_database, redact_uri_password, store_target_for_migration,
-};
+use crate::cli::{DbArgs, DbCommand, DbMigrateArgs, DbReplayArgs, DbVerifyArgs};
 use crate::error::HostError;
-use crate::hostconfig::{
-    DATABASE_FILE, DEFAULT_MONGO_URI, HostConfig, load_host_config, node_database_config, read_env_file,
-};
+use crate::hostconfig::{DATABASE_FILE, HostConfig, load_host_config, node_database_config};
 use crate::paths::Paths;
+
+/// The MongoDB a Node kit ran, when `--from` names none.
+pub const DEFAULT_MONGO_URI: &str = "mongodb://127.0.0.1:27017";
 
 /// Runs `dainty-host db <subcommand>` printing to stdout.
 pub fn run(paths: &Paths, args: &DbArgs) -> Outcome {
@@ -31,24 +29,87 @@ pub fn run_with(paths: &Paths, args: &DbArgs, out: &mut dyn FnMut(&str)) -> Outc
     match &args.command {
         DbCommand::Migrate(m) => migrate(paths, m, out),
         DbCommand::Verify(v) => verify(paths, v, out),
-        DbCommand::ExportMongo(e) => export_mongo(paths, e, out),
         DbCommand::Replay(r) => replay(paths, r, out),
     }
 }
 
-/// Resolves the MongoDB URI from `--from` / `--against` / `--to`, or defaults from `backend.env` and `settings.toml`.
-pub fn resolve_mongo_uri(paths: &Paths, config: Option<&HostConfig>, explicit: Option<&str>) -> String {
-    let backend_env = read_env_file(&paths.config.join("backend.env")).unwrap_or_default();
-    if let Some(raw) = explicit.map(str::trim).filter(|s| !s.is_empty()) {
-        return mongo_uri_with_database(raw, backend_env.get("MONGODB_DB"));
-    }
-    let raw = backend_env
-        .get("MONGODB_URI")
+/// The MongoDB URI `--from` or `--against` gives, else [`DEFAULT_MONGO_URI`], with a database (`reforged` when it
+/// names none).
+#[must_use]
+pub fn resolve_mongo_uri(explicit: Option<&str>) -> String {
+    let raw = explicit
         .map(str::trim)
         .filter(|s| !s.is_empty())
-        .or_else(|| config.map(|c| c.mongo.uri.trim()).filter(|s| !s.is_empty()))
         .unwrap_or(DEFAULT_MONGO_URI);
-    mongo_uri_with_database(raw, backend_env.get("MONGODB_DB"))
+    mongo_uri_with_database(raw, None)
+}
+
+/// `uri` with the password in its user info replaced, for printing.
+#[must_use]
+pub fn redact_uri_password(uri: &str) -> String {
+    let Some((scheme, rest)) = uri.split_once("://") else {
+        return uri.to_owned();
+    };
+    let (authority, tail) = match rest.find(['/', '?']) {
+        Some(idx) => (&rest[..idx], &rest[idx..]),
+        None => (rest, ""),
+    };
+    let Some((userinfo, hostpart)) = authority.rsplit_once('@') else {
+        return uri.to_owned();
+    };
+    let redacted_user = match userinfo.split_once(':') {
+        Some((user, _)) => format!("{user}:***"),
+        None => "***".to_owned(),
+    };
+    format!("{scheme}://{redacted_user}@{hostpart}{tail}")
+}
+
+/// `raw_uri` with a database in its path: the one it names, else `db_override`, else `reforged`.
+#[must_use]
+pub fn mongo_uri_with_database(raw_uri: &str, db_override: Option<&str>) -> String {
+    let db = db_override
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("reforged");
+    let Some((scheme, rest)) = raw_uri.trim().split_once("://") else {
+        return raw_uri.trim().to_owned();
+    };
+    let (before_query, query) = match rest.split_once('?') {
+        Some((b, q)) => (b, Some(q)),
+        None => (rest, None),
+    };
+    let (authority, path) = match before_query.split_once('/') {
+        Some((a, p)) => (a, p.trim_matches('/')),
+        None => (before_query, ""),
+    };
+    let effective_db = if path.is_empty() { db } else { path };
+    match query {
+        Some(q) => format!("{scheme}://{authority}/{effective_db}?{q}"),
+        None => format!("{scheme}://{authority}/{effective_db}"),
+    }
+}
+
+/// The store a migration writes to: its target (a SQLite file or a postgres:// URL with the password),
+/// whether a remote Postgres is allowed, and the SQLite file when it is one.
+pub fn store_target_for_migration(
+    paths: &Paths,
+    config: &HostConfig,
+) -> Result<(String, bool, Option<PathBuf>), HostError> {
+    match node_database_config(config, paths)? {
+        dainty_store::DatabaseConfig::Sqlite { file } => {
+            let target = file.to_string_lossy().into_owned();
+            Ok((target, false, Some(file)))
+        }
+        dainty_store::DatabaseConfig::Postgres(pg) => {
+            let auth = if pg.password.is_empty() {
+                pg.user
+            } else {
+                format!("{}:{}", pg.user, pg.password)
+            };
+            let target = format!("postgres://{auth}@{}:{}/{}", pg.host, pg.port, pg.database);
+            Ok((target, pg.allow_remote, None))
+        }
+    }
 }
 
 /// Resolves the SQLite or Postgres store target and `allow_remote_postgres` from `--to` / `--from`, or defaults from `settings.toml` and `secrets.env`.
@@ -142,7 +203,7 @@ fn resolve_db_config(
 
 fn migrate(p: &Paths, args: &DbMigrateArgs, out: &mut dyn FnMut(&str)) -> Outcome {
     let config = load_host_config(p)?;
-    let from = resolve_mongo_uri(p, config.as_ref(), args.from.as_deref());
+    let from = resolve_mongo_uri(args.from.as_deref());
     let db_cfg = resolve_db_config(p, config.as_ref(), args.to.as_deref())?;
     let (counts, mismatches) = crate::hooks::get().db_migrate(p, &from, &db_cfg, args.dry_run)?;
     let total: usize = counts.iter().map(|(_, n)| *n).sum();
@@ -161,11 +222,6 @@ fn migrate(p: &Paths, args: &DbMigrateArgs, out: &mut dyn FnMut(&str)) -> Outcom
             counts.len()
         ));
     } else {
-        let marker = mongo_migrated_marker(p);
-        if let Some(parent) = marker.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        let _ = std::fs::write(&marker, format!("migrated from {from}\n"));
         out(&format!(
             "Migrated and verified {total} record(s) across {} collection(s).",
             counts.len()
@@ -176,7 +232,7 @@ fn migrate(p: &Paths, args: &DbMigrateArgs, out: &mut dyn FnMut(&str)) -> Outcom
 
 fn verify(p: &Paths, args: &DbVerifyArgs, out: &mut dyn FnMut(&str)) -> Outcome {
     let config = load_host_config(p)?;
-    let from = resolve_mongo_uri(p, config.as_ref(), args.against.as_deref());
+    let from = resolve_mongo_uri(args.against.as_deref());
     let db_cfg = resolve_db_config(p, config.as_ref(), args.to.as_deref())?;
     let mismatches = crate::hooks::get().db_verify(p, &from, &db_cfg)?;
     if mismatches.is_empty() {
@@ -191,22 +247,6 @@ fn verify(p: &Paths, args: &DbVerifyArgs, out: &mut dyn FnMut(&str)) -> Outcome 
     }
 }
 
-fn export_mongo(p: &Paths, args: &DbExportMongoArgs, out: &mut dyn FnMut(&str)) -> Outcome {
-    let config = load_host_config(p)?;
-    let from = resolve_mongo_uri(p, config.as_ref(), args.from.as_deref());
-    let target_dir = args.to.as_deref().unwrap_or(".");
-    let counts = crate::hooks::get().db_export_mongo(&from, Path::new(target_dir))?;
-    let total: usize = counts.iter().map(|(_, n)| *n).sum();
-    for (name, n) in &counts {
-        out(&format!("  {name}: {n} document(s)"));
-    }
-    out(&format!(
-        "Exported {total} document(s) across {} collection(s) to {target_dir}.",
-        counts.len()
-    ));
-    Ok(ExitCode::SUCCESS)
-}
-
 fn replay(_p: &Paths, _args: &DbReplayArgs, _out: &mut dyn FnMut(&str)) -> Outcome {
     Err(HostError::message("shadow replay is not registered in this build"))
 }
@@ -215,10 +255,10 @@ fn replay(_p: &Paths, _args: &DbReplayArgs, _out: &mut dyn FnMut(&str)) -> Outco
 #[allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
 mod tests {
     use super::*;
-    use crate::hostconfig::{DatabaseSettings, FileForm, HostConfig, MongoConfig, Registration, ServerMode};
+    use crate::hostconfig::{DatabaseSettings, FileForm, HostConfig, Registration, ServerMode};
 
     #[test]
-    fn defaults_source_and_target_from_settings_toml_and_never_prints_passwords() {
+    fn defaults_the_target_from_settings_toml_and_never_prints_passwords() {
         let tmp = tempfile::tempdir().unwrap();
         let paths = Paths::new(tmp.path());
         std::fs::create_dir_all(&paths.config).unwrap();
@@ -242,11 +282,6 @@ mod tests {
             version_data: None,
             version_facts: None,
             max_hunt_servers: 3,
-            mongo: MongoConfig {
-                uri: "mongodb://admin:mongoSecret99@127.0.0.1:27017/reforged?replicaSet=rs0".into(),
-                manage: false,
-                mongod: None,
-            },
             performance: None,
             multipliers: None,
             linux: None,
@@ -280,7 +315,8 @@ mod tests {
             oauth: None,
             file: FileForm::default(),
         };
-        let mongo_uri = resolve_mongo_uri(&paths, Some(&cfg), None);
+        assert_eq!(resolve_mongo_uri(None), "mongodb://127.0.0.1:27017/reforged");
+        let mongo_uri = resolve_mongo_uri(Some("mongodb://admin:mongoSecret99@127.0.0.1:27017/?replicaSet=rs0"));
         assert_eq!(
             mongo_uri,
             "mongodb://admin:mongoSecret99@127.0.0.1:27017/reforged?replicaSet=rs0"

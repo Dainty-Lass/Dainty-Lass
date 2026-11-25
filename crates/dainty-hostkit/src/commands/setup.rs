@@ -7,8 +7,8 @@
 pub mod database;
 pub mod firewall;
 pub mod install;
+pub mod layout;
 pub mod options;
-pub mod paradox;
 pub mod secrets;
 
 use std::path::Path;
@@ -26,17 +26,16 @@ use crate::hostconfig::{
 };
 use crate::invite::certificate_fingerprint;
 use crate::linux::{ensure_wine_prefix, is_root, write_gameserver_wrapper, write_systemd_units};
-use crate::mongo::{find_mongod, search_path};
 use crate::paths::{Paths, game_exe_relative};
 use crate::preset::{PresetApplied, apply_preset};
 use crate::publish::{default_sources, ensure_server_flags, publish_runtime, retire_server_loader};
 use crate::tls::generate_self_signed_cert_pem;
+use crate::which::search_path;
 
-use self::database::database_notes;
 use self::firewall::{apply_windows_firewall_rules, write_firewall_script};
-use self::install::{ServiceSource, install_from_release, install_service, service_source, services_to_install};
+use self::install::{ServiceSource, install_from_release, service_source};
+use self::layout::{Layout, missing_sources};
 use self::options::{host_config_from_args, performance_summary};
-use self::paradox::{Layout, missing_paradox};
 
 /// The refusal setup gives when run as root on Linux.
 pub const NOT_AS_ROOT: &str =
@@ -50,8 +49,6 @@ pub trait SetupEnv {
     fn is_root(&self) -> Result<bool, HostError>;
     /// This PC's Tailscale IPv4 address, when Tailscale runs.
     fn tailscale_ipv4(&self) -> Result<Option<String>, HostError>;
-    /// The mongod executable, when one is installed.
-    fn find_mongod(&self) -> Result<Option<String>, HostError>;
     /// The executable `name` on PATH.
     fn find_on_path(&self, name: &str) -> Result<Option<String>, HostError>;
     /// The short commit of the release or checkout at `repo`; empty when unknown.
@@ -116,10 +113,6 @@ impl SetupEnv for RealSetupEnv {
         Ok(tailscale_ipv4())
     }
 
-    fn find_mongod(&self) -> Result<Option<String>, HostError> {
-        find_mongod(None)
-    }
-
     fn find_on_path(&self, name: &str) -> Result<Option<String>, HostError> {
         let path_var = std::env::var_os("PATH");
         Ok(search_path([name], path_var.as_deref()).map(|p| p.to_string_lossy().into_owned()))
@@ -155,17 +148,8 @@ impl SetupEnv for RealSetupEnv {
                 install_from_release(&layout.repo, Some(&manifest), platform, &source, log_file, out)?;
             }
             ServiceSource::Checkout => {
-                if cfg!(feature = "paradox") {
-                    for svc in services_to_install(&paths) {
-                        if svc.dir.join("package.json").is_file() {
-                            out(&format!("- {}: npm ci + build", svc.name));
-                            install_service(&svc, log_file)?;
-                        }
-                    }
-                } else {
-                    for (_, label) in install::services(layout) {
-                        out(&format!("- {label}: built in"));
-                    }
+                for label in install::BUILT_IN {
+                    out(&format!("- {label}: built in"));
                 }
             }
         }
@@ -250,7 +234,7 @@ pub fn run_with(
 
     let is_release = crate::selfupdate::read_manifest(&p.repo)?.is_some();
     if !is_release && !args.skip_install && env.require_checkout_sources() {
-        let missing = missing_paradox(&layout);
+        let missing = missing_sources(&layout);
         if let Some(first) = missing.first() {
             return Err(HostError::message(format!(
                 "this checkout has no {first}: run git submodule update --init --recursive"
@@ -262,6 +246,7 @@ pub fn run_with(
     std::fs::create_dir_all(&p.logs).map_err(|e| HostError::io(&p.logs, e))?;
 
     let setup_log = p.logs.join("setup.log");
+    let moved_game_data = crate::oldlayout::move_old_game_data(p)?;
 
     match config.mode {
         ServerMode::Private => out(&format!(
@@ -274,6 +259,12 @@ pub fn run_with(
         )),
     }
     out(&performance_summary(&config));
+    for line in &moved_game_data {
+        out(line);
+    }
+    if existing.as_ref().is_some_and(|c| c.file.read.contains_key("mongo")) {
+        out("- settings.toml's [mongo] is no longer used (RB15): it is left out of the file from now on");
+    }
 
     out("\n1. Rustic Isles (modules/rustic-isles and native/ in this project)\n- in place");
 
@@ -326,13 +317,7 @@ pub fn run_with(
     let commit = env.source_commit(&p.repo)?;
 
     let mut written_env_names: Vec<String> = Vec::new();
-    for dir in [
-        &p.runtime_publish,
-        &p.branding,
-        &p.gameserver_logs,
-        &p.mongo_data,
-        &p.raw_game_data,
-    ] {
+    for dir in [&p.runtime_publish, &p.branding, &p.gameserver_logs, &p.raw_game_data] {
         std::fs::create_dir_all(dir).map_err(|e| HostError::io(dir, e))?;
     }
     // The files hosts write by hand, in TOML (RD24 phase 3)
@@ -464,10 +449,6 @@ pub fn run_with(
         ));
     } else {
         out(&format!("- firewall script written to {}", fw_script.display()));
-    }
-
-    for note in database_notes(&config, platform) {
-        out(&note);
     }
 
     if config.game_dir.is_none() {

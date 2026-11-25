@@ -11,9 +11,9 @@
 >
 > The Rust port of Mystic Paradox's 1.14.7 backend and Director that lived here (`isles-core`, `isles-director`,
 > `isles-chat`, `isles-db`, `isles-1-14-7`) was replaced by Dainty Lass's clean-room MIT `rustic-isles-*` crates (RD27)
-> and removed; it stays in the history. What is left here is the library Dainty Lass loads over the MIT module
-> (`crates/rustic-isles-plugin`), its version data, the recorded goldens replayed against it (`crates/rustic-isles-mit-parity`),
-> and the Node reference under `reference/1.14.7` the port came from. The C++
+> and removed; it stays in the history. The Node reference it came from (`reference/1.14.7`) and the goldens
+> replayed against the MIT module (`crates/rustic-isles-mit-parity`) were deleted at RB15. What is left here is the
+> 1.14.7 version data, the game-data examples and store captures, and the host guides. The C++
 > game runtime retired at R21 (its last commit is the tag `agpl-runtime-final`): the runtime is dainty-lass's MIT
 > `rustic-isles-runtime.dll`, and the C++ CatalogExporter was replaced by its MIT `native/rustic-isles-exporter`
 > (tag `agpl-catalog-exporter-final`).
@@ -42,10 +42,10 @@ of the game:
 
 | Folder | What it is |
 |---|---|
-| [`crates/rustic-isles-plugin`](crates/rustic-isles-plugin), [`crates/rustic-isles-mit-parity`](crates/rustic-isles-mit-parity), [`version-data`](version-data) | The library Dainty Lass loads (its MIT `rustic-isles-1-14-7` with this version data), and the Node goldens replayed against it |
-| [`reference/1.14.7/ParadoxBackend`](reference/1.14.7/ParadoxBackend) | The Node account and metagame backend the Rust port came from (login, characters, inventory, progression, store, party, co-op hunts, Paradox realms…) |
-| [`reference/1.14.7/ParadoxDirector`](reference/1.14.7/ParadoxDirector) | The Node Director: starts and supervises the dedicated game servers for hubs and hunts |
-| [`reference/1.14.7/shared/hunt-manifest`](reference/1.14.7/shared/hunt-manifest) | Hunt manifest resolution shared by the backend and the Director |
+| [`version-data`](version-data) | The 1.14.7 version data the MIT `rustic-isles-1-14-7` module reads at start (settings.toml's `version_data`) |
+| [`game-data/1.14.7/backend`](game-data/1.14.7/backend), [`director`](game-data/1.14.7/director) | The backend's and the Director's game-data examples; a host's generated tables go beside them |
+| `game-data/1.14.7/exports`, `captures` | A host's CatalogExporter exports and endpoint captures (never committed) |
+| [`game-data/1.14.7/store-captures.json`](game-data/1.14.7/store-captures.json) | The pin Lady Luck's Store and the platinum store are built from on each server |
 | [`../../../native/runtime-loader`](../../../native/runtime-loader) | `winmm.dll` proxy that loads the MIT runtime at startup, for Proton players who keep it |
 | [`../../../native/rustic-isles-exporter`](../../../native/rustic-isles-exporter) | The CatalogExporter: exports compatibility data from your own installation (Dainty Lass's MIT Rust rewrite) |
 

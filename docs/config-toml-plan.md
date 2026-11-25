@@ -2,7 +2,8 @@
 
 > Since 2026-11-14 the file is `settings.toml` (`host.toml` renamed, with no migrator or fallback;
 > `crates/dainty-hostkit/src/settingstoml.rs`). Read `host.toml` below as `settings.toml`; a Node kit's `host.json` is
-> still converted, into `settings.toml`.
+> still converted, into `settings.toml`. Since RB15 there is no MongoDB: a `[mongo]` table below is read, ignored
+> with a warning and left out when `setup` next writes the file; the `npm run` commands are `dainty-host`'s.
 
 Draft, 2026-10-24. Scope: Dainty Lass first; Dauntless Revived at the end.
 
@@ -10,7 +11,7 @@ Draft, 2026-10-24. Scope: Dainty Lass first; Dauntless Revived at the end.
 projects in `legacy/`. The file and function names below come from the Node kit; the Rust port keeps the same
 ones (`hostconfig.rs`, `buildEnvFiles` → `build_env_files`, and so on).
 
-**Status:** Phase 1 is merged into `plan`. Phase 2 is done on `feat/rd24-typed-host-toml`: the `[env.<service>]`
+**Status:** done. Phase 1 is merged into `plan`, and phase 2 with it (`eddfb889`, `1b94f91b`): the `[env.<service>]`
 passthrough and its denylist (`hostkit/src/hostconfig/env.rs`), the typed `[gateway.*]`, `[content]`, `[allowlist]`,
 `[backend]` and `[director]` tables (`tunables.rs`), the environment overrides (`overrides.rs`) and the early check
 through the gateway's, the allowlist helper's and content's own loaders (`check.rs`, in `setup` and `doctor`). The
@@ -21,7 +22,7 @@ which reach the game servers through the Director's env. A gateway bucket is wri
 `hosttoml.rs` reads and patches the file with `toml_edit`, so the host's own comments survive setup.
 MIGRATION_PLAN.md decision RD24 records this plan and amends section 6.
 
-Phase 3 is done on the same branch (`hostkit/src/hostfiles.rs`): `news.toml`, which content reads by its extension,
+Phase 3 came in the same merge (`hostkit/src/hostfiles.rs`): `news.toml`, which content reads by its extension,
 and `session-supplies.toml`, rendered by every setup into `.workspace/generated/session-supplies.json` for the
 backend. The shape of the supplies file is `{"accounts": {"<username>": {"<catalog id>": <quantity>}}}`, so the
 TOML is one `[accounts.<username>]` table each. An edit to it now takes a setup, where the JSON was read at each

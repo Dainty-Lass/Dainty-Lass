@@ -9,14 +9,11 @@ use std::process::ExitCode;
 
 use dainty_host::HostError;
 use dainty_host::cli::{
-    DbArgs, DbCommand, GamedataArgs, InviteArgs, MultipliersArgs, RemoteEnrollArgs, RemoteExecArgs,
-    RemoteInitControllerArgs, RemoteInviteArgs, SetupArgs,
+    GamedataArgs, InviteArgs, MultipliersArgs, RemoteEnrollArgs, RemoteExecArgs, RemoteInitControllerArgs,
+    RemoteInviteArgs, SetupArgs,
 };
 use dainty_host::commands::setup::SetupEnv;
-use dainty_host::commands::setup::paradox::Layout;
-use dainty_host::commands::update::{
-    MongoMigrationStatus, confirm_fresh_start, inspect_mongo_migration, is_fresh_start_marker, mongo_migrated_marker,
-};
+use dainty_host::commands::setup::layout::Layout;
 use dainty_host::hostconfig::{
     DatabaseSettings, HostConfig, Platform, Registration, ServerMode, build_env_files, load_host_config,
     load_or_create_secrets, new_secrets, save_host_config, service_ports, write_env_files,
@@ -27,9 +24,8 @@ use dainty_launcher_kit::bridge::checks::{
     HistoryFilter, RemoteEnrollRequest, RemoteExecRequest, RemoteInitRequest, RemoteInviteRequest, ServerConfigForm,
 };
 use dainty_launcher_kit::bridge::types::{
-    DoctorCheckView, DoctorLevel, DoctorReportView, HistoryOutcome, HostServerMode, ManagedInstallView,
-    MongoMigrationState, MongoMigrationView, RemoteExecView, RemoteInviteView, RemoteStatusView, RevertApplyOutcome,
-    RevertPlanOutcome, ServerConfigView, ServerInviteEntry,
+    DoctorCheckView, DoctorLevel, DoctorReportView, HistoryOutcome, HostServerMode, ManagedInstallView, RemoteExecView,
+    RemoteInviteView, RemoteStatusView, RevertApplyOutcome, RevertPlanOutcome, ServerConfigView, ServerInviteEntry,
 };
 use dainty_launcher_kit::platform::server_engine::{Lines, ServerEngine};
 use serde_json::Value;
@@ -104,10 +100,6 @@ impl SetupEnv for InProcessSetupEnv {
         Ok(Some(
             dainty_host::doctor::tailscale_ipv4().unwrap_or_else(|| TAILSCALE_FALLBACK.to_owned()),
         ))
-    }
-
-    fn find_mongod(&self) -> Result<Option<String>, HostError> {
-        Ok(None)
     }
 
     fn find_on_path(&self, name: &str) -> Result<Option<String>, HostError> {
@@ -225,7 +217,7 @@ impl Engine {
                     import: flags.value("--import"),
                     ..GamedataArgs::default()
                 };
-                if !paths.backend_dir.exists() && !paths.settings_toml.exists() {
+                if !paths.backend_game_data.exists() && !paths.settings_toml.exists() {
                     // A fresh manager has no data to start from; a failure here shows in the command's own
                     let _ = dainty_host::gamedata::seed_embedded_examples(paths);
                 }
@@ -246,22 +238,7 @@ impl Engine {
     }
 }
 
-fn mongo_view(status: MongoMigrationStatus) -> MongoMigrationView {
-    let (state, source) = match status {
-        MongoMigrationStatus::None => (MongoMigrationState::None, None),
-        MongoMigrationStatus::Migrated => (MongoMigrationState::Migrated, None),
-        MongoMigrationStatus::Skipped => (MongoMigrationState::Skipped, None),
-        MongoMigrationStatus::Unmigrated { source } => (MongoMigrationState::Unmigrated, Some(source)),
-    };
-    MongoMigrationView {
-        state,
-        source,
-        detail: None,
-    }
-}
-
 fn config_view(paths: &Paths) -> Result<ServerConfigView, String> {
-    let mongo_migration = mongo_view(inspect_mongo_migration(paths));
     let config_file = paths
         .settings_toml
         .is_file()
@@ -277,7 +254,6 @@ fn config_view(paths: &Paths) -> Result<ServerConfigView, String> {
             max_hubs: 1,
             max_hunts: 3,
             fresh_start: false,
-            mongo_migration,
             config_file,
         });
     };
@@ -296,8 +272,7 @@ fn config_view(paths: &Paths) -> Result<ServerConfigView, String> {
         database: database.engine.unwrap_or_else(|| "sqlite".to_owned()),
         max_hubs: 1,
         max_hunts: config.max_hunt_servers,
-        fresh_start: database.fresh_start == Some(true) || mongo_migration.state == MongoMigrationState::Skipped,
-        mongo_migration,
+        fresh_start: database.fresh_start == Some(true),
         config_file,
     })
 }
@@ -429,24 +404,6 @@ impl ServerEngine for Engine {
         ))
     }
 
-    fn migrate_mongo(&self, workspace: &Path, lines: Lines<'_>) -> Result<(), String> {
-        let paths = Paths::new(workspace);
-        configured(&paths)?;
-        crate::version_data::install_shipped(&paths)?;
-        let steps = [
-            ("the migration", DbCommand::Migrate(Default::default())),
-            // Writes the marker `start` waits for, and only when it finds no difference
-            ("the check", DbCommand::Verify(Default::default())),
-        ];
-        for (step, command) in steps {
-            let done = succeeded(dainty_host::commands::db::run_with(&paths, &DbArgs { command }, lines))?;
-            if !done {
-                return Err(format!("{step} failed; the log has the details"));
-            }
-        }
-        Ok(())
-    }
-
     fn config_get(&self, workspace: &Path) -> Result<ServerConfigView, String> {
         config_view(&Paths::new(workspace))
     }
@@ -464,15 +421,6 @@ impl ServerEngine for Engine {
         database.engine = Some(form.database.to_owned());
         database.fresh_start = form.fresh_start.then_some(true);
         save_host_config(&paths, &config).map_err(text)?;
-
-        if form.fresh_start {
-            confirm_fresh_start(&paths).map_err(text)?;
-        } else {
-            let marker = mongo_migrated_marker(&paths);
-            if is_fresh_start_marker(&marker) {
-                let _ = std::fs::remove_file(&marker);
-            }
-        }
         // Best effort: the next start rewrites the services' files anyway
         if let Ok((secrets, _)) = load_or_create_secrets(&paths.config, new_secrets) {
             let files = build_env_files(&config, &secrets, &paths, "", Platform::current());
@@ -481,12 +429,6 @@ impl ServerEngine for Engine {
         if config.remote.as_ref().and_then(|r| r.role.as_deref()) == Some("controller") {
             let _ = dainty_host::commands::remote::set_shared_config_from_settings_toml(&paths);
         }
-        config_view(&paths)
-    }
-
-    fn confirm_fresh_start(&self, workspace: &Path) -> Result<ServerConfigView, String> {
-        let paths = Paths::new(workspace);
-        confirm_fresh_start(&paths).map_err(text)?;
         config_view(&paths)
     }
 

@@ -42,12 +42,6 @@ pub trait ServerEngine: Send + Sync {
     ///
     /// When it could not run.
     fn backup(&self, workspace: &Path, lines: Lines<'_>) -> Result<bool, String>;
-    /// Moves a MongoDB server's data to the configured store, then verifies it.
-    ///
-    /// # Errors
-    ///
-    /// When either step fails.
-    fn migrate_mongo(&self, workspace: &Path, lines: Lines<'_>) -> Result<(), String>;
     /// The server's settings.
     ///
     /// # Errors
@@ -60,12 +54,6 @@ pub trait ServerEngine: Send + Sync {
     ///
     /// When they cannot be saved.
     fn config_save(&self, workspace: &Path, form: &ServerConfigForm) -> Result<ServerConfigView, String>;
-    /// Confirms that the next start wipes the data.
-    ///
-    /// # Errors
-    ///
-    /// When the marker cannot be written.
-    fn confirm_fresh_start(&self, workspace: &Path) -> Result<ServerConfigView, String>;
     /// The running server's invite codes, as links.
     ///
     /// # Errors

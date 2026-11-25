@@ -3,7 +3,7 @@
 # Security checklist: the launcher's local relay (RX3)
 
 > **Moved (RL13, RL14):** this code is now the MIT `crates/dainty-launcher-kit` (spec-rd27-launcher.md); the paths below are
-> the shell's before the cutover, kept as the record. Its fuzz targets are in the root's `fuzz/`. The MIT
+> the shell's before the cutover (`restricted/launcher/src-tauri`, deleted in RB15), kept as the record. Its fuzz targets are in the root's `fuzz/`. The MIT
 > relay's own checklist is the root's `docs/security/launcher-relay.md`.
 
 The checklist for the local relay in the Tauri launcher, `launcher/src-tauri/src/net/relay.rs` and

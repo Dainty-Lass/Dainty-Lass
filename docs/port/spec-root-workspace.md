@@ -11,7 +11,7 @@ doesn't change, and `cargo fmt --check`, clippy with `-D warnings` and `cargo de
 | Key | Value |
 | --- | --- |
 | members | every directory in `crates/` (glob) |
-| exclude | `fuzz`, `restricted` |
+| exclude | `fuzz` (RB15 removed restricted's workspace) |
 | resolver | 3 |
 
 ### 1.2 Inherited package fields
@@ -49,7 +49,6 @@ Each is `{ path = "crates/<dir>" }` unless the table says otherwise.
 | `dainty-admin`, `dainty-chat`, `dainty-content`, `dainty-controller`, `dainty-epic`, `dainty-gateway`, `dainty-history-ship`, `dainty-http`, `dainty-host`, `dainty-hostkit`, `dainty-inject`, `dainty-launcher-kit`, `dainty-manager-server`, `dainty-plugin-host`, `dainty-protocol`, `dainty-proxy`, `dainty-remote`, `dainty-service-kit`, `dainty-service-plugin`, `dainty-store` | same as key | — |
 | `dainty-module-api` | same | `version = "0.1.0"`, `registry = "silentspud"` (DF1) |
 | `network_plugin` | `dainty-network` | `package = "dainty-network"`, `default-features = false` |
-| `server-controller` | `dainty-controller` | `package = "dainty-controller"` (restricted's launcher uses this name) |
 | `rustic-rifts-admission`, `-guard`, `-host`, `-realms`, `-relay`, `-seam`, `-transport` | same as key | — |
 | `rustic-isles`, `rustic-isles-1-14-7`, `rustic-isles-1-14-7-plugin`, `rustic-isles-auth`, `-characters`, `-chat`, `-db`, `-director`, `-economy`, `-gamedata`, `-launcher-api`, `-matchmaking`, `-replay`, `-store` | same as key | — |
 
@@ -147,10 +146,10 @@ Each is `{ path = "crates/<dir>" }` unless the table says otherwise.
 
 Reasons a comment may cite: TLS and crypto are aws-lc-rs, never OpenSSL (D10); Diesel and rusqlite share one bundled
 SQLite (M17); Postgres goes through tokio-postgres, no libpq; diesel's third-party-backend feature is for the store's
-Postgres newtype in `MultiConnection`; `p256` types are public, so restricted/ resolves the same line; Epic pins by
+Postgres newtype in `MultiConnection`; `p256` types are public in the admission ticket API; Epic pins by
 SHA-1 with MD5 beside it (DD22); `egs-api` is sign-in and library only (DE1); `ts-rs` generates the bridge types (L6);
 `toml_edit` keeps a host's comments in `settings.toml`; `dbus-secret-service` is Linux key storage (RL5); `windows` is
-COM for Windows Firewall; the Tauri crates match restricted's launcher (RL13); `turn` is a test TURN server; the `rtc-*`
+COM for Windows Firewall; `turn` is a test TURN server; the `rtc-*`
 crates are sans-IO ICE and TURN (spec-rd27-rifts D2); `console-subscriber` is the `tokio-console` feature only;
 `tokio-metrics` is per-module task metrics on `/metrics`.
 
@@ -180,7 +179,7 @@ Channel `1.99.1`, profile `minimal`, components `rustfmt` and `clippy`.
 
 - **Graph:** all features.
 - **Sources:** unknown registries denied, unknown git denied (crates.io only).
-- **Licences** (version 2, confidence 0.9, unused entries allowed, since the list also covers restricted/'s release):
+- **Licences** (version 2, confidence 0.9, unused entries allowed, since the list is what the AGPL-3.0-only server release can carry):
   AGPL-3.0-only, Apache-2.0, Apache-2.0 WITH LLVM-exception, BSD-2-Clause, BSD-3-Clause, BSL-1.0, CDLA-Permissive-2.0,
   ISC, MIT, MIT-0, MPL-2.0, OpenSSL, Unicode-3.0, Zlib.
 - **Bans:** multiple versions warn; wildcards denied, path wildcards allowed. Denied: `libsqlite3-sys` with more than

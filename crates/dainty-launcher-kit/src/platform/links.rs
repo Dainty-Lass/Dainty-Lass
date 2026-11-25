@@ -57,8 +57,6 @@ pub fn fixed_url(target: ExternalTarget) -> Option<&'static str> {
         T::VisualStudioInstaller => "https://aka.ms/vs/17/release/vs_community.exe",
         T::Rust => "https://www.rust-lang.org/tools/install",
         T::RustInstaller => "https://win.rustup.rs/x86_64",
-        T::Nodejs => "https://nodejs.org/en/download",
-        T::Mongodb => "https://www.mongodb.com/try/download/community",
         T::Git => "https://git-scm.com/download/win",
         T::RevivedSource => "https://github.com/mixutin/dauntless-revived",
         T::MysticSource => MYSTIC_URL,
@@ -71,7 +69,7 @@ pub fn fixed_urls() -> impl Iterator<Item = &'static str> {
     ALL_TARGETS.iter().filter_map(|t| fixed_url(*t))
 }
 
-const ALL_TARGETS: [ExternalTarget; 24] = {
+const ALL_TARGETS: [ExternalTarget; 22] = {
     use ExternalTarget as T;
     [
         T::TailscaleDownload,
@@ -89,8 +87,6 @@ const ALL_TARGETS: [ExternalTarget; 24] = {
         T::Dumper7,
         T::VisualStudio,
         T::Rust,
-        T::Nodejs,
-        T::Mongodb,
         T::Git,
         T::VisualStudioInstaller,
         T::RustInstaller,
@@ -282,8 +278,6 @@ mod tests {
             ),
             ("rust", "https://www.rust-lang.org/tools/install"),
             ("rust_installer", "https://win.rustup.rs/x86_64"),
-            ("nodejs", "https://nodejs.org/en/download"),
-            ("mongodb", "https://www.mongodb.com/try/download/community"),
             ("git", "https://git-scm.com/download/win"),
             ("revived_source", "https://github.com/mixutin/dauntless-revived"),
             ("mystic_source", MYSTIC_URL),

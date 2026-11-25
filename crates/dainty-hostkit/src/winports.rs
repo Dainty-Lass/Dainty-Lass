@@ -95,7 +95,7 @@ pub fn move_lent_ports(config: &mut HostConfig, excluded: &[(u16, u16)]) -> Vec<
         }
         let taken = |port: u16, ports: &PortsConfig| {
             ports.named().iter().any(|(k, p)| *k != key && *p == port)
-                || [PORTS.relay, PORTS.mongo, crate::hostconfig::gateway_port(config)].contains(&port)
+                || [PORTS.relay, crate::hostconfig::gateway_port(config)].contains(&port)
                 || (PORTS.game_lowest..=PORTS.game_last).contains(&port)
         };
         let mut to = default_of(key);

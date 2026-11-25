@@ -3,7 +3,7 @@
 # Security checklist: launcher key store and legacy reader (RX3)
 
 > **Moved (RL13, RL14):** this code is now the MIT `crates/dainty-launcher-kit` (spec-rd27-launcher.md); the paths below are
-> the shell's before the cutover, kept as the record. Its fuzz targets are in the root's `fuzz/`.
+> the shell's before the cutover (`restricted/launcher/src-tauri`, deleted in RB15), kept as the record. Its fuzz targets are in the root's `fuzz/`.
 
 The checklist for the Tauri launcher's account key store, the reader for keys the Electron launcher (1.5.x) stored
 with `safeStorage`, and the files around them: settings and the log (MIGRATION_PLAN.md RA8, RD7, RD10, RD22,

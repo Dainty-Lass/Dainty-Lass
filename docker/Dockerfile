@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Dainty Lass's images (RD27): MIT binaries from the root workspace. The only AGPL bytes are the data files the
-# server image ships under data/ and the reference folders (docs/port/spec-docker.md 2.4).
+# server image ships under data/ and the game-data folder (docs/port/spec-docker.md 2.4).
 #   front    gateway, allowlist, content server, admin API
 #   server   the host kit, backend and Director, Wine for the game servers
 #   netem    latency for the network profile's harness (DN12)
@@ -19,10 +19,8 @@ COPY crates/ /src/crates/
 # The launcher kit's build reads its version
 COPY launcher/package.json /src/launcher/package.json
 # dainty-hostkit's tests check each seeded file has its committed example (AGPL data, copied by path, Q-2)
-COPY restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/ \
-     /src/restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/
-COPY restricted/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/ \
-     /src/restricted/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/
+COPY restricted/modules/rustic-isles/game-data/1.14.7/backend/ /src/restricted/modules/rustic-isles/game-data/1.14.7/backend/
+COPY restricted/modules/rustic-isles/game-data/1.14.7/director/ /src/restricted/modules/rustic-isles/game-data/1.14.7/director/
 
 FROM ${RUST_IMAGE} AS rust-build
 # mingw builds dainty-inject.exe, which loads the runtime into each game server inside Wine (RD9, 2026-11-13)
@@ -81,21 +79,16 @@ RUN apt-get update \
  && groupadd --gid 1000 dainty \
  && useradd --uid 1000 --gid 1000 --home-dir /opt/dainty-lass --no-create-home --shell /usr/sbin/nologin dainty
 WORKDIR /opt/dainty-lass
-ARG ISLES=modules/rustic-isles/reference/1.14.7
+ARG ISLES=modules/rustic-isles/game-data/1.14.7
 # Named volumes take these folders' ownership when first made, so dainty owns every one
 RUN install -d -o dainty -g dainty /opt/dainty-lass/modules /opt/dainty-lass/modules/rustic-isles \
-      "$ISLES" "$ISLES/ParadoxBackend" "$ISLES/ParadoxBackend/game-data" "$ISLES/ParadoxDirector" \
-      "$ISLES/ParadoxDirector/game-data" "$ISLES/Items_Analysis" "$ISLES/DauntlessEndpointDocumentation" .workspace
+      /opt/dainty-lass/modules/rustic-isles/game-data "$ISLES" "$ISLES/backend" "$ISLES/director" \
+      "$ISLES/exports" "$ISLES/captures" .workspace
 # The host kit's project-root marker: Cargo.toml beside modules/rustic-isles/, only its presence read (D-3)
 COPY --chown=dainty:dainty Cargo.toml ./
-COPY --chown=dainty:dainty \
-     restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/game-data/*.example.json \
-     $ISLES/ParadoxBackend/game-data/
-COPY --chown=dainty:dainty \
-     restricted/modules/rustic-isles/reference/1.14.7/ParadoxDirector/game-data/*.example.json \
-     $ISLES/ParadoxDirector/game-data/
-COPY --chown=dainty:dainty restricted/modules/rustic-isles/reference/1.14.7/ParadoxBackend/store-captures.json \
-     $ISLES/ParadoxBackend/
+COPY --chown=dainty:dainty restricted/modules/rustic-isles/game-data/1.14.7/backend/*.example.json $ISLES/backend/
+COPY --chown=dainty:dainty restricted/modules/rustic-isles/game-data/1.14.7/director/*.example.json $ISLES/director/
+COPY --chown=dainty:dainty restricted/modules/rustic-isles/game-data/1.14.7/store-captures.json $ISLES/
 # The 1.14.7 version facts (MIT) and Mystic Paradox's design beside them, read at start; root's and read-only,
 # never a host's file (D-10, RD27, port plan item 9)
 COPY crates/rustic-isles-1-14-7/data/version_facts.json data/1.14.7/

@@ -212,32 +212,6 @@ impl Controller {
             .into()
     }
 
-    /// `server_migrate_mongo`, as a job, with the server stopped.
-    pub async fn server_migrate_mongo(&self) -> ActionResult {
-        if self.engine().is_some() && !self.job_running() && self.server_runs() {
-            return ActionResult::Err(self.refuse(failure("server_running")));
-        }
-        self.engine_job(
-            HostJobKind::MigrateMongo,
-            "migrate-mongo",
-            |engine, ws, log| match engine.migrate_mongo(ws, &mut |raw| log.emit(raw)) {
-                Ok(()) => Ok(log.lines.last().cloned()),
-                Err(error) => {
-                    log.emit(&format!("Error: {error}"));
-                    Err(Some(error))
-                }
-            },
-        )
-        .await
-    }
-
-    /// `server_confirm_fresh_start`.
-    pub async fn server_confirm_fresh_start(&self) -> ServerConfigOutcome {
-        self.engine_call(true, |engine, ws| engine.confirm_fresh_start(ws))
-            .await
-            .into()
-    }
-
     /// `server_invite_list`: only while the server runs.
     pub async fn server_invite_list(&self) -> ServerInviteListOutcome {
         if self.engine().is_some()
