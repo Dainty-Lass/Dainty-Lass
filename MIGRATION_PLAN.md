@@ -3,9 +3,10 @@
 # Dainty Lass migration plan: what is left
 
 Rewritten 2026-11-05 against `plan` at `a5ac3d8f`: every completed row was removed and the decisions were brought up to
-the current state. Since then: RR1 and RD24's `[env.<service>]` passthrough (`8f4dd537`), the MIT game runtime (R0–R21),
-the MIT catalog exporter and the `settings.toml` rename (swept on 2026-11-13, below). The full plan as it stood, with
-every struck row, is `MIGRATION_PLAN.md` at `a5ac3d8f`; the map from the upstream code to where it lives now is
+the current state. Since then: RR1, RD24 (the `[env.<service>]` passthrough in `8f4dd537`, the typed tables, overrides
+and host files in `eddfb889`), the MIT game runtime (R0–R21), the MIT catalog exporter and the `settings.toml` rename
+(swept on 2026-11-13, below). The full plan as it stood, with every struck row, is `MIGRATION_PLAN.md` at
+`a5ac3d8f`; the map from the upstream code to where it lives now is
 [`docs/port/migration-guide.md`](docs/port/migration-guide.md), and the design record for the Dainty Lass rows (DS, DF,
 DU, RU, RF, DN, DE, DH, DX, DL and the DD decisions) is [`docs/dainty-lass-plan.md`](docs/dainty-lass-plan.md).
 
@@ -92,7 +93,6 @@ SDK (the SDK is still dumped, into `.workspace/sdk`, for the catalog exporter).
 
 | # | What | Needs |
 | --- | --- | --- |
-| RD24 | The rest of phase 2 of [`docs/config-toml-plan.md`](docs/config-toml-plan.md) (the typed `[gateway.*]`, `[content]`, `[allowlist]`, `[backend]` and `[director]` tables, early validation through each service's loader, environment overrides with a warning), then phase 3 (the other files hosts write). The `[env.<service>]` passthrough and its denylist are in (`hostconfig/env.rs`) | — |
 | MS1–MS8 | [`docs/module-sharing-plan.md`](docs/module-sharing-plan.md): game calls in `module-api`, the event recorder, fleet game servers, the Discord bot and dainty-dash's views | The maintainer's answers to its D1–D6 |
 
 ### Parked
