@@ -4,7 +4,7 @@ rustflags = ["-C", "target-feature=+crt-static"]
 
 [env]
 # Where update and setup look for releases unless the environment says otherwise.
-DAINTY_RELEASE_REPOSITORY = "SilentSpud/DaintyLass"
+DAINTY_RELEASE_REPOSITORY = "Dainty-Lass/Dainty-Lass"
 # aws-lc-sys's prebuilt objects; no NASM needed on Windows (D10).
 AWS_LC_SYS_PREBUILT_NASM = "1"
 # Bundled SQLite behaving as the Node services' better-sqlite3 did: double quotes are identifiers only, LIKE

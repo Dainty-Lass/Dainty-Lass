@@ -1559,7 +1559,8 @@ mod tests {
             }
         ]);
 
-        let c = candidates_from_github(&releases, "SilentSpud/DaintyLass", "linux-x64", Wanted::Newest(None)).unwrap();
+        let c =
+            candidates_from_github(&releases, "Dainty-Lass/Dainty-Lass", "linux-x64", Wanted::Newest(None)).unwrap();
         assert_eq!(c.version, "0.2.0");
         assert_eq!(c.archive, "DaintyLassServer-0.2.0-linux-x64.tar.gz");
     }
@@ -1581,7 +1582,7 @@ mod tests {
             "commit": "abcdef1234567890",
             "target": "x86_64-unknown-linux-gnu",
             "platform": "linux-x64",
-            "repository": "SilentSpud/DaintyLass",
+            "repository": "Dainty-Lass/Dainty-Lass",
             "files": [
                 {
                     "path": "README.txt",

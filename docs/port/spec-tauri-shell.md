@@ -388,7 +388,7 @@ after the move only the app's remain. The values a release depends on (bundles.r
 | `app.security.freezePrototype` | `false` | inherited |
 | `app.security.pattern` | isolation, `dir` `../../launcher/isolation` | inherited |
 | `bundle.targets` | `nsis`, `appimage`, `deb`, `rpm` | inherited |
-| `bundle.publisher` / `homepage` / `category` | `Dainty Lass contributors` / `https://github.com/SilentSpud/DaintyLass` / `Game` | inherited |
+| `bundle.publisher` / `homepage` / `category` | `Dainty Lass contributors` / `https://github.com/Dainty-Lass/Dainty-Lass` / `Game` | inherited |
 | `bundle.license` | `MIT` (restricted's says `AGPL-3.0-only`) | inherited |
 | `bundle.windows.nsis.installMode` | `currentUser` | `currentUser` |
 | `bundle.windows.webviewInstallMode` | restricted: `embedBootstrapper`; the app: unset **[T-5]** | inherited |
