@@ -143,7 +143,7 @@ Trivy's and zizmor's findings to code scanning and turns on dependency review. U
 
 `server-release.yml` and `launcher-release.yml` build what Forgejo's do, plus a CycloneDX SBOM of each archive (and
 of the launcher's dependencies) as a separate artifact. Their publish jobs, with build provenance and SBOM
-attestations (`gh attestation verify <file> --repo SilentSpud/DaintyLass`), are written but unreachable until DX5:
+attestations (`gh attestation verify <file> --repo Dainty-Lass/Dainty-Lass`), are written but unreachable until DX5:
 the server's tag trigger is commented out and the launcher's prepare never sets `publish`.
 
 ## What isn't here

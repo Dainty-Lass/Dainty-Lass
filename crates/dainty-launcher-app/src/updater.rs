@@ -181,7 +181,7 @@ mod tests {
         assert_eq!(
             updater["endpoints"],
             serde_json::json!([
-                "https://github.com/SilentSpud/DaintyLass/releases/download/launcher-updates/latest.json"
+                "https://github.com/Dainty-Lass/Dainty-Lass/releases/download/launcher-updates/latest.json"
             ])
         );
         assert_eq!(config["bundle"]["license"], "MIT OR Apache-2.0");

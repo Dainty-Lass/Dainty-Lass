@@ -102,7 +102,7 @@ fn each_app_has_its_own_update_feed() {
             .cloned()
             .unwrap_or_default()
     };
-    let base = "https://github.com/SilentSpud/DaintyLass/releases/download/launcher-updates/";
+    let base = "https://github.com/Dainty-Lass/Dainty-Lass/releases/download/launcher-updates/";
     assert_eq!(
         feed(&json("tauri.conf.json")),
         [Value::from(format!("{base}latest.json"))]

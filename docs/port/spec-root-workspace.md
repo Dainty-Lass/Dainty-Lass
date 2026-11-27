@@ -171,7 +171,7 @@ Channel `1.99.1`, profile `minimal`, components `rustfmt` and `clippy`.
 | --- | --- | --- | --- |
 | env | `LIBSQLITE3_FLAGS` | `SQLITE_DQS=0 SQLITE_LIKE_DOESNT_MATCH_BLOBS SQLITE_ENABLE_MATH_FUNCTIONS SQLITE_ENABLE_PERCENTILE SQLITE_DEFAULT_WAL_SYNCHRONOUS=1 SQLITE_DEFAULT_CACHE_SIZE=-16000` (this order) | SQL results match the Node services' better-sqlite3 |
 | env | `AWS_LC_SYS_PREBUILT_NASM` | `1` | no NASM on Windows (D10) |
-| env | `DAINTY_RELEASE_REPOSITORY` | `SilentSpud/DaintyLass`, not forced | default release source; the environment wins |
+| env | `DAINTY_RELEASE_REPOSITORY` | `Dainty-Lass/Dainty-Lass`, not forced | default release source; the environment wins |
 | target `x86_64-pc-windows-msvc` | rustflags | `-C target-feature=+crt-static` | no VC++ redistributable (M38) |
 | registries `silentspud` | index | `sparse+https://git.silentspud.com/api/packages/silentspud/cargo/` | DD2, DF1 |
 

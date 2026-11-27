@@ -1446,7 +1446,7 @@ A progress and control wrapper around MIT `epic::download::install` (DE5):
   `https://aka.ms/vs/17/release/vc_redist.x64.exe`; `project_source`, `project_license`, `project_issues`,
   `project_docs_players`, `project_docs_hosting`, `project_docs_sdk`: the project repository, its `LICENSE.txt`, its
   issues, and its players, hosting and SDK guides. **Decided (L6, 2026-11-06)**: the repository
-  `https://github.com/SilentSpud/DaintyLass`, and under it `/blob/main/LICENSE.txt`, `/issues`, `/blob/main/restricted/docs/players.md`,
+  `https://github.com/Dainty-Lass/Dainty-Lass`, and under it `/blob/main/LICENSE.txt`, `/issues`, `/blob/main/restricted/docs/players.md`,
   `/blob/main/restricted/docs/hosting.md` and `/blob/main/docs/sdk-and-game-data.md` (they answer once DX5
   publishes the repository); `installing_guide` Mystic Paradox's `docs/INSTALLING_DAUNTLESS.md`; `legendary`
   `https://github.com/legendary-gl/legendary/releases/latest`; `dumper7` and `dumper7_zip` Dumper-7's

@@ -62,7 +62,7 @@ fn full_status() -> Value {
         "online": true,
         "version": "1.2.0",
         "commit": "a4cb7cf",
-        "sourceUrl": "https://github.com/SilentSpud/DaintyLass",
+        "sourceUrl": "https://github.com/Dainty-Lass/Dainty-Lass",
         "registration": "INVITECODE",
         "playersOnline": 3,
         "players": [
@@ -103,7 +103,7 @@ fn parses_the_full_contract() {
     assert_eq!(s.content_port, None);
     assert_eq!(
         s.source_url.as_deref(),
-        Some("https://github.com/SilentSpud/DaintyLass")
+        Some("https://github.com/Dainty-Lass/Dainty-Lass")
     );
     assert!(!s.limited);
     // Reforged's fields

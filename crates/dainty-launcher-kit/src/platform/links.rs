@@ -13,7 +13,7 @@ use crate::bridge::spec::fits;
 use crate::bridge::types::ExternalTarget;
 
 /// This project's repository; also the server source when a status names none.
-pub const PROJECT_URL: &str = "https://github.com/SilentSpud/DaintyLass";
+pub const PROJECT_URL: &str = "https://github.com/Dainty-Lass/Dainty-Lass";
 /// Longest URL opened, in UTF-16 units.
 pub const MAX_URL: usize = 1024;
 /// The one host any of whose pages may open: Tailscale share links are minted per server.
@@ -25,7 +25,7 @@ const DUMPER7_URL: &str = "https://github.com/Encryqed/Dumper-7";
 // A file on the repository's main branch.
 macro_rules! project_file {
     ($path:literal) => {
-        concat!("https://github.com/SilentSpud/DaintyLass/blob/main/", $path)
+        concat!("https://github.com/Dainty-Lass/Dainty-Lass/blob/main/", $path)
     };
 }
 
@@ -39,7 +39,7 @@ pub fn fixed_url(target: ExternalTarget) -> Option<&'static str> {
         T::VcRedist => "https://aka.ms/vs/17/release/vc_redist.x64.exe",
         T::ProjectSource => PROJECT_URL,
         T::ProjectLicense => project_file!("README.md#credits-and-licence"),
-        T::ProjectIssues => "https://github.com/SilentSpud/DaintyLass/issues",
+        T::ProjectIssues => "https://github.com/Dainty-Lass/Dainty-Lass/issues",
         T::ProjectDocsPlayers => {
             project_file!("restricted/docs/players.md")
         }
@@ -246,23 +246,23 @@ mod tests {
         let expected = [
             ("tailscale_download", "https://tailscale.com/download"),
             ("vc_redist", "https://aka.ms/vs/17/release/vc_redist.x64.exe"),
-            ("project_source", "https://github.com/SilentSpud/DaintyLass"),
+            ("project_source", "https://github.com/Dainty-Lass/Dainty-Lass"),
             (
                 "project_license",
-                "https://github.com/SilentSpud/DaintyLass/blob/main/README.md#credits-and-licence",
+                "https://github.com/Dainty-Lass/Dainty-Lass/blob/main/README.md#credits-and-licence",
             ),
-            ("project_issues", "https://github.com/SilentSpud/DaintyLass/issues"),
+            ("project_issues", "https://github.com/Dainty-Lass/Dainty-Lass/issues"),
             (
                 "project_docs_players",
-                "https://github.com/SilentSpud/DaintyLass/blob/main/restricted/docs/players.md",
+                "https://github.com/Dainty-Lass/Dainty-Lass/blob/main/restricted/docs/players.md",
             ),
             (
                 "project_docs_hosting",
-                "https://github.com/SilentSpud/DaintyLass/blob/main/restricted/docs/hosting.md",
+                "https://github.com/Dainty-Lass/Dainty-Lass/blob/main/restricted/docs/hosting.md",
             ),
             (
                 "project_docs_sdk",
-                "https://github.com/SilentSpud/DaintyLass/blob/main/docs/sdk-and-game-data.md",
+                "https://github.com/Dainty-Lass/Dainty-Lass/blob/main/docs/sdk-and-game-data.md",
             ),
             (
                 "installing_guide",

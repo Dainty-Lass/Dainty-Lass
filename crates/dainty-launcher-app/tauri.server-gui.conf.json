@@ -35,7 +35,7 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": ["https://github.com/SilentSpud/DaintyLass/releases/download/launcher-updates/latest-manager.json"]
+      "endpoints": ["https://github.com/Dainty-Lass/Dainty-Lass/releases/download/launcher-updates/latest-manager.json"]
     }
   }
 }

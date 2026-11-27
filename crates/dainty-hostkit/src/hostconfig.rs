@@ -3044,7 +3044,7 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     push(
         &mut backend,
         "DAINTY_SOURCE_URL",
-        "https://github.com/SilentSpud/DaintyLass",
+        "https://github.com/Dainty-Lass/Dainty-Lass",
     );
     push(&mut backend, "DAINTY_SOURCE_COMMIT", source_commit);
     push(&mut backend, "DAINTY_SERVER_MODE", c.mode.as_str());
