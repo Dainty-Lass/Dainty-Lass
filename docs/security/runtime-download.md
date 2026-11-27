@@ -82,9 +82,9 @@ the game, and that nothing else is loaded.
 - [ ] Leftovers refuse PLAY (`loader_leftovers`: the ini, what it names, an unfinished Host session's files, the
   Host tools' names, and, when injecting, a `winmm.dll` that does not stand down). See `host-page.md`.
 - [ ] `check_runtime` rehashes every installed runtime file on every look (no cache) and, with an offer, is playable
-  only when every listed file matches its hash and nothing unlisted or retired is present; otherwise it is
-  `Untrusted` until the player accepts the set, then `Missing` or `Outdated` (test `check_runtime_states`). With no
-  offer, a folder holding the required files is playable as it is.
+  only when the player trusted the set and every listed file matches its hash and nothing unlisted or retired is
+  present; an untrusted set is `Untrusted` even when the files match (fixed 2026-11-26), otherwise `Missing` or
+  `Outdated` (test `check_runtime_states`). With no offer, a folder holding the required files is playable as it is.
 - [ ] The DLLs injected are named by fixed slot and carry the offered set's hashes (`runtime_dlls`), so a file changed
   after the check is refused by the injector, which hashes through a held handle; with a local runtime or no offer
   they carry the hash as found.
@@ -112,22 +112,23 @@ the game, and that nothing else is loaded.
 
 ## Open points
 
-- [ ] **The executable pin trusts the hash cache.** `file-hashes.json` is in the launcher's user data, which anything
+- [ ] **Accepted (local writer): the executable pin trusts the hash cache.** `file-hashes.json` is in the launcher's user data, which anything
   running as the player can write: an entry with the executable's path, size and mtime and the pinned hash makes
   `checked_game` pass for another file of the same size and mtime. Decide whether the pin should rehash at PLAY, or
   record that a local writer is out of scope.
-- [ ] **A matching folder plays without a trust decision.** `check_runtime` returns playable when the installed files
-  match the offer, before it looks at `trusted`, and with no offer (404 or 503, or an unreachable manifest route)
-  when the required files are simply there; the DLLs then go to the injector with the offer's hashes or as found.
-  So files placed by something other than the launcher are run without the player accepting them. Decide whether a
-  match should also need a trusted set, and whether "no offer" should play what is on disk.
-- [ ] **`loader_stands_down` is a byte search** for the stand-down marker, not a hash, so a `winmm.dll` holding the
+- [ ] **Fixed 2026-11-26: a matching folder needs a trusted set.** `check_runtime` looks at `trusted` before the
+  match, so files placed by something other than the launcher don't play under an offer the player never accepted;
+  accepting it (`trust_runtime`) finds the files in place.
+- [ ] **Accepted: with no offer** (404 or 503, or an unreachable manifest route) a folder holding the required files
+  still plays as found. There is no set to trust, the files are ones an earlier offer installed, and only a process
+  running as the player could have put others there.
+- [ ] **Accepted (local writer): `loader_stands_down` is a byte search** for the stand-down marker, not a hash, so a `winmm.dll` holding the
   marker passes the leftover check (see `host-page.md`).
-- [ ] **`retire_loader` trusts the marker in the game folder** for which `winmm.dll` it may delete; a rewritten
+- [ ] **Accepted: `retire_loader` trusts the marker in the game folder** for which `winmm.dll` it may delete; a rewritten
   marker can only make it delete the `winmm.dll` already there, so the harm is small.
-- [ ] **A local runtime is loaded as found:** its hash is whatever the folder holds when PLAY copies it. That is the
+- [ ] **Accepted, page text to follow: a local runtime is loaded as found:** its hash is whatever the folder holds when PLAY copies it. That is the
   player's choice; the page should say so.
-- [ ] **The pre-R21 pair (`Rustic-Isles.dll`, `MysticParadox.dll`) is still accepted** (spec-runtime-r21 L-1, DX4);
+- [ ] **Deferred to that release: the pre-R21 pair (`Rustic-Isles.dll`, `MysticParadox.dll`) is still accepted** (spec-runtime-r21 L-1, DX4);
   drop it from `SET_FILE_NAMES` in the release that ends the pair.
 
 ## Sign-off

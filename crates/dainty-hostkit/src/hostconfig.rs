@@ -103,6 +103,8 @@ pub const SECRET_KEYS: [&str; 14] = [
 /// Secrets the host brings rather than setup makes: left empty until set (`setup --discord-bot-token`,
 /// `--oauth-client-secret`).
 pub const PROVIDED_SECRET_KEYS: [&str; 2] = ["DISCORD_BOT_TOKEN", "DAINTY_OAUTH_CLIENT_SECRET"];
+/// The token signing key pair, which `setup` only ever makes as a pair.
+const SIGNING_PAIR: [&str; 2] = ["AUTH_SIGNING_PRIVKEY_B64", "AUTH_SIGNING_PUBKEY_B64"];
 /// Secrets under their names from before the Rustic Isles rename: `setup` moves each to its new name with the same value,
 /// never a fresh one, since a changed secret breaks every signed call (DX4)
 pub const RENAMED_SECRET_KEYS: [(&str, &str); 5] = [
@@ -2761,7 +2763,15 @@ pub fn write_host_config(file: &Path, c: &HostConfig) -> Result<(), HostError> {
     } else {
         c.to_toml()?
     };
-    std::fs::write(file, text).map_err(|e| HostError::io(file, e))
+    // Through a temporary file, so a crash mid write leaves the old file, not a truncated one
+    let mut tmp = file.as_os_str().to_os_string();
+    tmp.push(".tmp");
+    let tmp = std::path::PathBuf::from(tmp);
+    std::fs::write(&tmp, text).map_err(|e| HostError::io(&tmp, e))?;
+    std::fs::rename(&tmp, file).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp);
+        HostError::io(file, e)
+    })
 }
 
 /// Writes the workspace's settings.toml.
@@ -2859,8 +2869,11 @@ pub fn load_or_create_secrets(
             ("DAINTY_DB_PASSWORD", fresh.database_password.as_str()),
             ("DASHBOARD_INGEST_KEY", fresh.dashboard_ingest_key.as_str()),
         ];
+        let lacks = |k: &str| existing.get(k).is_none_or(|cur| cur.trim().is_empty());
+        // The signing pair is made together: a fresh half beside a kept one would never verify
+        let pair_lacking = SIGNING_PAIR.iter().any(|k| lacks(k));
         for (k, v) in fresh_pairs {
-            if existing.get(k).is_none_or(|cur| cur.trim().is_empty()) {
+            if lacks(k) || (pair_lacking && SIGNING_PAIR.contains(&k)) {
                 doc.set(k, v)?;
             }
         }
@@ -4279,6 +4292,51 @@ required = true
         assert!(set_provided_secret(dir.path(), "DAINTY_ADMIN_KEY", "x").is_err());
         assert!(overrides::sensitive("DISCORD_BOT_TOKEN"));
         assert!(env::denied("DISCORD_BOT_TOKEN").is_some());
+    }
+
+    /// A file that lost one half of the signing pair gets a whole fresh pair, never a half that can't verify.
+    #[test]
+    fn the_signing_pair_is_made_together() {
+        let dir = tempfile::tempdir().unwrap();
+        let (made, _) = load_or_create_secrets(dir.path(), || Ok(sample_secrets())).unwrap();
+        let file = dir.path().join(SECRET_FILE);
+        let text = std::fs::read_to_string(&file).unwrap();
+        let kept: Vec<&str> = text
+            .lines()
+            .filter(|line| !line.starts_with("AUTH_SIGNING_PUBKEY_B64="))
+            .collect();
+        std::fs::write(&file, kept.join("\n")).unwrap();
+        let fresh = || {
+            let mut s = sample_secrets();
+            s.jwt_private_key_b64 = "fresh-private".into();
+            s.jwt_public_key_b64 = "fresh-public".into();
+            s.admin_key = "fresh-admin".into();
+            Ok(s)
+        };
+        let (read, missing) = load_or_create_secrets(dir.path(), fresh).unwrap();
+        assert!(missing);
+        assert_eq!(read.jwt_private_key_b64, "fresh-private");
+        assert_eq!(read.jwt_public_key_b64, "fresh-public");
+        assert_eq!(read.admin_key, made.admin_key);
+    }
+
+    const SMALL_SETTINGS: &str = r#"version = 1
+mode = "private"
+name = "Isle"
+host = "100.64.0.1"
+game_address = "100.64.0.1"
+registration = "INVITECODE"
+max_hunt_servers = 3
+"#;
+
+    #[test]
+    fn settings_are_replaced_whole() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("settings.toml");
+        std::fs::write(&file, "old").unwrap();
+        write_host_config(&file, &HostConfig::from_toml(SMALL_SETTINGS).unwrap()).unwrap();
+        assert_ne!(std::fs::read_to_string(&file).unwrap(), "old");
+        assert!(!dir.path().join("settings.toml.tmp").exists());
     }
 
     /// Node kit host.json shapes from before RD24's tables: private with nothing optional, and public with the

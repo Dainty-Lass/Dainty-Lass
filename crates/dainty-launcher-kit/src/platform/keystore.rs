@@ -442,5 +442,29 @@ pub fn backup_text(backup: &Backup<'_>) -> String {
     lines.join("\r\n")
 }
 
+/// Whether text holding a key may be for the server at `host:port` with `pin`: a backup's `Certificate:` line, else
+/// its `Server:` line, must name it (the key goes only to the server it was made for). Text with neither, a key
+/// on its own, can't say, so it may be.
+#[must_use]
+pub fn backup_is_for(text: &str, host: &str, port: u16, pin: Option<&str>) -> bool {
+    let line = |label: &str| {
+        text.lines()
+            .find_map(|line| line.trim().strip_prefix(label).map(str::trim))
+    };
+    if let Some(certificate) = line("Certificate:") {
+        return pin.is_some_and(|pin| pin.eq_ignore_ascii_case(certificate));
+    }
+    if let Some(server) = line("Server:") {
+        let named = server
+            .rsplit_once('(')
+            .and_then(|(_, rest)| rest.strip_suffix(')'))
+            .and_then(|address| address.rsplit_once(':'));
+        return named.is_some_and(|(named_host, named_port)| {
+            named_host.eq_ignore_ascii_case(host) && named_port == port.to_string()
+        });
+    }
+    true
+}
+
 #[cfg(test)]
 mod tests;

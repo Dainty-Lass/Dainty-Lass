@@ -104,22 +104,21 @@ lists, and ids are module ids, never paths. The panel exists only in the `server
 
 ## Fuzz targets
 
-None covers this file yet. `launcher_bridge` fuzzes the hook shapes of every command in `COMMANDS` (the module
-commands included) and the bridge's `checks`, but not `command_args`, `merge_settings` or `is_colour`;
-`host_console` fuzzes the console's own `module run` parser.
+`launcher_modules`: `command_args` gives only bounded plain arguments, `merge_settings` merges only registered keys
+of their default's type, `is_colour` passes nothing a CSS value could escape with, and `plain` stays plain.
+`launcher_bridge` fuzzes the hook shapes of every command in `COMMANDS` (the module commands included) and the
+bridge's `checks`; `host_console` fuzzes the console's own `module run` parser.
 
 ## Open points
 
-- [ ] **No fuzz target** for `bridge::modules` (`command_args`, `merge_settings`, `is_colour`, `plain`). Add one to
-  `fuzz/` before the page draws module panels.
+- [ ] **Fixed 2026-11-26:** `launcher_modules` fuzzes `command_args`, `merge_settings`, `is_colour` and `plain`.
 - [ ] **The page does not call these commands yet:** `module_*` and `admin_action` are in `launcher/test/api.test.ts`'s
   `NO_PAGE_METHOD`. Review "What the page draws" again against the page when its methods land, in particular how
   it sets palette values and whether it ever renders `logo`.
-- [ ] **Rust does not re-check the hook's lengths** on `module_run_command` and `module_set_settings`: the Tauri
-  handlers pass `module`, `command` and `input` straight to the panel. Each value is still parsed and bounded by
-  the panel (id, registered name, `ARG_MAX`, `VALUE_MAX`), but the 8192-unit cap on the JSON text holds only in the
-  hook.
-- [ ] `done_message` and the admin result messages are English made in Rust (marked T-4), against the DU2 rule that
+- [ ] **Fixed 2026-11-26:** `command_args` and `merge_settings` refuse JSON text past `MODULE_JSON_MAX` (8192 UTF-16
+  units, the hook's cap) with `too_long`, so the cap holds behind the hook too; `module` and `command` were already
+  bounded by the id and registered-name checks.
+- [ ] Not a security item: `done_message` and the admin result messages are English made in Rust (marked T-4), against the DU2 rule that
   Rust returns a code. Not a security issue; noted so it is not mistaken for reviewed text.
 
 ## Sign-off

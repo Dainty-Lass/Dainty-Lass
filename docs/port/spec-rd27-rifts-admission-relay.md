@@ -1455,7 +1455,8 @@ role and exactly one of them must be `Host` (host↔joiner only, never joiner↔
 
 `filter_relay_only(kind, data) -> Option<String>` (applied only when `force_relay`):
 
-- `GATHERING_DONE`: `Some(data)` unchanged.
+- `GATHERING_DONE`: `Some("")`: its data is dropped, since no transport reads it and it could carry any candidate
+  line (security fix 2026-11-26, `rifts-relay-credentials.md`).
 - Otherwise the separator is CRLF when `data` contains CRLF, else LF. Split `data` on LF; drop one trailing CR from
   each piece; `js_trim` each; drop empty lines. A *candidate line* starts with `candidate:` after an optional `a=`
   prefix; it is kept only if it contains ` typ relay` followed by a space or the end of the line (`typ relayed` is not
@@ -1748,7 +1749,7 @@ and runs only in dainty-restricted.
   unverified `issued_at` equals the unverified parse.
 - `relay_signal`: an accepted signal is bounded printable SDP; the filter output only contains lines the sender sent
   (as split, CR-dropped and `js_trim`med), every candidate line in it contains ` typ relay`, a `CANDIDATE` output is a
-  candidate line, and `GATHERING_DONE` is unchanged.
+  candidate line, and a `GATHERING_DONE` output is empty.
 
 ---
 

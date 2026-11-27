@@ -133,6 +133,9 @@ replies and the redirect listener's request head).
 - TLS 1.2 is still offered next to 1.3 (`pinned_connect`). Decide whether every server can move to 1.3 only.
 - There is no fuzz target for `pinned.rs` or `http.rs`: they parse nothing of their own beyond what hyper and rustls
   parse.
+- Triage 2026-11-26: none of these is changed. A public server on a LAN address is a real setup (a host testing
+  public mode at home), and the pin already stops any HTTP byte, so the SSRF block would cost more than the TCP
+  connect and ClientHello it saves; the other three are decisions about Tailscale and the servers' TLS, not gaps.
 
 ## Sign-off
 

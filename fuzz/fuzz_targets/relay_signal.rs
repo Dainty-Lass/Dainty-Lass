@@ -33,7 +33,7 @@ fn check_filter(kind: SignalKind, data: &str) {
         return;
     };
     if kind == SignalKind::GatheringDone {
-        assert_eq!(out, data);
+        assert!(out.is_empty(), "gathering-done data passed on: {out:?}");
         return;
     }
     let sent = sent_lines(data);

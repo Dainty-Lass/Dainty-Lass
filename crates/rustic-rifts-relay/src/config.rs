@@ -9,7 +9,8 @@ use rustic_rifts_seam::{Secret, Settings};
 
 use crate::wire::{self, JsonObject};
 
-/// The settings `setup` keeps in `secrets.env`.
+/// The secret settings, read from the service's environment: `setup` neither makes nor writes them (the host kit has
+/// no relay settings yet), and an unset transport key secret is made fresh at each start.
 pub const SECRET_SETTINGS: [&str; 4] = [
     "P2P_CLOUDFLARE_TURN_API_TOKEN",
     "P2P_TURN_REST_SECRET",

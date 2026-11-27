@@ -97,8 +97,10 @@ Fuzz target in `fuzz`: `launcher_files` (`settings.json` through `sanitize`, the
 - [ ] `load` remakes a missing recovery copy, and a failed recovery write only warns, so saving the sealed key never
   depends on Documents being writable (tests `load_remakes_a_missing_recovery_copy`,
   `recovery_copy_failure_only_warns`).
-- [ ] **Known gap:** on Windows `write_private` sets no ACL. The recovery copy is the plain key and inherits the
-  Documents folder's ACL, so whatever syncs Documents (OneDrive, for example) gets a copy.
+- [ ] **Accepted:** on Windows `write_private` sets no ACL. The recovery copy is the plain key and inherits the
+  Documents folder's ACL, so whatever syncs Documents (OneDrive, for example) gets a copy. An ACL would not stop a
+  sync client running as the player; keeping the copy out of Documents is the real choice, and it is a product
+  decision (the copy exists so a reinstall keeps the key).
 
 ### The Epic session (`epic.rs`, DD22, DE2)
 
@@ -108,8 +110,8 @@ Fuzz target in `fuzz`: `launcher_files` (`settings.json` through `sanitize`, the
   `no_code_or_token_reaches_any_log` in `tests/epic_session_log.rs`).
 - [ ] `load` drops a session whose refresh token expired, an unknown format version `v`, or an empty account id or
   token. `Token` shows its text only through `expose`.
-- [ ] **Known gap:** `EpicSessionStore::save` writes its `.tmp` with `std::fs::write`, not `write_private`. On Unix
-  the file is not `0600` and is not flushed before the rename. The content is sealed, so this exposes ciphertext only.
+- [ ] `EpicSessionStore::save` writes through `write_private`: `0600` on Unix and flushed before the rename (fixed
+  2026-11-26; it was a plain `std::fs::write`, which exposed ciphertext only).
 
 ### Settings
 
@@ -127,8 +129,12 @@ Fuzz target in `fuzz`: `launcher_files` (`settings.json` through `sanitize`, the
   can read that item, which is the Secret Service's own model.
 - The redactor ignores secrets shorter than 6 UTF-16 units. Keys and tokens are longer, so this matters only if a
   shorter secret is ever registered.
-- A pasted key is sent to the current server's `GetUserInfo` before it is saved, whichever server it was made for.
-  The backup's `Server:` line is not compared.
+- Fixed 2026-11-26: a pasted backup or a backup file is checked before its key is sent: its `Certificate:` line must
+  be the current server's pin, or, without one, its `Server:` line must name the current host and port
+  (`backup_is_for`, test `a_backup_for_another_server_is_not_used`); a refusal answers `key_invalid`. A bare key says
+  nothing of its server and is still sent to the current one.
+- Accepted: the recovery copy, the Secret Service model and the 6-unit redactor floor above. Each needs a process
+  already running as the player, or a secret shorter than any registered today.
 
 ## Sign-off
 

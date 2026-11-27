@@ -924,6 +924,15 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_revived_invite_link_is_refused() {
+        assert_eq!(clean_invite_link(" dainty://abc "), Some("dainty://abc".to_owned()));
+        assert!(clean_invite_link("dauntless://abc").is_some());
+        assert_eq!(clean_invite_link("dauntless-revived://abc"), None);
+        let lines = vec![r#"{"link":"dauntless-revived://abc"}"#.to_owned()];
+        assert!(invite_line(&lines).is_none());
+    }
+
+    #[test]
     fn workspace_detection_supports_submodule_and_flat_layouts() {
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path();

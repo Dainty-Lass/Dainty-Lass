@@ -24,6 +24,8 @@ pub const PACK_FORMAT: &str = "dainty-lass-gamedata";
 pub const LEGACY_PACK_FORMAT: &str = "dauntless-reforged-revival-gamedata";
 /// The pack version this kit reads and writes.
 pub const PACK_VERSION: u64 = 1;
+/// The most a pack may inflate to; the game data is a few tens of MB, and a gzip bomb is refused.
+pub const MAX_PACK_JSON_BYTES: u64 = 256 * 1024 * 1024;
 
 /// One file a pack carries.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -210,11 +212,17 @@ pub fn read_game_data_pack(p: &Paths, file: &Path) -> Result<Pack, HostError> {
 
 /// Unzips and checks a pack: its format, version, game build and every file's path and SHA-256.
 pub fn parse_game_data_pack(p: &Paths, file: &Path, compressed: &[u8]) -> Result<Pack, HostError> {
-    let mut decoder = GzDecoder::new(compressed);
+    let mut decoder = GzDecoder::new(compressed).take(MAX_PACK_JSON_BYTES + 1);
     let mut text = String::new();
     decoder
         .read_to_string(&mut text)
         .map_err(|e| HostError::message(format!("{}: not a game data pack ({e})", file.display())))?;
+    if text.len() as u64 > MAX_PACK_JSON_BYTES {
+        return Err(HostError::message(format!(
+            "{}: not a game data pack (it unpacks to more than {MAX_PACK_JSON_BYTES} bytes)",
+            file.display()
+        )));
+    }
 
     let value: Value = serde_json::from_str(&text)
         .map_err(|e| HostError::message(format!("{}: not a game data pack ({e})", file.display())))?;

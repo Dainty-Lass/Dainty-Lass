@@ -48,10 +48,9 @@ Related targets for the generators: `rustic_isles_gamedata_formats`, `rustic_isl
   written; one mismatch writes nothing (`ensure_captures`).
 - [ ] Files already present are rechecked against the pin and refetched when they differ (`missing_captures`; test
   `missing_captures_checks_presence_and_sha256`).
-- [ ] **Known gap:** `is_valid_repository` also accepts `file://`, an absolute Unix path and a Windows drive path,
-  while its error says "must be an https URL" and `host_gamedata_input` asserts a passing pin starts with
-  `https://`. Either the fuzz target fails on the first `file://` input or the rule is narrower than the code; decide
-  which is meant. The hashes still hold either way.
+- [ ] `is_valid_repository` accepts only `https://` with a non-empty rest and no control or space character, as
+  its error and `host_gamedata_input` say (fixed 2026-11-26: it also took `file://`, an absolute Unix path and a
+  Windows drive path, so a pin could have git fetch from a path on the server).
 - [ ] A capture failure is reported and the generators still run on what is there; the stores the captures feed
   fall back to their examples.
 
@@ -78,9 +77,10 @@ Related targets for the generators: `rustic_isles_gamedata_formats`, `rustic_isl
 - [ ] Every file's data must match its SHA-256 and parse as JSON before anything is written; an import keeps a
   timestamped `.bak` of any changed file that is not still its example (test
   `exports_real_files_and_imports_with_backups`).
-- [ ] **Known gap:** the gzip stream is read to the end with no size limit, so a small pack can inflate without bound.
-  A pack's SHA-256 values are its own, so they catch damage, not a hostile pack; a host should import only packs they
-  trust.
+- [ ] The gzip stream is read to at most `MAX_PACK_JSON_BYTES` (256 MiB); a pack that inflates past it is refused
+  (fixed 2026-11-26).
+- [ ] A pack's SHA-256 values are its own, so they catch damage, not a hostile pack; a host should import only packs
+  they trust.
 
 ### Preset
 
@@ -90,8 +90,9 @@ Related targets for the generators: `rustic_isles_gamedata_formats`, `rustic_isl
 - [ ] A file the host changed is kept unless `--force`, which backs it up first (test
   `creates_preset_excluding_stores_and_applies_respecting_force`).
 - [ ] A host's preset is their own and is never committed (AGENTS.md).
-- [ ] **Open point:** `executableSha256` is recorded when a preset is made but not compared on apply; the game build
-  check is the only binding to the game.
+- [ ] **Accepted:** `executableSha256` is recorded when a preset is made but not compared on apply; the game build
+  check is the only binding to the game. A preset holds only checked JSON game data, so a different executable of
+  the same build gains nothing from it, and comparing would refuse a host whose game was repaired or re-downloaded.
 
 ### SDK
 
@@ -111,9 +112,9 @@ Related targets for the generators: `rustic_isles_gamedata_formats`, `rustic_isl
   temporary file and a rename; retired runtime DLLs and an unlisted loader are removed from the folder.
 - [ ] A loader beside the server executable is removed only when its SHA-256 is the kit's published or retired
   loader's; someone else's `winmm.dll` is left alone (`retire_server_loader`, `RETIRED_LOADERS`).
-- [ ] **Open point:** what is published is what the host built or pointed `--from` at; nothing here checks a
+- [ ] **Accepted:** what is published is what the host built or pointed `--from` at; nothing here checks a
   signature. `runtime.json`'s hashes are what launchers and the Director verify against, so they bind the copy, not
-  its origin.
+  its origin: the host is the origin, and a player trusts the set before it plays (`runtime-download.md`).
 
 ## Sign-off
 

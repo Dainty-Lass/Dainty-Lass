@@ -60,17 +60,11 @@ fn is_lower_hex(text: &str, len: usize) -> bool {
     text.len() == len && text.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
+/// Only `https://`: a local path or `file://` would have git fetch from wherever the pin points on this machine.
 fn is_valid_repository(repo: &str) -> bool {
     let repo = repo.trim();
-    if repo.starts_with("https://") || repo.starts_with("file://") || repo.starts_with('/') {
-        return repo.len() > 1 && !repo.chars().any(char::is_control);
-    }
-    let bytes = repo.as_bytes();
-    bytes.len() >= 3
-        && bytes[0].is_ascii_alphabetic()
-        && bytes[1] == b':'
-        && (bytes[2] == b'\\' || bytes[2] == b'/')
-        && !repo.chars().any(char::is_control)
+    repo.strip_prefix("https://")
+        .is_some_and(|rest| !rest.is_empty() && !repo.chars().any(|c| c.is_control() || c.is_whitespace()))
 }
 
 fn is_valid_rel_path(path: &str) -> bool {
@@ -340,14 +334,22 @@ mod tests {
         assert_eq!(pin.commit, commit);
         assert_eq!(pin.files, vec![("Store/ladyluck.json".to_owned(), hash.clone())]);
 
-        let bad_repo =
-            format!(r#"{{"repository":"http://example.com/x.git","commit":"{commit}","files":{{"a.json":"{hash}"}}}}"#);
-        assert!(
-            parse_capture_pin(file, &bad_repo)
-                .unwrap_err()
-                .to_string()
-                .contains("repository must be an https URL")
-        );
+        for repo in [
+            "http://example.com/x.git",
+            "file:///srv/x.git",
+            "/srv/x.git",
+            "C:/x.git",
+            "https://",
+        ] {
+            let bad_repo = format!(r#"{{"repository":"{repo}","commit":"{commit}","files":{{"a.json":"{hash}"}}}}"#);
+            assert!(
+                parse_capture_pin(file, &bad_repo)
+                    .unwrap_err()
+                    .to_string()
+                    .contains("repository must be an https URL"),
+                "{repo}"
+            );
+        }
 
         let bad_commit =
             format!(r#"{{"repository":"https://example.com/x.git","commit":"1234","files":{{"a.json":"{hash}"}}}}"#);

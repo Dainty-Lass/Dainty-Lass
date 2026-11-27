@@ -372,8 +372,9 @@ fn ice_attribute(line: &str) -> bool {
 
 /// Relay-only mode: drops every candidate that would reveal a host or reflexive address.
 pub fn filter_relay_only(kind: SignalKind, data: &str) -> Option<String> {
+    // No transport reads this kind's data, so none is passed on: it could carry any candidate line.
     if kind == SignalKind::GatheringDone {
-        return Some(data.to_owned());
+        return Some(String::new());
     }
     let mut kept: Vec<&str> = Vec::new();
     for raw in data.split('\n') {
@@ -638,7 +639,7 @@ mod tests {
         let description_kept = "a=ice-ufrag:abcd\r\na=ice-pwd:0123456789abcdefghijkl\r\na=ice-options:ice2\r\n\
              a=candidate:3 1 UDP 16777215 198.51.100.7 49152 typ relay raddr 203.0.113.9 rport 5001\r\n\
              a=end-of-candidates";
-        let cases: [(SignalKind, String, Option<String>); 9] = [
+        let cases: [(SignalKind, String, Option<String>); 10] = [
             (
                 SignalKind::Description,
                 DESCRIPTION.to_owned(),
@@ -667,7 +668,12 @@ mod tests {
                 format!("a=ice-ufrag:x\n{relay}\n"),
                 Some(format!("a=ice-ufrag:x\n{relay}")),
             ),
-            (SignalKind::GatheringDone, " raw ".to_owned(), Some(" raw ".to_owned())),
+            (SignalKind::GatheringDone, " raw ".to_owned(), Some(String::new())),
+            (
+                SignalKind::GatheringDone,
+                "candidate:1 1 udp 1 192.168.1.9 5000 typ host".to_owned(),
+                Some(String::new()),
+            ),
         ];
         for (kind, data, expected) in cases {
             assert_eq!(filter_relay_only(kind, &data), expected, "{kind:?} {data:?}");

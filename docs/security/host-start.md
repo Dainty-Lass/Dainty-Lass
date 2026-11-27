@@ -59,8 +59,9 @@ settings, a value written to an env file reads back as itself on its own line, n
   no whitespace or control character), and are never a command-line value.
 - [ ] `secrets.env` and every env file are written through `write_secret_file`: created `0600` on Unix and set to
   `0600` again after the write.
-- [ ] **Known gap:** on Windows `write_secret_file` is a plain `std::fs::write`; the files inherit the folder's ACL.
-  Decide whether the server folder's ACL is enough.
+- [ ] **Accepted:** on Windows `write_secret_file` is a plain `std::fs::write`; the files inherit the folder's ACL.
+  Setting an ACL needs the Win32 security API (`unsafe_code` is denied), and the server folder sits in the host's
+  own profile or a folder they chose; `hosting.md` should tell a host not to put it in a shared or synced folder.
 - [ ] `setup` refuses to run as root on Linux (`NOT_AS_ROOT`), so the secrets are owned by the user that runs the
   server.
 
@@ -89,9 +90,9 @@ settings, a value written to an env file reads back as itself on its own line, n
 - [ ] A certificate and key that are both there are kept and never regenerated, since every invite's `fp` is the
   certificate's SHA-256 (`tls.rs`, `commands/setup.rs`).
 - [ ] `tls::write_gateway_cert_if_missing` writes the key through `write_secret_file`.
-- [ ] **Known gap:** `RealSetupEnv::make_certificate` (`commands/setup.rs`), the path `setup` takes, writes
-  `gateway-key.pem` with a plain `std::fs::write`, so on Unix the key gets the umask's mode (usually `0644`), not
-  `0600`.
+- [ ] `RealSetupEnv::make_certificate` (`commands/setup.rs`), the path `setup` takes, writes `gateway-key.pem`
+  through `write_secret_file` too, so on Unix it is `0600` (test `the_gateway_key_is_written_as_a_secret`; fixed
+  2026-11-26, it was a plain `std::fs::write`).
 - [ ] The fingerprint is printed after setup and handed to the controller for invites; the key never is.
 
 ### `start` and `serve`
@@ -118,10 +119,13 @@ settings, a value written to an env file reads back as itself on its own line, n
 - [ ] The archive's SHA-256 must match its line in the release's checksums file; on a mismatch, a missing line or a
   failed download nothing downloaded is kept (`selfupdate::fetch`).
 - [ ] Build provenance is checked with `gh attestation verify --repo <repository>` (`verify_attestation`).
-- [ ] **Known gap:** the attestation is skipped, not failed, when the release has no repository (a URL or folder
-  source) or `gh` is not installed. The checksums come from the same place as the archive, so without the
-  attestation a hostile source or a man-in-the-middle on an `http://` source can install any build. The source is
-  `DAINTY_SERVER_RELEASE` from the host's environment, which accepts `http://`.
+- [ ] An `http://` release source is refused unless its host is loopback (`is_remote_plain_http`, test
+  `a_plain_http_source_must_be_on_this_machine`; fixed 2026-11-26), so no man-in-the-middle can swap the archive
+  and its checksums together.
+- [ ] **Accepted:** the attestation is skipped, not failed, when the release has no repository (an `https://` URL or
+  folder source) or `gh` is not installed. Such a source is one the host named in `DAINTY_SERVER_RELEASE` and
+  trusts; the checksums then catch damage, not a hostile source. Failing without `gh` would block every host that
+  never installed it.
 - [ ] Extraction refuses an absolute path, a `..` component, a drive prefix, an empty path, a symlink and (in a
   tar.gz) a hard link (`validate_archive_entry_path`, `extract_zip`, `extract_tar_gz`).
 - [ ] The install checks every staged file against the release manifest and refuses to overwrite a file the host
@@ -132,12 +136,12 @@ settings, a value written to an env file reads back as itself on its own line, n
 
 ## Open points
 
-- `load_or_create_secrets` fills a missing `AUTH_SIGNING_PRIVKEY_B64` or `AUTH_SIGNING_PUBKEY_B64` on its own, from a
-  fresh pair, so a file that lost only one half ends up with a key and a public key that don't match. That breaks
-  sign-in rather than weakening it, but setup should make both or neither.
-- `settings.toml` is written in place (`write_host_config`), not through a temporary file and a rename; a crash mid
-  write leaves a truncated file that the next read refuses.
-- The archive's decompressed size is not bounded.
+- Fixed 2026-11-26: `load_or_create_secrets` makes the signing pair together, so a file that lost one half gets a
+  whole fresh pair (`SIGNING_PAIR`, test `the_signing_pair_is_made_together`).
+- Fixed 2026-11-26: `write_host_config` writes `settings.toml` through `<file>.tmp` and a rename (test
+  `settings_are_replaced_whole`).
+- Fixed 2026-11-26: extraction stops past `MAX_EXTRACTED_BYTES` (4 GiB) unpacked across the whole archive, zip or
+  tar.gz (`copy_bounded`, test `an_archive_past_its_unpacked_budget_is_refused`).
 
 ## Sign-off
 

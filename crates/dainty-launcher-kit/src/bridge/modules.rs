@@ -121,6 +121,10 @@ fn input_error(reason: &str, name: Option<&str>) -> LauncherError {
 /// or null when it has none). The console passes text positionally; so does this: an argument left out
 /// between two given is refused, since a module reads a position, not a name.
 pub fn command_args(spec: &CommandSpec, input: &str) -> Result<Vec<String>, LauncherError> {
+    // The hook's cap, held here too: the Tauri handler passes the text on unchecked
+    if !super::spec::fits(input, super::spec::MODULE_JSON_MAX) {
+        return Err(input_error("too_long", None));
+    }
     let value: Value = serde_json::from_str(input).map_err(|_| input_error("json", None))?;
     let empty = serde_json::Map::new();
     let given = match &value {
@@ -194,6 +198,9 @@ fn same_type(default: &Value, new: &Value) -> bool {
 /// section and key, and the type of the key's default. Nothing is returned unless every value fits.
 /// `schema` is empty until the module loaded, so then nothing fits.
 pub fn merge_settings(schema: &[ConfigSection], saved: &Settings, values: &str) -> Result<Settings, LauncherError> {
+    if !super::spec::fits(values, super::spec::MODULE_JSON_MAX) {
+        return Err(settings_error("too_long", None));
+    }
     let value: Value = serde_json::from_str(values).map_err(|_| settings_error("json", None))?;
     let Value::Object(sections) = value else {
         return Err(settings_error("shape", None));
@@ -456,6 +463,8 @@ mod tests {
         let refused = |input: &str| command_args(&spec(), input).unwrap_err();
         let invalid = ErrorCode::ModuleInputInvalid;
         assert_eq!(code(&refused("{")), (invalid, "json"));
+        let long = format!(r#"{{"account":"{}"}}"#, "a".repeat(super::super::spec::MODULE_JSON_MAX));
+        assert_eq!(code(&refused(&long)), (invalid, "too_long"));
         assert_eq!(code(&refused("[]")), (invalid, "shape"));
         assert_eq!(code(&refused("\"a\"")), (invalid, "shape"));
         assert_eq!(code(&refused("{}")), (invalid, "missing_argument:account"));
@@ -519,6 +528,11 @@ mod tests {
         let refused = |values: &str| merge_settings(&schema(), &saved, values).unwrap_err();
         let invalid = ErrorCode::ModuleSettingsInvalid;
         assert_eq!(code(&refused("nope")), (invalid, "json"));
+        let long = format!(
+            r#"{{"game":{{"greeting":"{}"}}}}"#,
+            "h".repeat(super::super::spec::MODULE_JSON_MAX)
+        );
+        assert_eq!(code(&refused(&long)), (invalid, "too_long"));
         assert_eq!(code(&refused("[]")), (invalid, "shape"));
         assert_eq!(code(&refused(r#"{"game":1}"#)), (invalid, "shape"));
         assert_eq!(code(&refused(r#"{"other":{}}"#)), (invalid, "unknown_section"));

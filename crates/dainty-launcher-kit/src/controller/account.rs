@@ -17,7 +17,7 @@ use super::stored::edit;
 use crate::bridge::types::{ActionResult, ErrorCode, LauncherError, NoticeCode, RegisterOutcome};
 use crate::net::hostapi::{self, OAuthFinishRequest};
 use crate::net::oauth_redirect::{self, RedirectError};
-use crate::platform::keystore::{Backup, KeyStoreError, backup_text, write_private};
+use crate::platform::keystore::{Backup, KeyStoreError, backup_is_for, backup_text, write_private};
 use crate::platform::links;
 use crate::platform::log;
 
@@ -219,7 +219,7 @@ impl Controller {
             return ActionResult::Err(error);
         }
         let result = match extract_account_key(text) {
-            Some(key) => self.adopt_key(key.to_owned()).await,
+            Some(key) => self.adopt_key(key.to_owned(), text).await,
             None => Err(LauncherError::new(ErrorCode::KeyInvalid)),
         };
         self.finish(result)
@@ -242,21 +242,32 @@ impl Controller {
         } else {
             None
         };
-        let Some(key) = text.as_deref().and_then(extract_account_key).map(str::to_owned) else {
+        let Some(text) = text else {
+            return ActionResult::err(ErrorCode::KeyInvalid);
+        };
+        let Some(key) = extract_account_key(&text).map(str::to_owned) else {
             return ActionResult::err(ErrorCode::KeyInvalid);
         };
         if let Err(error) = self.begin_busy() {
             return ActionResult::Err(error);
         }
-        let result = self.adopt_key(key).await;
+        let result = self.adopt_key(key, &text).await;
         self.finish(result)
     }
 
-    /// Takes a key the player already had: the server must know it before it is saved.
-    async fn adopt_key(&self, key: String) -> Result<(), LauncherError> {
+    /// Takes a key the player already had: the server must know it before it is saved. `text` is what it came in,
+    /// so a backup made for another server never reaches this one.
+    async fn adopt_key(&self, key: String, text: &str) -> Result<(), LauncherError> {
         let Some(server) = self.server() else {
             return Err(LauncherError::new(ErrorCode::ServerUnreachable));
         };
+        if !backup_is_for(text, &server.host, server.port, server.pin()) {
+            log::info(format!(
+                "refused a key backup made for another server than {}:{}",
+                server.host, server.port
+            ));
+            return Err(LauncherError::new(ErrorCode::KeyInvalid));
+        }
         let info = hostapi::fetch_user_info(&server.endpoint(), &key).await?;
         let (slot, pin) = (server.slot(), server.pin().map(str::to_owned));
         self.with_keys(move |keys| keys.save(&slot, &key, pin.as_deref()))

@@ -179,6 +179,26 @@ fn read_record(record: &Path) -> Option<LoaderSession> {
     session.record = record.to_path_buf();
     // A record only ever names a file beside the loader
     plain_name(&session.dll)?;
+    // The user data folder is writable by anything running as the player: a record may only undo what a session
+    // does, so it never has the launcher delete or rename files elsewhere
+    let dll = session.dll.to_ascii_lowercase();
+    if is_own(&session.dll) || dll.len() <= 4 || !dll.ends_with(".dll") || !session.dir.is_absolute() {
+        return None;
+    }
+    let set_aside = |now: &Path, original: &Path| {
+        original.file_name().and_then(|n| n.to_str()).is_some_and(|name| {
+            OWN_RUNTIME_DLLS.contains(&name)
+                && original.parent() == Some(session.dir.as_path())
+                && now == session.dir.join(format!("{name}{ASIDE_SUFFIX}"))
+        })
+    };
+    if !session.aside.iter().all(|(now, original)| set_aside(now, original)) {
+        return None;
+    }
+    // Only a game folder: it holds the loader, or a runtime DLL the session set aside
+    if !is_file(&session.dir.join(LOADER_DLL)) && !session.aside.iter().any(|(now, _)| is_file(now)) {
+        return None;
+    }
     Some(session)
 }
 
@@ -310,6 +330,38 @@ pub fn recover(record: &Path) -> Option<io::Result<()>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A record that names files outside a session's reach is not acted on.
+    #[test]
+    fn a_record_reaching_outside_the_game_folder_is_ignored() {
+        let f = folder();
+        let elsewhere = f._temp.path().join("elsewhere");
+        std::fs::create_dir_all(&elsewhere).unwrap();
+        std::fs::write(elsewhere.join("victim.dll"), b"keep").unwrap();
+        std::fs::write(elsewhere.join("victim.txt"), b"keep").unwrap();
+        let write = |value: serde_json::Value| {
+            std::fs::create_dir_all(f.record.parent().unwrap()).unwrap();
+            std::fs::write(&f.record, value.to_string()).unwrap();
+        };
+        let cases = [
+            // A folder without the loader
+            serde_json::json!({"kind": "dump", "dir": elsewhere, "dll": "victim.dll", "aside": []}),
+            // A pair that renames a file outside the folder
+            serde_json::json!({"kind": "dump", "dir": f.dir, "dll": "Dumper-7.dll",
+                "aside": [[elsewhere.join("victim.txt"), f.dir.join("Rustic-Isles.dll")]]}),
+            serde_json::json!({"kind": "dump", "dir": f.dir, "dll": "Dumper-7.dll",
+                "aside": [[f.dir.join("Rustic-Isles.dll.rr-dump-off"), elsewhere.join("Rustic-Isles.dll")]]}),
+            // The loader or runtime itself, or no DLL
+            serde_json::json!({"kind": "dump", "dir": f.dir, "dll": "winmm.dll", "aside": []}),
+            serde_json::json!({"kind": "dump", "dir": f.dir, "dll": "steam_api64.txt", "aside": []}),
+        ];
+        for case in cases {
+            write(case.clone());
+            assert!(recover(&f.record).is_none(), "{case}");
+        }
+        assert!(elsewhere.join("victim.dll").is_file() && elsewhere.join("victim.txt").is_file());
+        assert!(f.dir.join(LOADER_DLL).is_file() && f.dir.join("Rustic-Isles.dll").is_file());
+    }
 
     struct Folder {
         _temp: tempfile::TempDir,
