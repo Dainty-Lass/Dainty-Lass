@@ -300,6 +300,11 @@ async fn check_runtime_states() {
         check_runtime(&win64, Some(&manifest), true, None, PLAYER_RUNTIME_FILES).await,
         (RuntimeState::Ok, true)
     );
+    // Files that match an offer the player never trusted don't play
+    assert_eq!(
+        check_runtime(&win64, Some(&manifest), false, None, PLAYER_RUNTIME_FILES).await,
+        (RuntimeState::Untrusted, false)
+    );
     assert_eq!(
         check_runtime(&win64, None, false, None, PLAYER_RUNTIME_FILES).await,
         (RuntimeState::Ok, true)

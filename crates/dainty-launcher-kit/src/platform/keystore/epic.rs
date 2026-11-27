@@ -52,13 +52,7 @@ impl EpicSessionStore {
             .crypto
             .seal(text(session).as_bytes())
             .map_err(|_| KeyStoreError::Unavailable)?;
-        if let Some(dir) = self.file.parent() {
-            std::fs::create_dir_all(dir).map_err(KeyStoreError::Io)?;
-        }
-        let mut temporary = self.file.clone().into_os_string();
-        temporary.push(".tmp");
-        std::fs::write(&temporary, data).map_err(KeyStoreError::Io)?;
-        std::fs::rename(&temporary, &self.file).map_err(KeyStoreError::Io)
+        super::write_private(&self.file, &data).map_err(KeyStoreError::Io)
     }
 
     /// The stored session, or None: no file, one this user or PC can't decrypt, or one Epic would refuse anyway

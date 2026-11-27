@@ -22,7 +22,7 @@ use crate::error::HostError;
 use crate::gamedata::{GenerateOptions, generate_game_data, seed_embedded_examples};
 use crate::hostconfig::{
     Platform, ServerMode, build_env_files, linux_options, load_host_config, load_or_create_secrets, save_host_config,
-    set_provided_secret, write_env_files,
+    set_provided_secret, write_env_files, write_secret_file,
 };
 use crate::invite::certificate_fingerprint;
 use crate::linux::{ensure_wine_prefix, is_root, write_gameserver_wrapper, write_systemd_units};
@@ -168,8 +168,7 @@ impl SetupEnv for RealSetupEnv {
         let cert_file = tls.join("gateway-cert.pem");
         let key_file = tls.join("gateway-key.pem");
         std::fs::write(&cert_file, cert_pem.as_bytes()).map_err(|e| HostError::io(&cert_file, e))?;
-        std::fs::write(&key_file, key_pem.as_bytes()).map_err(|e| HostError::io(&key_file, e))?;
-        Ok(())
+        write_secret_file(&key_file, &key_pem)
     }
 
     fn gateway_program(&self) -> String {
@@ -458,4 +457,33 @@ pub fn run_with(
     out("\nNext steps:\n  dainty-host start\n  dainty-host doctor shows what is still missing.");
 
     Ok(ExitCode::SUCCESS)
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used, clippy::expect_used, reason = "a panic is how a test fails")]
+
+    use super::*;
+
+    #[test]
+    fn the_gateway_key_is_written_as_a_secret() {
+        let tmp = tempfile::tempdir().unwrap();
+        let layout = Layout::new(&Paths::new(tmp.path()));
+        let tls = tmp.path().join("tls");
+        let hosts = ["play.example.com".to_owned()];
+        RealSetupEnv
+            .make_certificate(&layout, &hosts, &tls, &tmp.path().join("setup.log"))
+            .unwrap();
+        let key = std::fs::read_to_string(tls.join("gateway-key.pem")).unwrap();
+        assert!(key.contains("PRIVATE KEY"));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(tls.join("gateway-key.pem"))
+                .unwrap()
+                .permissions()
+                .mode();
+            assert_eq!(mode & 0o777, 0o600);
+        }
+    }
 }

@@ -102,7 +102,7 @@ serde = "1"
 serde_json = "1"
 # The SHA-256 several targets check (runtime files, history buckets, log shipping)
 sha2 = "0.11"
-# runtime_input, launcher_files, launcher_bridge, launcher_hostapi, relay_input: what the launcher reads from a
+# runtime_input, launcher_files, launcher_bridge, launcher_modules, launcher_hostapi, relay_input: what the launcher reads from a
 # server, its own files, the page and the game (RD27 spec §2.3.4, §2.6.3–§2.6.5, §2.7.1, §2.7.2)
 dainty-launcher-kit = { path = "../crates/dainty-launcher-kit", default-features = false }
 # launcher_host: the launcher's settings.toml reader
@@ -684,6 +684,13 @@ bench = false
 [[bin]]
 name = "launcher_bridge"
 path = "fuzz_targets/launcher_bridge.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "launcher_modules"
+path = "fuzz_targets/launcher_modules.rs"
 test = false
 doc = false
 bench = false

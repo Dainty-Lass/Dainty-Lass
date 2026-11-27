@@ -30,7 +30,8 @@ memory), link the code or test that shows it, and sign at the end with the date 
 The crate listens on nothing and holds no `unsafe`. HTTPS to a provider is the module's `ProviderHttp`. The 1.14.7
 module passes `Unreachable`, so today no Cloudflare call is ever made and only turn-rest can issue a TURN credential.
 
-Fuzz target in `fuzz`: `relay_signal` (`parse_ice_signal` and `filter_relay_only` for each kind).
+Fuzz target in `fuzz`: `relay_signal` (`parse_ice_signal` and `filter_relay_only` for each kind; a `GATHERING_DONE`
+output is empty).
 
 ## Checklist
 
@@ -90,20 +91,21 @@ Fuzz target in `fuzz`: `relay_signal` (`parse_ice_signal` and `filter_relay_only
 - [ ] With `P2P_FORCE_SDR=true` (`force_relay`), every transport config says `forceRelay`, and `filter_relay_only`
   drops every candidate line that is not `typ relay`. A description keeps only its ICE credentials and options. A
   signal with nothing left is answered `FILTERED_RELAY_ONLY` and not delivered (test `relay_only_filter`).
-- [ ] **Known gap:** in relay-only mode a `GATHERING_DONE` signal is passed on unchanged (`filter_relay_only` returns
-  `data` as sent, and the fuzz target asserts exactly that). A launcher can put host or reflexive candidate lines in
-  that kind's `data` and they reach the peer. The joiner's transport refuses a ready route that is not `route=relay`
-  ([rifts-host.md](rifts-host.md)), but the addresses are still disclosed. Decide whether `GATHERING_DONE` data should
-  be forced blank.
+- [ ] In relay-only mode a `GATHERING_DONE` signal is passed on with its data blanked (`filter_relay_only`; fixed
+  2026-11-26, it was passed on unchanged): no transport reads that kind's data, and a launcher could have put host
+  or reflexive candidate lines in it. The fuzz target `relay_signal` asserts the output is empty.
 
 ## Open points
 
-- `P2P_TURN_PROVIDER` falls back to Cloudflare for any unknown word, and the module can't reach Cloudflare. A typo
-  in `turn-rest` therefore turns the relay off without a warning beyond `iceRelayConfigured` in the start summary.
-- `SECRET_SETTINGS` says `setup` keeps the four `P2P_` secrets in `secrets.env`, but the host kit's `SECRET_KEYS` has
-  none of them, and `setup` never makes them. Today they reach the module only from the service's environment.
-  Decide whether `setup` should write `P2P_TURN_REST_SECRET` and `P2P_TRANSPORT_KEY_SECRET`, and add them to
-  `SECRET_KEYS` so they are kept out of logs and overrides.
+- Accepted: `P2P_TURN_PROVIDER` falls back to Cloudflare for any unknown word, and the module can't reach
+  Cloudflare. A typo in `turn-rest` therefore turns the relay off without a warning beyond `iceRelayConfigured` in
+  the start summary. It fails closed, so it is a setup warning to add, not a security fix.
+- `SECRET_SETTINGS` said `setup` keeps the four `P2P_` secrets in `secrets.env`; its comment now says what is true
+  (fixed 2026-11-26): they reach the module only from the service's environment, the host kit has no relay settings
+  at all (not even `P2P_TURN_PROVIDER`), and an unset `P2P_TRANSPORT_KEY_SECRET` is made fresh at each start by
+  design (§14 item 5). `P2P_TURN_REST_SECRET` must match the TURN server's own, so `setup` can't invent it. Giving
+  the relay `settings.toml` fields and `secrets.env` keys is a feature row (it touches the `setup` options, a seam);
+  the host kit's overrides already redact any `_SECRET` or `_TOKEN` name.
 - `TurnRelayPorts` (3478, relays on 49152–65535) is exported but used only by a test. No firewall rule or listener
   depends on it.
 - There is no fuzz target for `RelayConfig::from_settings` or `normalize_provider_ice_servers`. Both are covered by

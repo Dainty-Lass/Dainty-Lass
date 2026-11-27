@@ -495,6 +495,23 @@ impl Source {
     }
 }
 
+/// An `http://` URL whose host is not loopback.
+fn is_remote_plain_http(url: &str) -> bool {
+    let Some(rest) = url.strip_prefix("http://") else {
+        return false;
+    };
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let host_port = authority.rsplit_once('@').map_or(authority, |(_, h)| h);
+    let host = if let Some(v6) = host_port.strip_prefix('[') {
+        v6.split(']').next().unwrap_or_default()
+    } else {
+        host_port.split(':').next().unwrap_or_default()
+    };
+    let loopback =
+        host.eq_ignore_ascii_case("localhost") || host.parse::<std::net::IpAddr>().is_ok_and(|ip| ip.is_loopback());
+    !loopback
+}
+
 /// The release an update would install.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Candidate {
@@ -825,6 +842,12 @@ pub fn find_release(source: &Source, platform: &str, wanted: Wanted<'_>) -> Upda
             select_candidate(&candidates, wanted, &source.describe(), platform)
         }
         Source::Url(url) => {
+            if is_remote_plain_http(url) {
+                // The checksums come from the same place as the archive and a URL has no attestation
+                return Err(UpdateError::Problem(Problem::DownloadFailed(format!(
+                    "{url}: a release source off this machine must be https://"
+                ))));
+            }
             let clean = url.trim_end_matches('/');
             if let Some((base, file_name)) = clean.rsplit_once('/')
                 && let Some(ver) = archive_version(file_name, platform)
@@ -995,7 +1018,22 @@ fn validate_archive_entry_path(raw: &Path) -> UpdateResult<PathBuf> {
     Ok(clean)
 }
 
-fn extract_zip(archive: &Path, dest: &Path) -> UpdateResult<()> {
+/// The most an archive may unpack to: a release is well under this, and a gzip or deflate bomb is refused.
+pub const MAX_EXTRACTED_BYTES: u64 = 4 * 1024 * 1024 * 1024;
+
+/// Copies one entry, taking what it writes from `budget`; an archive past the budget is refused.
+fn copy_bounded(entry: &mut impl Read, out: &mut File, budget: &mut u64) -> UpdateResult<()> {
+    let written = io::copy(&mut entry.take(budget.saturating_add(1)), out)?;
+    if written > *budget {
+        return Err(UpdateError::Problem(Problem::BadArchive(format!(
+            "archive unpacks to more than {MAX_EXTRACTED_BYTES} bytes"
+        ))));
+    }
+    *budget -= written;
+    Ok(())
+}
+
+fn extract_zip(archive: &Path, dest: &Path, mut budget: u64) -> UpdateResult<()> {
     let file = File::open(archive)?;
     let mut zip = zip::ZipArchive::new(file)
         .map_err(|e| UpdateError::Problem(Problem::BadArchive(format!("invalid zip: {e}"))))?;
@@ -1026,7 +1064,7 @@ fn extract_zip(archive: &Path, dest: &Path) -> UpdateResult<()> {
                 fs::create_dir_all(parent)?;
             }
             let mut out_file = File::create(&out_path)?;
-            io::copy(&mut entry, &mut out_file)?;
+            copy_bounded(&mut entry, &mut out_file, &mut budget)?;
             #[cfg(unix)]
             if let Some(mode) = entry.unix_mode() {
                 use std::os::unix::fs::PermissionsExt;
@@ -1037,7 +1075,7 @@ fn extract_zip(archive: &Path, dest: &Path) -> UpdateResult<()> {
     Ok(())
 }
 
-fn extract_tar_gz(archive: &Path, dest: &Path) -> UpdateResult<()> {
+fn extract_tar_gz(archive: &Path, dest: &Path, mut budget: u64) -> UpdateResult<()> {
     let file = File::open(archive)?;
     let gz = GzDecoder::new(file);
     let mut tar = tar::Archive::new(gz);
@@ -1070,7 +1108,7 @@ fn extract_tar_gz(archive: &Path, dest: &Path) -> UpdateResult<()> {
                 fs::create_dir_all(parent)?;
             }
             let mut out_file = File::create(&out_path)?;
-            io::copy(&mut entry, &mut out_file)?;
+            copy_bounded(&mut entry, &mut out_file, &mut budget)?;
             #[cfg(unix)]
             if let Ok(mode) = entry.header().mode() {
                 use std::os::unix::fs::PermissionsExt;
@@ -1084,6 +1122,10 @@ fn extract_tar_gz(archive: &Path, dest: &Path) -> UpdateResult<()> {
 /// Unpacks a zip or tar.gz into `dest` (emptied first), refusing paths that escape it and links.
 /// Returns the release root: `dest`, or its one folder when that holds the release.json.
 pub fn extract(archive: &Path, dest: &Path) -> UpdateResult<PathBuf> {
+    extract_within(archive, dest, MAX_EXTRACTED_BYTES)
+}
+
+fn extract_within(archive: &Path, dest: &Path, budget: u64) -> UpdateResult<PathBuf> {
     if dest.exists() {
         fs::remove_dir_all(dest)?;
     }
@@ -1094,9 +1136,9 @@ pub fn extract(archive: &Path, dest: &Path) -> UpdateResult<PathBuf> {
         .unwrap_or_default()
         .to_ascii_lowercase();
     if name.ends_with(".zip") {
-        extract_zip(archive, dest)?;
+        extract_zip(archive, dest, budget)?;
     } else if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
-        extract_tar_gz(archive, dest)?;
+        extract_tar_gz(archive, dest, budget)?;
     } else {
         return Err(UpdateError::Problem(Problem::BadArchive(format!(
             "unsupported archive format: {}",
@@ -1487,6 +1529,53 @@ mod tests {
     use super::*;
     use serde_json::json;
     use tempfile::TempDir;
+
+    #[test]
+    fn an_archive_past_its_unpacked_budget_is_refused() {
+        let tmp = TempDir::new().unwrap();
+        let archive = tmp.path().join("bomb.tar.gz");
+        let gz = flate2::write::GzEncoder::new(File::create(&archive).unwrap(), flate2::Compression::best());
+        let mut builder = tar::Builder::new(gz);
+        let data = vec![0u8; 64 * 1024];
+        let mut header = tar::Header::new_gnu();
+        header.set_size(data.len() as u64);
+        header.set_mode(0o644);
+        header.set_cksum();
+        builder
+            .append_data(&mut header, "release.json", data.as_slice())
+            .unwrap();
+        builder.into_inner().unwrap().finish().unwrap();
+
+        let dest = tmp.path().join("out");
+        let refused = extract_within(&archive, &dest, 1024).unwrap_err();
+        assert!(refused.to_string().contains("unpacks to more than"), "{refused}");
+        assert!(extract_within(&archive, &dest, 64 * 1024).is_ok());
+    }
+
+    #[test]
+    fn a_plain_http_source_must_be_on_this_machine() {
+        for url in [
+            "http://127.0.0.1:8080/r",
+            "http://localhost/r",
+            "http://[::1]:9/r",
+            "https://example.com/r",
+        ] {
+            assert!(!is_remote_plain_http(url), "{url}");
+        }
+        for url in [
+            "http://example.com/r",
+            "http://127.0.0.1.example.com/r",
+            "http://localhost@evil.test/r",
+        ] {
+            assert!(is_remote_plain_http(url), "{url}");
+        }
+        let refused = find_release(
+            &Source::parse("http://example.com/releases"),
+            "linux-x64",
+            Wanted::Newest(None),
+        );
+        assert!(refused.unwrap_err().to_string().contains("must be https://"));
+    }
 
     #[test]
     fn semver_parsing_and_ordering() {

@@ -401,7 +401,7 @@ pub async fn is_complete_runtime_dir(dir: &Path, files: &[&'static str]) -> bool
 }
 
 /// The runtime's state for the page, and whether every file is in place. A local runtime folder wins over
-/// the server's offer; `trusted` says the player trusted the offered set.
+/// the server's offer; `trusted` says the player trusted the offered set, which an offer always needs.
 pub async fn check_runtime(
     win64_dir: &Path,
     offered: Option<&RuntimeManifest>,
@@ -444,10 +444,11 @@ pub async fn check_runtime(
             let stale = unlisted(files, manifest).any(|name| installed.iter().any(|(n, h)| *n == name && h.is_some()))
                 || !retired_present(win64_dir, shape).is_empty();
             let matches = matches && !stale;
-            if matches {
-                (RuntimeState::Ok, true)
-            } else if !trusted {
+            // Matching files are not enough: something else may have put them there, so the set must be trusted
+            if !trusted {
                 (RuntimeState::Untrusted, false)
+            } else if matches {
+                (RuntimeState::Ok, true)
             } else if present == 0 {
                 (RuntimeState::Missing, false)
             } else {

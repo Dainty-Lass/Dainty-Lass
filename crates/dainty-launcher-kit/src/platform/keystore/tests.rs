@@ -103,3 +103,31 @@ fn write_private_replaces_and_leaves_no_tmp() {
         assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600);
     }
 }
+
+#[test]
+fn a_backup_for_another_server_is_not_used() {
+    let fp = "ab".repeat(32);
+    let fp: &'static str = Box::leak(fp.into_boxed_str());
+    let public = backup_text(&backup(Some(fp), Some("Slayer")));
+    assert!(backup_is_for(&public, "elsewhere.example.com", 443, Some(fp)));
+    assert!(backup_is_for(
+        &public,
+        "play.example.com",
+        443,
+        Some(&fp.to_uppercase())
+    ));
+    assert!(!backup_is_for(&public, "play.example.com", 443, Some(&"cd".repeat(32))));
+    assert!(!backup_is_for(&public, "play.example.com", 443, None));
+
+    let private = backup_text(&backup(None, None));
+    assert!(backup_is_for(&private, "PLAY.example.com", 443, None));
+    assert!(!backup_is_for(&private, "play.example.com", 444, None));
+    assert!(!backup_is_for(&private, "other.example.com", 443, None));
+
+    assert!(backup_is_for(
+        "DLK_abcdefghijklmnopqrstuvwx",
+        "play.example.com",
+        443,
+        None
+    ));
+}

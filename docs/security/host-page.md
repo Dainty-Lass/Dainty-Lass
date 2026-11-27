@@ -110,21 +110,21 @@ Under Proton without the inject helper the loader loads the Host tools instead (
 
 ## Open points
 
-- [ ] **The session record is trusted beyond its `dll`.** `read_record` checks only that `dll` is a plain name;
-  `recover` and `end` then remove `dir/mystic_loader.ini` and `dir/<dll>` and rename every `aside` pair, for
-  whatever `dir` and `aside` paths the JSON in the user data folder holds. Anything that can write that file as the
-  player can have the launcher delete or rename files elsewhere at its next start. Check that `aside` pairs sit in
-  `dir`, carry the `.rr-dump-off` suffix and name an own runtime DLL, and that `dir` is the configured game folder.
-- [ ] **`loader_stands_down` is a marker search, not a hash:** any `winmm.dll` holding
+- [ ] **Fixed 2026-11-26: the session record is checked whole.** `read_record` takes a record only when `dll` is a
+  plain `.dll` name that is not the loader's or a runtime's, `dir` is absolute and holds the loader or a runtime the
+  record set aside, and every `aside` pair is `dir/<own runtime DLL>` and `dir/<it>.rr-dump-off` (test
+  `a_record_reaching_outside_the_game_folder_is_ignored`). `dir` is not compared with the configured game folder,
+  which may have changed since the session began.
+- [ ] **Accepted (local writer): `loader_stands_down` is a marker search, not a hash:** any `winmm.dll` holding
   `dainty-loader-stands-down:DAINTY_RUNTIME_INJECTED=1` passes the PLAY check. Pin the loaders the launcher knows by
   hash, or record that a local writer of the game folder is out of scope.
-- [ ] **The Host page accepts a `dauntless-revived://` link** from `dainty-host invite` (`INVITE_LINK_PREFIXES`),
-  while the launcher's invite parser refuses that scheme (RD5). Decide whether the host kit can still print one;
-  drop it from the list if not.
-- [ ] **`dainty-host` and the toolchain are run as found**, with no hash: the workspace's binary, cargo from
+- [ ] **Fixed 2026-11-26:** `INVITE_LINK_PREFIXES` is `dauntless://` and `dainty://` only, so the Host page refuses a
+  `dauntless-revived://` link as the invite parser does (RD5; test `a_revived_invite_link_is_refused`). The host kit
+  never prints one.
+- [ ] **Accepted, host docs to follow: `dainty-host` and the toolchain are run as found**, with no hash: the workspace's binary, cargo from
   `CARGO_HOME`, the home folder or `PATH`, `vswhere` under `ProgramFiles(x86)`. That is the host's own choice of
   folder; note it in the host docs.
-- [ ] **`run_logged` and `HostServer::command` have no overall deadline** (builds and `setup` can run long, and only
+- [ ] **Accepted: `run_logged` and `HostServer::command` have no overall deadline** (builds and `setup` can run long, and only
   a page stop or exit ends them); the build logs record the full command line and every output line.
 
 ## Sign-off
