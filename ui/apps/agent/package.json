@@ -13,10 +13,10 @@
   },
   "dependencies": {
     "@dainty/fleet": "workspace:*",
-    "eventsource-parser": "^3"
+    "eventsource-parser": "^4.1.3"
   },
   "devDependencies": {
-    "@types/bun": "^1.4.3",
+    "@types/bun": "^1.4.5",
     "typescript": "^7.0.2"
   }
 }

@@ -20,34 +20,34 @@
     "devtools": "bunx react-devtools@8.0.0"
   },
   "dependencies": {
-    "@astryxdesign/core": "^0.7.2",
-    "@better-auth/passkey": "1.7.12",
+    "@astryxdesign/core": "^0.7.17",
+    "@better-auth/passkey": "1.7.28",
     "@dainty/bridge": "workspace:*",
     "@dainty/fleet": "workspace:*",
     "@dainty/theme": "workspace:*",
-    "better-auth": "1.7.12",
+    "better-auth": "1.7.28",
     "drizzle-orm": "^0.45.4",
-    "lucide-react": "^1.61.0",
-    "next": "^16.4.2",
-    "next-intl": "^4.14.9",
-    "nodemailer": "^10.2.0",
+    "lucide-react": "^1.82.0",
+    "next": "^16.4.6",
+    "next-intl": "^4.16.2",
+    "nodemailer": "^10.6.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-server-dom-webpack": "^19.3.1",
     "sonner": "^2.0.8",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.5"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.3.3",
-    "@types/bun": "^1.4.3",
+    "@tailwindcss/vite": "^4.3.5",
+    "@types/bun": "^1.4.5",
     "@types/nodemailer": "^8.0.2",
-    "@types/react": "^19.3.0",
+    "@types/react": "^19.3.3",
     "@types/react-dom": "^19.3.0",
-    "@vitejs/plugin-react": "^6.1.2",
-    "@vitejs/plugin-rsc": "^0.5.38",
+    "@vitejs/plugin-react": "^6.3.0",
+    "@vitejs/plugin-rsc": "^0.5.39",
     "drizzle-kit": "^0.31.11",
     "typescript": "^7.0.2",
-    "vinext": "1.3.0",
-    "vite": "^8.3.5"
+    "vinext": "1.4.7",
+    "vite": "^8.4.0"
   }
 }

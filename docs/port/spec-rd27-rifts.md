@@ -236,7 +236,7 @@ had to. The two sides of one format then share one implementation.
 | ES256 tickets: sign (backend), verify (host) | `p256` (Rust), BCrypt (C++) | `p256` 0.14 (`ecdsa`, `pem`, `pkcs8`, `std`): its types are in `rustic-rifts-admission`'s public API, so both repositories must share one version. **New workspace entry.** The transport may verify with `aws-lc-rs` instead. Both must accept high-S signatures |
 | SHA-256, HMAC-SHA1 (turn-rest), HMAC-SHA256 | `sha2`, `sha1`, `hmac` | the same (all in the workspace) |
 | Random | `getrandom`, BCryptGenRandom | `rand` or `aws-lc-rs::rand` (in the workspace); `getrandom` would be new |
-| Dynamic loading (`rustic-rifts-host` FFI path) | `libloading 0.7` | `libloading` is pinned only in `plugin-host`'s own manifest; a workspace entry is a seam change |
+| Dynamic loading (`rustic-rifts-host` FFI path) | `libloading 0.9` | `libloading` is pinned only in `plugin-host`'s own manifest; a workspace entry is a seam change |
 | HTTPS from the transport to the backend | WinHTTP | `hyper` + `hyper-rustls` (in the workspace), on a small tokio runtime of the transport's own |
 | Named pipe from the game server (Guard events) | Win32 | `tokio::net::windows::named_pipe` (safe API) |
 

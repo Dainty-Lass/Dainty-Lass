@@ -9,7 +9,7 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
-libloading = "0.7"
+libloading = "0.9"
 dainty-module-api.workspace = true
 tokio = { workspace = true, features = ["rt", "sync"] }
 

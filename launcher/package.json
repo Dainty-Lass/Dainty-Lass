@@ -11,15 +11,15 @@
     "typecheck": "bun run bridge-data && tsc --noEmit",
     "dev": "cd ../crates/dainty-launcher-app && tauri dev -- --features realms",
     "dev:manager": "cd ../crates/dainty-launcher-app && tauri dev --config tauri.server-gui.conf.json -- --no-default-features --features server-gui",
-    "build:pages":"bun scripts/dashboard-page.ts build launcher && bun scripts/dashboard-page.ts build server-manager",
+    "build:pages": "bun scripts/dashboard-page.ts build launcher && bun scripts/dashboard-page.ts build server-manager",
     "e2e:desktop": "bun e2e/desktop.ts",
     "e2e:remote": "bun e2e/remote.ts"
   },
   "devDependencies": {
-    "@tauri-apps/api": "2.12.4",
-    "@tauri-apps/cli": "2.12.4",
-    "@types/bun": "1.4.4",
-    "playwright-core": "1.64.1",
-    "typescript": "6.0.3"
+    "@tauri-apps/api": "2.12.5",
+    "@tauri-apps/cli": "2.12.6",
+    "@types/bun": "1.4.5",
+    "playwright-core": "1.65.1",
+    "typescript": "7.0.2"
   }
 }

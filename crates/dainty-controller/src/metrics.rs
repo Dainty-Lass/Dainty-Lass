@@ -28,10 +28,13 @@ pub fn install(status: StatusRegistry) {
 
 fn install_as(key: &str, status: StatusRegistry) {
     // CPU use is measured between two refreshes, so the system is kept: the first scrape reads 0
-    let system = Arc::new(Mutex::new(System::new()));
+    // An OS sysinfo can't read gets the component metrics alone.
+    let system = System::new().ok().map(|s| Arc::new(Mutex::new(s)));
     m::collector(key, move || {
         components(&status);
-        processes(&mut system.lock().unwrap_or_else(PoisonError::into_inner));
+        if let Some(system) = &system {
+            processes(&mut system.lock().unwrap_or_else(PoisonError::into_inner));
+        }
     });
 }
 

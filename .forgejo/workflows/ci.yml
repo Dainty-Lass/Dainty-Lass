@@ -172,7 +172,7 @@ jobs:
         run: rustup show active-toolchain || rustup toolchain install
 
       # The cargo registry and the target folder
-      - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: https://github.com/Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: .
 
@@ -249,7 +249,7 @@ jobs:
       - id: toolchain
         run: echo "channel=$(grep '^channel' rust-toolchain.toml | cut -d '"' -f 2)" >> "$GITHUB_OUTPUT"
 
-      - uses: https://github.com/EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+      - uses: https://github.com/EmbarkStudios/cargo-deny-action@17aeb3c839e42274e2b8adf721c8c65edfdc74dd # v2.1.3
         with:
           manifest-path: Cargo.toml
           command: check
@@ -281,7 +281,7 @@ jobs:
             echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           fi
 
-      - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: https://github.com/Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: fuzz
           key: fuzz
@@ -331,7 +331,7 @@ jobs:
           # launcher/package.json's packageManager; ui/ names only bun in devEngines
           bun-version: 1.4.4
       # setup-bun caches Bun itself, not the packages
-      - uses: https://github.com/actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      - uses: https://github.com/actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-ui-${{ hashFiles('bun.lock') }}
@@ -384,11 +384,11 @@ jobs:
           # The maintainer's PC: builds with 6 jobs or fewer (AGENTS.md)
           echo "CARGO_BUILD_JOBS=6" >> "$GITHUB_ENV"
 
-      - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: https://github.com/Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: installers-windows
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
 
@@ -396,7 +396,7 @@ jobs:
         with:
           bun-version: 1.4.4
 
-      - uses: https://github.com/actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      - uses: https://github.com/actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-launcher-${{ hashFiles('bun.lock') }}
@@ -449,7 +449,7 @@ jobs:
       - name: Install the pinned toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
-      - uses: https://github.com/Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: https://github.com/Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: network
 

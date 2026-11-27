@@ -40,8 +40,8 @@
     "demo": "bun run --filter @dainty/theme build && bun run --filter @dainty/web demo"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.2",
-    "@types/bun": "^1.4.3",
+    "@biomejs/biome": "^2.6.9",
+    "@types/bun": "^1.4.5",
     "typescript": "^7.0.2"
   }
 }

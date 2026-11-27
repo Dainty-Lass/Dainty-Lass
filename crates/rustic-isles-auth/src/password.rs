@@ -6,7 +6,7 @@
 
 use std::sync::OnceLock;
 
-use argon2::password_hash::{PasswordHash, PasswordHasher as _, PasswordVerifier as _, SaltString};
+use argon2::password_hash::{PasswordHasher as _, PasswordVerifier as _};
 use argon2::{Algorithm, Argon2, Params, Version};
 
 use crate::util;
@@ -20,8 +20,7 @@ fn hasher() -> Result<Argon2<'static>, argon2::Error> {
 }
 
 fn hash_with_salt(password: &str, salt: &[u8]) -> Option<String> {
-    let salt = SaltString::encode_b64(salt).ok()?;
-    let hash = hasher().ok()?.hash_password(password.as_bytes(), &salt).ok()?;
+    let hash = hasher().ok()?.hash_password_with_salt(password.as_bytes(), salt).ok()?;
     Some(hash.to_string())
 }
 
@@ -52,10 +51,7 @@ pub fn verify_password(hash: Option<&str>, password: &str) -> bool {
     let Some(target) = target else {
         return false;
     };
-    let Ok(parsed) = PasswordHash::new(target) else {
-        return false;
-    };
-    let matched = Argon2::default().verify_password(password.as_bytes(), &parsed).is_ok();
+    let matched = Argon2::default().verify_password(password.as_bytes(), target).is_ok();
     matched && real
 }
 
@@ -86,5 +82,13 @@ mod tests {
         assert!(!verify_password(Some("not a hash"), "correct horse"));
         assert!(!verify_password(None, "correct horse"));
         assert!(!verify_password(None, "no account has this password"));
+    }
+
+    #[test]
+    fn stored_hashes_keep_verifying_with_their_own_params() {
+        // The Argon2 reference vector (m=256, salt "somesalt"): hashes already in a store must survive a crate bump.
+        let stored = "$argon2id$v=19$m=256,t=2,p=1$c29tZXNhbHQ$nf65EOgLrQMR/uIPnA4rEsF5h7TKyQwu9U1bMCHGi/4";
+        assert!(verify_password(Some(stored), "password"));
+        assert!(!verify_password(Some(stored), "passwords"));
     }
 }
