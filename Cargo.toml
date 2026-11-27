@@ -26,6 +26,7 @@ dainty-hostkit = { path = "crates/dainty-hostkit" }
 dainty-http = { path = "crates/dainty-http" }
 dainty-inject = { path = "crates/dainty-inject" }
 dainty-launcher-kit = { path = "crates/dainty-launcher-kit" }
+dainty-legacy = { path = "crates/dainty-legacy" }
 dainty-manager-server = { path = "crates/dainty-manager-server" }
 # version and registry let cargo package it for module repositories (DF1).
 dainty-module-api = { path = "crates/dainty-module-api", version = "0.1.0", registry = "silentspud" }

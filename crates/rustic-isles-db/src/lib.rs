@@ -28,9 +28,10 @@ use std::fmt;
 use std::path::{Path, PathBuf};
 
 use dainty_module_api::NodeId;
-use dainty_store::Database;
+use dainty_store::{AnyConnection, Database};
 use rustic_isles_economy::inventory::storage_policy::{POLICY_FILE, StoragePolicy};
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 
 pub use cli::{Command, main_with, parse_args, print_migrate_report, print_verify_report};
 pub use repair::LegacyStarter;
@@ -330,6 +331,41 @@ pub async fn run_migrate(opts: &MigrateOptions) -> Result<MigrateReport, DbError
         })
         .await?;
     Ok(report)
+}
+
+/// The areas one player's save spans: no auth (the account is the caller's), no parties, no reforged.
+pub const SAVE_AREAS: [Area; 4] = [Area::Progression, Area::Characters, Area::Inventory, Area::Bounties];
+
+/// One player's save, as 1.14.7 Mystic Paradox collections in memory, written inside the caller's write transaction
+/// with `migrate`'s extraction and repairs (the legacy importer, `docs/port/spec-legacy-ramsgate.md`). Its `userId`s
+/// must already name the target account, which [`ids::Resolver`] then finds by `accounts.user_id`. Only
+/// [`SAVE_AREAS`] are read; `accounts` rows are never written, so the account's name stays. The rows per table.
+pub fn write_player_save(
+    conn: &mut AnyConnection,
+    node: &NodeId,
+    collections: BTreeMap<String, Vec<Map<String, Value>>>,
+    starter: &LegacyStarter,
+    policy: Option<&StoragePolicy>,
+) -> Result<BTreeMap<String, usize>, DbError> {
+    let (accounts, parties) = tables::existing_ids(conn)?;
+    let resolver = Resolver::new(&node.to_string(), accounts, parties);
+    let areas: BTreeSet<Area> = SAVE_AREAS.into_iter().collect();
+    let settings = Settings {
+        areas: &areas,
+        skip_invalid: true,
+        policy,
+        starter,
+    };
+    let mut source = collections;
+    let mut state = extract::extract(&mut source, &settings, resolver)?.state;
+    state.tables.remove("accounts");
+    state.implicit.clear();
+    tables::write_state(conn, &state)?;
+    Ok(state
+        .tables
+        .iter()
+        .map(|(t, rows)| ((*t).to_owned(), rows.len()))
+        .collect())
 }
 
 /// `verify` (§10), the report whatever it says; [`run_verify`] turns a mismatch into an error.

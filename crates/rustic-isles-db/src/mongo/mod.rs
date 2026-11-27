@@ -276,15 +276,30 @@ impl MongoClient {
 
     /// Every document, in natural order, held in memory; a missing collection reads empty.
     pub fn find_all(&mut self, collection: &str) -> Result<Vec<Map<String, Value>>, MongoError> {
+        self.find(collection, None)
+    }
+
+    /// The documents `filter` matches (a JSON query: strings, numbers and operators such as `$in`, no ObjectIds), in
+    /// natural order, held in memory; a missing collection reads empty. The legacy importer's per-player read.
+    pub fn find_matching(
+        &mut self,
+        collection: &str,
+        filter: &Map<String, Value>,
+    ) -> Result<Vec<Map<String, Value>>, MongoError> {
+        if has_nul_key(filter) {
+            return Err(MongoError::Command(format!("BSON key contains NUL: {collection}")));
+        }
+        self.find(collection, Some(&Value::Object(filter.clone())))
+    }
+
+    fn find(&mut self, collection: &str, filter: Option<&Value>) -> Result<Vec<Map<String, Value>>, MongoError> {
         let db = self.database.clone();
-        let reply = self.conn.send(
-            "find",
-            &[
-                ("find", B::Str(collection)),
-                ("batchSize", B::I32(BATCH)),
-                ("$db", B::Str(&db)),
-            ],
-        )?;
+        let mut command = vec![("find", B::Str(collection))];
+        if let Some(filter) = filter {
+            command.push(("filter", B::Json(filter)));
+        }
+        command.extend([("batchSize", B::I32(BATCH)), ("$db", B::Str(&db))]);
+        let reply = self.conn.send("find", &command)?;
         let cursor = cursor_of(&reply, &format!("find({collection})"))?;
         let mut out: Vec<_> = documents(cursor, "firstBatch").collect();
         let mut id = cursor.get("id").and_then(Value::as_i64).unwrap_or(0);
@@ -324,6 +339,17 @@ impl MongoClient {
             .and_then(Value::as_array)
             .is_some_and(|b| !b.is_empty()))
     }
+}
+
+fn has_nul_key(document: &Map<String, Value>) -> bool {
+    fn value(v: &Value) -> bool {
+        match v {
+            Value::Object(m) => has_nul_key(m),
+            Value::Array(items) => items.iter().any(value),
+            _ => false,
+        }
+    }
+    document.iter().any(|(k, v)| k.contains('\0') || value(v))
 }
 
 #[cfg(test)]

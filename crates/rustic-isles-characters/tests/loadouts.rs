@@ -7,6 +7,8 @@
 
 mod common;
 
+use std::sync::Arc;
+
 use common::{EMOJIS, FLASK, Harness, NO_EMOJI_TABLES, Options, PARTS, TABLES, WEAPON, Who, parse};
 use dainty_service_kit::jsjson;
 use rustic_isles_auth::AuthData;
@@ -506,4 +508,56 @@ async fn the_seam_other_units_call() {
         .await
         .unwrap();
     assert!(!not_fresh);
+}
+
+/// Writes one character named `Imported`, as the legacy importer would, or nothing.
+#[derive(Debug)]
+struct OldSave(bool);
+
+impl rustic_isles_characters::FirstSave for OldSave {
+    fn import<'a>(
+        &'a self,
+        store: &'a rustic_isles_store::IslesStore,
+        account: &'a rustic_isles_store::repo::auth::AccountRecord,
+    ) -> dainty_module_api::BoxFuture<'a, bool> {
+        Box::pin(async move {
+            if !self.0 {
+                return false;
+            }
+            let id = account.id.clone();
+            store
+                .write(&common::system(), move |tx, repos| {
+                    let record = rustic_isles_store::repo::characters::CharacterRecord {
+                        character_id: "imported-1".into(),
+                        account: id,
+                        created_date: "Nov 19, 2026".into(),
+                        last_modified_date: "Nov 19, 2026".into(),
+                        name: "Imported".into(),
+                        update_version: 0,
+                        data: "{}".into(),
+                    };
+                    repos.characters.create(tx, &record).map(|_| ())
+                })
+                .await
+                .is_ok()
+        })
+    }
+}
+
+#[tokio::test]
+async fn an_old_save_is_asked_for_before_the_starter_character() {
+    for (found, name) in [(true, "Imported"), (false, "p1")] {
+        let h = Harness::bare().await;
+        let area = Characters::new(common::character_data(), common::kit()).with_first_save(Arc::new(OldSave(found)));
+        let tables = h.shared.version().tables;
+        let list = area
+            .characters_for_user(&h.store, tables, &common::system(), "p1")
+            .await
+            .unwrap();
+        assert_eq!(list.len(), 1, "{name}");
+        assert_eq!(
+            list[0]["name"], name,
+            "the old save replaces the starter, or the starter is made"
+        );
+    }
 }

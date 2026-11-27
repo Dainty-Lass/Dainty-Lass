@@ -90,6 +90,14 @@ pub trait SetupEnv {
             .map_err(|e| HostError::message(format!("could not read the OAuth client secret from stdin: {e}")))?;
         Ok(line.trim().to_owned())
     }
+    /// The Ramsgate Reborn MongoDB URI, one line from stdin: it holds that database's password.
+    fn read_legacy_mongo_uri(&self) -> Result<String, HostError> {
+        let mut line = String::new();
+        std::io::stdin()
+            .read_line(&mut line)
+            .map_err(|e| HostError::message(format!("could not read the legacy MongoDB URI from stdin: {e}")))?;
+        Ok(line.trim().to_owned())
+    }
 }
 
 /// The real machine.
@@ -214,9 +222,10 @@ pub fn run_with(
     } else {
         None
     };
-    if args.discord_bot_token && args.oauth_client_secret {
+    let stdin_readers = [args.discord_bot_token, args.oauth_client_secret, args.legacy_mongo_uri];
+    if stdin_readers.iter().filter(|on| **on).count() > 1 {
         return Err(HostError::message(
-            "--discord-bot-token and --oauth-client-secret both read stdin: run setup once for each",
+            "--discord-bot-token, --oauth-client-secret and --legacy-mongo-uri each read stdin: run setup once for each",
         ));
     }
     let oauth_secret = if args.oauth_client_secret {
@@ -227,6 +236,23 @@ pub fn run_with(
             ));
         }
         Some(secret)
+    } else {
+        None
+    };
+
+    let legacy_uri = if args.legacy_mongo_uri {
+        let uri = env.read_legacy_mongo_uri()?;
+        if !uri.is_empty()
+            && (uri.len() > 2048
+                || !uri.starts_with("mongodb://")
+                || uri.chars().any(|c| c.is_whitespace() || c.is_control()))
+        {
+            // Never echoed: the URI holds a password
+            return Err(HostError::message(
+                "the legacy MongoDB URI on stdin must be one mongodb:// line: mongodb://user:password@host:27017/db",
+            ));
+        }
+        Some(uri)
     } else {
         None
     };
@@ -288,6 +314,15 @@ pub fn run_with(
         set_provided_secret(&p.config, "DAINTY_OAUTH_CLIENT_SECRET", &secret)?;
         sec.oauth_client_secret = secret;
         out("- OAuth client secret: kept in secrets.env");
+    }
+    if let Some(uri) = legacy_uri {
+        set_provided_secret(&p.config, "RUSTIC_ISLES_LEGACY_MONGO_URI", &uri)?;
+        out(if uri.is_empty() {
+            "- Ramsgate Reborn import: off"
+        } else {
+            "- Ramsgate Reborn import: the MongoDB URI is kept in secrets.env; old saves copy in at a first login"
+        });
+        sec.legacy_mongo_uri = uri;
     }
     for moved in crate::winports::move_lent_ports(&mut config, &env.excluded_tcp_ports()) {
         out(&moved.line());

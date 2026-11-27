@@ -375,6 +375,7 @@ pub fn run(mut options: Options) -> Result<i32, StartError> {
             bridge::commands::leave_queue,
             bridge::commands::crash_report_send,
             bridge::commands::crash_report_dismiss,
+            bridge::commands::redeem_legacy_claim,
         ])
         .setup(move |app| {
             start.setup(app.handle())?;
@@ -592,7 +593,7 @@ mod tests {
             .iter()
             .map(|c| c.name)
             .collect();
-        assert_eq!(table.len(), 109);
+        assert_eq!(table.len(), 110);
         assert_eq!(handler_names(), table);
     }
 

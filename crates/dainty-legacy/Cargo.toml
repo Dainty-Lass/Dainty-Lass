@@ -23,7 +23,9 @@ dainty-store.workspace = true
 diesel.workspace = true
 diesel_migrations.workspace = true
 hex.workspace = true
+rustic-isles-characters.workspace = true
 rustic-isles-db.workspace = true
+rustic-isles-store.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
@@ -31,9 +33,11 @@ tempfile.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "rt-multi-thread"] }
 toml.workspace = true
+tracing.workspace = true
 
 [dev-dependencies]
-rustic-isles-store.workspace = true
+rustic-isles-db = { workspace = true, features = ["test-support"] }
+rustic-isles-store = { workspace = true, features = ["test-support"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 
 [lints]

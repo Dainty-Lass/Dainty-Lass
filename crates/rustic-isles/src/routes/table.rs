@@ -30,7 +30,7 @@ const fn r(
 }
 
 #[rustfmt::skip]
-pub(super) static TABLE: [RouteDef; 309] = [
+pub(super) static TABLE: [RouteDef; 311] = [
     r(B, Get, r"/", LauncherApi, Isles, Always), // B1
     r(B, Get, r"/health/live", LauncherApi, Isles, Always), // B2
     r(B, Get, r"/health/ready", LauncherApi, Isles, Always), // B3
@@ -223,6 +223,7 @@ pub(super) static TABLE: [RouteDef; 309] = [
     r(B, Post, r"/dainty/api/GameTicket", LauncherApi, Isles, Always), // B176c: the game's one-time login, not in Node
     r(B, Post, r"/dainty/api/OAuthStart", LauncherApi, Isles, Always), // B176d: OAuth sign-in, not in Node
     r(B, Post, r"/dainty/api/OAuthFinish", LauncherApi, Isles, Always), // B176e
+    r(B, Post, r"/dainty/api/LegacyClaim", LauncherApi, Isles, Always), // B176f: an old save's claim code, not in Node
     r(B, Post, r"/dainty/api/CreateInvite", LauncherApi, Isles, Always), // B177
     r(B, Get, r"/dainty/api/InviteCodes", LauncherApi, Isles, Always), // B178
     r(B, Delete, r"/dainty/api/InviteCode/:code", LauncherApi, Isles, Always), // B179
@@ -272,6 +273,7 @@ pub(super) static TABLE: [RouteDef; 309] = [
     r(B, Post, r"/admin/v1/players/:userId/grants", LauncherApi, Isles, Admin), // B221b
     r(B, Get, r"/admin/v1/players/:userId/save-snapshots", LauncherApi, Isles, Admin), // B221c: /reset snapshots
     r(B, Post, r"/admin/v1/players/:userId/save-snapshots/:snapshotId/restore", LauncherApi, Isles, Admin), // B221d
+    r(B, Post, r"/admin/v1/legacy/claims", LauncherApi, Isles, Admin), // B221e: a claim code for an old save
     r(B, Get, r"/admin/v1/player-logs", LauncherApi, Isles, Admin), // B222
     r(B, Get, r"/admin/v1/player-logs/:userId/:launchSessionId/:fileName", LauncherApi, Isles, Admin), // B223
     r(B, Delete, r"/admin/v1/player-logs/:userId/:launchSessionId", LauncherApi, Isles, Admin), // B224

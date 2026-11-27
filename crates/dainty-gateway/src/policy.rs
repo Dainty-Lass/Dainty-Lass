@@ -19,6 +19,7 @@ pub const PUBLIC_LAUNCHER_API: &[(&str, &[&str])] = &[
     ("gameticket", &["POST"]),
     ("oauthstart", &["POST"]),
     ("oauthfinish", &["POST"]),
+    ("legacyclaim", &["POST"]),
 ];
 
 /// The backend's admin and launcher APIs, metrics and probes: never from off this machine, but for
@@ -358,6 +359,8 @@ pub fn classify(method: &str, target: &str, headers: &HeaderMap, is_upgrade: boo
         "/dainty/api/register",
         "/dainty/api/oauthstart",
         "/dainty/api/oauthfinish",
+        // A claim code is a secret: guesses share the sign-in limit
+        "/dainty/api/legacyclaim",
     ]
     .contains(&canonical.as_str())
     {
@@ -627,6 +630,7 @@ mod tests {
             ("POST", "GameTicket", true),
             ("POST", "OAuthStart", true),
             ("POST", "OAuthFinish", true),
+            ("POST", "LegacyClaim", true),
             ("POST", "CreateInvite", false),
             ("GET", "InviteCodes", false),
             ("DELETE", "InviteCode/ABCD-EFGH-JKMN", false),

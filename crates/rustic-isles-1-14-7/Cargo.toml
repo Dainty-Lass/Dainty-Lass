@@ -36,6 +36,7 @@ rustic-isles-characters.workspace = true
 rustic-isles-chat.workspace = true
 # LegacyStarter, the db tool's starter values (db spec §14.3)
 rustic-isles-db.workspace = true
+dainty-legacy.workspace = true
 rustic-isles-director.workspace = true
 rustic-isles-economy.workspace = true
 rustic-isles-gamedata.workspace = true

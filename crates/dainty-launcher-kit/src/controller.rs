@@ -21,6 +21,7 @@ mod host;
 mod host_off;
 pub mod install;
 mod join;
+mod legacy_claim;
 pub mod loader;
 pub mod platform;
 mod play;

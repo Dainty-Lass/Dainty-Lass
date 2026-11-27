@@ -536,5 +536,21 @@
     "link": "Vincular {name}",
     "linked": "Vinculada ao {name}",
     "linkHint": "Vincule o {name} para recuperar esta conta em outro PC entrando com ele, sem o arquivo da chave."
+  },
+  "legacyClaim": {
+    "title": "Veio do Ramsgate Reborn?",
+    "hint": "Se você jogou no Ramsgate Reborn sem vincular o Discord, peça à equipe deste servidor um código de resgate e digite-o aqui antes de jogar pela primeira vez. Assim seu save antigo vem junto.",
+    "code": "Código de resgate",
+    "redeem": "Resgatar",
+    "answers": {
+      "claimed": "Resgatado. Seu save do Ramsgate Reborn chega na primeira vez que você jogar.",
+      "invalid_code": "Isso não é um código de resgate. Ele tem o formato XXXXX-XXXXX-XXXXX-XXXXX.",
+      "unknown_code": "Esse código é desconhecido ou expirou. Peça um novo à equipe.",
+      "code_used": "Esse código já foi usado.",
+      "account_has_save": "Esta conta já tem um save do Ramsgate Reborn.",
+      "save_taken": "Esse save já está em outra conta.",
+      "already_played": "Esta conta já jogou, então não é possível adicionar um save antigo a ela.",
+      "unavailable": "Não foi possível falar com o servidor. Tente de novo daqui a pouco."
+    }
   }
 }

@@ -165,6 +165,7 @@ fn secrets() -> Secrets {
         admin_api_key: hex(9),
         discord_bot_token: String::new(),
         oauth_client_secret: String::new(),
+        legacy_mongo_uri: String::new(),
         operator_secret: hex(10),
         database_password: hex(11),
         dashboard_ingest_key: hex(12),

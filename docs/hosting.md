@@ -369,6 +369,7 @@ Each option left out keeps what `settings.toml` has, or the default on a first s
 | `--oauth-guild <id>` (repeatable) | `oauth.guild_ids` | Replaces the list |
 | `--oauth-required`, `--oauth-optional` | `oauth.required` | |
 | `--no-oauth` | `[oauth]` | Removes the table; the secret stays in `secrets.env` |
+| `--legacy-mongo-uri` | `RUSTIC_ISLES_LEGACY_MONGO_URI` in `secrets.env` | Reads a Ramsgate Reborn MongoDB URI from stdin; an empty line turns the import off ([below](#importing-ramsgate-reborn-saves)) |
 
 `--discord-bot-token` and `--oauth-client-secret` both read stdin, so run setup once for each. A secret is never an
 option on the command line, where other users and your shell's history would see it.
@@ -627,6 +628,7 @@ file.
 | `DASHBOARD_INGEST_KEY` | What chat and the content server send dainty-dash |
 | `DISCORD_BOT_TOKEN` | Yours to bring: `setup --discord-bot-token` |
 | `DAINTY_OAUTH_CLIENT_SECRET` | Yours to bring: `setup --oauth-client-secret` |
+| `RUSTIC_ISLES_LEGACY_MONGO_URI` | Yours to bring: `setup --legacy-mongo-uri`. A Ramsgate Reborn MongoDB's URI, with its password; empty is off |
 
 Changing a secret breaks everything signed with the old one, so don't. A secret under its name from before the rename
 (`REFORGED_ADMIN_KEY`, `MYSTICPARADOX_METRICS_TOKEN` and so on) is moved to its new name with the same value.
@@ -718,6 +720,20 @@ env file as `DAINTY_OAUTH_<KEY>`. [oauth.md](oauth.md) covers it in full.
 bin\dainty-host setup --oauth-discord 123456789012345678 --oauth-guild 123456789012345678
 Get-Content secret.txt | bin\dainty-host setup --oauth-client-secret
 ```
+
+### Importing Ramsgate Reborn saves
+
+A server can take players over from a Ramsgate Reborn (Dauntless 1.12) server: the first time a player asks for
+their characters and has none, their old save is read from that server's MongoDB and copied in instead of the starter
+character. They are matched by their Discord link, or by a claim code staff make for them. Ask the Ramsgate Reborn host
+for a read-only MongoDB user, then:
+
+```powershell
+Get-Content rr-uri.txt | bin\dainty-host setup --legacy-mongo-uri
+```
+
+The URI looks like `mongodb://reader:password@rr.example:27017/mysticparadox`. Restart the server.
+[legacy-ramsgate.md](legacy-ramsgate.md) covers what carries, claim codes and the open questions.
 
 ### `[modules]` and `[services]`: game modules and plugins
 

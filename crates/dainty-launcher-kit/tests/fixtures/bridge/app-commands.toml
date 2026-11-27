@@ -111,4 +111,5 @@ permissions = [
   "allow-leave-queue",
   "allow-crash-report-send",
   "allow-crash-report-dismiss",
+  "allow-redeem-legacy-claim",
 ]

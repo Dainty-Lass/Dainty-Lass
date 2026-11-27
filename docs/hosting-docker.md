@@ -195,6 +195,12 @@ max_hunt_servers = 3
 Every key in [hosting.md](hosting.md#settings) works here. Setup keeps the copy in the workspace, so edit the file in
 `DAINTY_CONFIG_DIR`, never the one in the volume, and run `docker compose up -d` to apply it.
 
+## Importing Ramsgate Reborn saves
+
+`docker compose run --rm -T host setup --legacy-mongo-uri < rr-uri.txt` (`-T` so the URI arrives on stdin), then
+restart the stack. The old MongoDB must be reachable from the backend's container
+([legacy-ramsgate.md](legacy-ramsgate.md)).
+
 ## Postgres
 
 The `postgres` profile adds a Postgres server in the same namespace, listening on 127.0.0.1 only. Run setup once

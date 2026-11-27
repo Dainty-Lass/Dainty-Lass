@@ -536,5 +536,21 @@
     "link": "Link {name}",
     "linked": "Linked to {name}",
     "linkHint": "Link {name} to get this account back on another PC by signing in, without your key file."
+  },
+  "legacyClaim": {
+    "title": "Coming from Ramsgate Reborn?",
+    "hint": "If you played on Ramsgate Reborn without a Discord link, ask this server's staff for a claim code and enter it here before you first play. Your old save then comes with you.",
+    "code": "Claim code",
+    "redeem": "Claim",
+    "answers": {
+      "claimed": "Claimed. Your Ramsgate Reborn save arrives the first time you play.",
+      "invalid_code": "That isn't a claim code. It looks like XXXXX-XXXXX-XXXXX-XXXXX.",
+      "unknown_code": "That code is unknown or has run out. Ask staff for a new one.",
+      "code_used": "That code was already used.",
+      "account_has_save": "This account already has a Ramsgate Reborn save.",
+      "save_taken": "That save is already in another account.",
+      "already_played": "This account has already played, so an old save can't be added to it.",
+      "unavailable": "The server couldn't be reached. Try again in a moment."
+    }
   }
 }

@@ -84,7 +84,7 @@ pub const MAX_HOST_CONFIG_BYTES: u64 = 256 * 1024;
 pub const SECRET_FILE: &str = "secrets.env";
 /// Every key `secrets.env` holds; one missing or empty is made on the next setup, but for
 /// [`PROVIDED_SECRET_KEYS`].
-pub const SECRET_KEYS: [&str; 14] = [
+pub const SECRET_KEYS: [&str; 15] = [
     "GATEWAY_SECRET",
     "ALLOWLIST_SECRET",
     "DAINTY_ADMIN_KEY",
@@ -99,10 +99,15 @@ pub const SECRET_KEYS: [&str; 14] = [
     "DASHBOARD_INGEST_KEY",
     "DISCORD_BOT_TOKEN",
     "DAINTY_OAUTH_CLIENT_SECRET",
+    "RUSTIC_ISLES_LEGACY_MONGO_URI",
 ];
 /// Secrets the host brings rather than setup makes: left empty until set (`setup --discord-bot-token`,
 /// `--oauth-client-secret`).
-pub const PROVIDED_SECRET_KEYS: [&str; 2] = ["DISCORD_BOT_TOKEN", "DAINTY_OAUTH_CLIENT_SECRET"];
+pub const PROVIDED_SECRET_KEYS: [&str; 3] = [
+    "DISCORD_BOT_TOKEN",
+    "DAINTY_OAUTH_CLIENT_SECRET",
+    "RUSTIC_ISLES_LEGACY_MONGO_URI",
+];
 /// The token signing key pair, which `setup` only ever makes as a pair.
 const SIGNING_PAIR: [&str; 2] = ["AUTH_SIGNING_PRIVKEY_B64", "AUTH_SIGNING_PUBKEY_B64"];
 /// Secrets under their names from before the Rustic Isles rename: `setup` moves each to its new name with the same value,
@@ -1529,6 +1534,8 @@ pub struct Secrets {
     pub discord_bot_token: String,
     /// `DAINTY_OAUTH_CLIENT_SECRET`: the `[oauth]` application's, from the host; empty until set.
     pub oauth_client_secret: String,
+    /// `RUSTIC_ISLES_LEGACY_MONGO_URI`: a Ramsgate Reborn MongoDB to import saves from, with its password; empty: off.
+    pub legacy_mongo_uri: String,
 }
 
 /// The OS the env files are written for.
@@ -2897,6 +2904,7 @@ pub fn load_or_create_secrets(
             dashboard_ingest_key: get("DASHBOARD_INGEST_KEY"),
             discord_bot_token: get("DISCORD_BOT_TOKEN"),
             oauth_client_secret: get("DAINTY_OAUTH_CLIENT_SECRET"),
+            legacy_mongo_uri: get("RUSTIC_ISLES_LEGACY_MONGO_URI"),
         },
         missing,
     ))
@@ -3043,6 +3051,8 @@ pub fn build_env_files(c: &HostConfig, s: &Secrets, p: &Paths, source_commit: &s
     for (name, value) in &oauth {
         push(&mut backend, name, value);
     }
+    // Always written, so a URI left in the shell never turns the importer on (spec-legacy-ramsgate.md)
+    push(&mut backend, "RUSTIC_ISLES_LEGACY_MONGO_URI", s.legacy_mongo_uri.trim());
     push(&mut backend, "DAINTY_ADMIN_KEY", &s.admin_key);
     push(&mut backend, "RUSTIC_ISLES_MANAGER_ADMIN", "on");
     push(&mut backend, "RUSTIC_ISLES_MANAGER_OPERATOR_SECRET", &s.operator_secret);
@@ -4253,6 +4263,7 @@ required = true
         assert_eq!(value(&none, "DAINTY_OAUTH_PRESET").as_deref(), Some(""));
         let secrets = Secrets {
             oauth_client_secret: "client-secret".into(),
+            legacy_mongo_uri: String::new(),
             ..Secrets::default()
         };
         let files = build_env_files(&read, &secrets, &p, "", Platform::Windows);
@@ -4664,6 +4675,7 @@ cell_fusion_minutes = 45
             dashboard_ingest_key: "e".into(),
             discord_bot_token: String::new(),
             oauth_client_secret: String::new(),
+            legacy_mongo_uri: String::new(),
         }
     }
 }

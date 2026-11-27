@@ -650,6 +650,9 @@ pub fn register_admin(handlers: &mut rustic_isles::Handlers) {
         required,
         |c| Box::pin(saves::restore(c)),
     );
+    wrapped(handlers, Post, "/admin/v1/legacy/claims", required, |c| {
+        Box::pin(crate::legacy_claims::create(c))
+    });
 }
 
 struct AdminStartup;

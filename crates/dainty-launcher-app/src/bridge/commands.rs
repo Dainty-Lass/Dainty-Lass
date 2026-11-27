@@ -781,6 +781,11 @@ pub async fn get_playtime(c: Ctl<'_>) -> Answer<Option<u64>> {
 }
 
 #[tauri::command]
+pub async fn redeem_legacy_claim(c: Ctl<'_>, code: String) -> Answer<String> {
+    Ok(c.redeem_legacy_claim(&code).await.to_owned())
+}
+
+#[tauri::command]
 pub async fn crash_report_send(c: Ctl<'_>) -> Answer<ActionResult> {
     Ok(c.crash_report_send().await)
 }

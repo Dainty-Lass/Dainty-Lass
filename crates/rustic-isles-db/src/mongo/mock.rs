@@ -131,6 +131,17 @@ fn batch_of(cursor: &mut Cursor) -> Vec<Value> {
     cursor.left.drain(..n).map(Value::Object).collect()
 }
 
+/// Equality and `$in` on top-level fields, all of them: what the legacy importer's reads send.
+fn matches(document: &Map<String, Value>, filter: &Map<String, Value>) -> bool {
+    filter.iter().all(|(key, want)| {
+        let have = document.get(key);
+        match want.as_object().and_then(|o| o.get("$in")).and_then(Value::as_array) {
+            Some(any) => have.is_some_and(|h| any.contains(h)),
+            None => have == Some(want),
+        }
+    })
+}
+
 fn answer(
     command: &Map<String, Value>,
     collections: &Mutex<Collections>,
@@ -147,6 +158,9 @@ fn answer(
         "hello" | "ismaster" | "isMaster" => json!({"isWritablePrimary": true, "maxWireVersion": 21, "ok": 1}),
         "find" => {
             let mut left = lock(collections).get(&collection).cloned().unwrap_or_default();
+            if let Some(filter) = command.get("filter").and_then(Value::as_object) {
+                left.retain(|d| matches(d, filter));
+            }
             if let Some(limit) = number("limit").and_then(|n| usize::try_from(n).ok()).filter(|n| *n > 0) {
                 left.truncate(limit);
             }

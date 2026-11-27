@@ -19,6 +19,7 @@ import type {
   HostKit,
   HostServerView,
   LauncherApi,
+  LegacyClaimAnswer,
   Settings,
   Snapshot,
   TaskProgress,
@@ -236,6 +237,8 @@ export const api: LauncherApi = {
   // Packs the crash folder and uploads it
   crashReportSend: () => act("crash_report_send", {}, LONG_TIMEOUT_MS),
   crashReportDismiss: () => tell("crash_report_dismiss"),
+  redeemLegacyClaim: (code) =>
+    call<LegacyClaimAnswer>("redeem_legacy_claim", { code: String(code) }),
   onSnapshot: (fn) => on<Snapshot>("snapshot", fn),
   // Progress comes over a channel of its own, already throttled by the backend
   onProgress: (fn) => {
