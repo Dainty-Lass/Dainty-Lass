@@ -10,7 +10,7 @@ publish.workspace = true
 
 [dependencies]
 # The same version dainty-restricted's realms crates take, so one copy lands in its tree
-libloading = "0.7"
+libloading = "0.9"
 dainty-module-api.workspace = true
 tokio = { workspace = true, features = ["rt", "sync"] }
 
