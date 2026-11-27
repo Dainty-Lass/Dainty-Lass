@@ -557,7 +557,14 @@ mod tests {
         assert!(can_bind_port_with(61000, false, None, None));
         assert!(can_bind_port_with(443, true, None, None));
         assert!(can_bind_port_with(443, false, None, Some("80\n")));
-        assert!(!can_bind_port_with(443, false, None, Some("1024\n")));
+        // A status without the cap, not None: None reads this process's own, and a CI container may hold it
+        let status_without_cap = "CapEff:\t0000000000000000\n";
+        assert!(!can_bind_port_with(
+            443,
+            false,
+            Some(status_without_cap),
+            Some("1024\n")
+        ));
         let status_with_cap = "CapEff:\t0000000000000400\n";
         assert!(can_bind_port_with(443, false, Some(status_with_cap), Some("1024\n")));
     }

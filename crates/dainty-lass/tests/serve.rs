@@ -58,14 +58,15 @@ fn server_folder(extra_toml: &str) -> (tempfile::TempDir, Paths, u16) {
     std::fs::create_dir_all(&paths.config).unwrap();
     let (port, gateway) = (free_port(), free_port());
     let text = format!("{SETTINGS_TOML}[ports]\nadmin = {port}\ngateway = {gateway}\n{extra_toml}");
-    // Linux's preflight refuses to start without a Wine; no game server starts here, so any program will do
+    // Linux's preflight wants a Wine, and xvfb-run when xvfb is on; no game server starts here, so any program will
+    // do and no virtual display is needed
     #[cfg(unix)]
     let text = {
         use std::os::unix::fs::PermissionsExt as _;
         let wine = dir.path().join("wine");
         std::fs::write(&wine, "#!/bin/sh\nexit 0\n").unwrap();
         std::fs::set_permissions(&wine, std::fs::Permissions::from_mode(0o755)).unwrap();
-        format!("{text}[linux]\nwine = \"{}\"\n", wine.display())
+        format!("{text}[linux]\nwine = \"{}\"\nxvfb = false\n", wine.display())
     };
     std::fs::write(&paths.settings_toml, &text).unwrap();
     dainty_hostkit::serve::ensure_server_files(&paths, &HostConfig::from_toml(&text).unwrap()).unwrap();
