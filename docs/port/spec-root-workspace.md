@@ -190,4 +190,3 @@ Channel `1.99.1`, profile `minimal`, components `rustfmt` and `clippy`.
 | --- | --- | --- |
 | RUSTSEC-2024-0370 | proc-macro-error via gtk-rs 0.18 (Tauri 2, Linux GTK3) | unmaintained, build time, no vulnerability |
 | RUSTSEC-2026-0441 | pin-utils via nix 0.26 (webrtc-util) | archived, no vulnerability |
-| RUSTSEC-2026-0459 | bundled SQLite < 3.54, crafted sibling `-wal`, via libsqlite3-sys 0.38 | diesel 2.3.14 caps libsqlite3-sys < 0.39 (fix on its main, fcd8d71e); nothing opens a less-trusted database with its `-wal`; drop on diesel 2.3.15 |

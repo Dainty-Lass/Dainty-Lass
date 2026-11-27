@@ -161,7 +161,7 @@ jobs:
       - name: Install the pinned toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: .
           save-if: ${{ env.SAVE_CACHE }}
@@ -232,7 +232,7 @@ jobs:
       - id: toolchain
         run: echo "channel=$(grep '^channel' rust-toolchain.toml | cut -d '"' -f 2)" >> "$GITHUB_OUTPUT"
 
-      - uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+      - uses: EmbarkStudios/cargo-deny-action@17aeb3c839e42274e2b8adf721c8c65edfdc74dd # v2.1.3
         with:
           manifest-path: Cargo.toml
           command: check
@@ -269,7 +269,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: fuzz
           key: fuzz
@@ -318,7 +318,7 @@ jobs:
           # launcher/package.json's packageManager; ui/ names only bun in devEngines
           bun-version: 1.4.4
       # setup-bun caches Bun itself, not the packages
-      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-ui-${{ hashFiles('bun.lock') }}
@@ -376,7 +376,7 @@ jobs:
 
       - name: Upload the image findings to code scanning
         if: vars.CODE_SCANNING == 'true' && steps.trivy.outcome == 'success' && startsWith(github.ref, 'refs/heads/')
-        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           category: trivy-images
           sarif_file: trivy
@@ -401,7 +401,7 @@ jobs:
       - name: Install the pinned toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: installers-windows
           save-if: ${{ env.SAVE_CACHE }}
@@ -410,7 +410,7 @@ jobs:
         with:
           bun-version: 1.4.4
 
-      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-launcher-${{ hashFiles('bun.lock') }}
@@ -459,7 +459,7 @@ jobs:
       - name: Install the pinned toolchain
         run: rustup show active-toolchain || rustup toolchain install
 
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           key: network
           save-if: ${{ env.SAVE_CACHE }}
@@ -523,7 +523,7 @@ jobs:
         run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
 
       # The vulnerability database and the misconfiguration checks, refreshed weekly
-      - uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/trivy-cache
           key: trivy-${{ steps.week.outputs.week }}
@@ -534,7 +534,7 @@ jobs:
 
       - name: Upload to code scanning
         if: vars.CODE_SCANNING == 'true' && startsWith(github.ref, 'refs/heads/')
-        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:
           category: trivy-tree
           sarif_file: trivy-tree.sarif

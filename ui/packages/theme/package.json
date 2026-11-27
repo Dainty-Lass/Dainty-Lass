@@ -21,17 +21,17 @@
     "test": "bun test --pass-with-no-tests"
   },
   "dependencies": {
-    "@astryxdesign/core": "^0.7.2",
-    "@astryxdesign/theme-neutral": "^0.7.2",
+    "@astryxdesign/core": "^0.7.17",
+    "@astryxdesign/theme-neutral": "^0.7.17",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
-    "@astryxdesign/cli": "^0.7.2",
-    "@tailwindcss/vite": "^4.3.3",
-    "@types/bun": "^1.4.3",
-    "@types/react": "^19.3.0",
-    "tailwindcss": "^4.3.3",
+    "@astryxdesign/cli": "^0.7.17",
+    "@tailwindcss/vite": "^4.3.5",
+    "@types/bun": "^1.4.5",
+    "@types/react": "^19.3.3",
+    "tailwindcss": "^4.3.5",
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
