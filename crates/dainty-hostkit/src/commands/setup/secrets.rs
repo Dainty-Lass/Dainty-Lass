@@ -60,6 +60,7 @@ pub fn new_secrets() -> Result<Secrets, HostError> {
         // The host brings these (`setup --discord-bot-token`, `--oauth-client-secret`)
         discord_bot_token: String::new(),
         oauth_client_secret: String::new(),
+        legacy_mongo_uri: String::new(),
     })
 }
 

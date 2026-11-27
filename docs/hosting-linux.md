@@ -73,6 +73,9 @@ The Linux options, which `settings.toml` keeps under `[linux]`:
 Linux it also checks Wine or Proton, the prefix, `xvfb-run` and `xauth`, the inject helper, the game server wrapper,
 nftables and whether the gateway can bind its port.
 
+Importing Ramsgate Reborn saves ([legacy-ramsgate.md](legacy-ramsgate.md)) takes the old MongoDB's URI on stdin:
+`bin/dainty-host setup --legacy-mongo-uri < rr-uri.txt`.
+
 ## Wine and Proton
 
 The Director starts each game server through `.workspace/bin/dainty-gameserver`, which runs `dainty-host gameserver`.

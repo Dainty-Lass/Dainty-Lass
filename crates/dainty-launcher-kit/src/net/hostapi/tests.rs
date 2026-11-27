@@ -8,7 +8,7 @@
 use std::sync::{Arc, Mutex};
 
 use dainty_protocol::account::RegisterRequest;
-use serde_json::json;
+use serde_json::{Value, json};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpListener;
 
@@ -386,6 +386,33 @@ async fn playtime_sends_the_key_and_reads_whole_seconds() {
             "{status} {body}"
         );
     }
+}
+
+#[tokio::test]
+async fn a_legacy_claim_sends_the_key_and_reads_the_answer() {
+    let server = FakeServer::start(
+        true,
+        vec![(LEGACY_CLAIM_PATH, 409, json_body(&json!({"error": "code_used"})))],
+    )
+    .await;
+    assert_eq!(
+        redeem_legacy_claim(&server.endpoint(), KEY, "7Q2KD-M4XBR-0P9TC-HV3JN").await,
+        Some("code_used")
+    );
+    let requests = server.requests();
+    assert!(requests[0].starts_with(&format!("POST {LEGACY_CLAIM_PATH} ")) && has_key(&requests[0]));
+    assert_eq!(redeem_legacy_claim(&server.endpoint(), "not a key", "x").await, None);
+    assert_eq!(server.requests().len(), 1, "an implausible key is never sent");
+    let reply = |status, body: Value| parse::legacy_claim_reply(status, &json_body(&body));
+    assert_eq!(reply(200, json!({"Status": "claimed"})), Some("claimed"));
+    assert_eq!(reply(404, json!({"error": "unknown_code"})), Some("unknown_code"));
+    assert_eq!(
+        reply(200, json!({"Status": "code_used"})),
+        None,
+        "a refusal is never a 200"
+    );
+    assert_eq!(reply(409, json!({"error": "claimed"})), None);
+    assert_eq!(reply(500, json!({"error": "something_new"})), None);
 }
 
 #[test]

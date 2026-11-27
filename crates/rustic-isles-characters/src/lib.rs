@@ -25,6 +25,20 @@ use rustic_isles_store::RepoError;
 use serde_json::{Map, Value};
 
 pub use controller::{Characters, LoadoutState, empty_loadout_payload, is_fresh_onboarding, loadout_payload};
+
+/// An old save copied in when an account first asks for its characters and has none, before the starter one is
+/// made (the legacy importer, `docs/port/spec-legacy-ramsgate.md`). The default copies nothing.
+pub trait FirstSave: Send + Sync + std::fmt::Debug {
+    /// Writes the account's old save, if it has one, through the store; whether characters were written. A failure
+    /// is the importer's to log: the player then gets the starter character, never a refused login.
+    fn import<'a>(
+        &'a self,
+        _store: &'a rustic_isles_store::IslesStore,
+        _account: &'a rustic_isles_store::repo::auth::AccountRecord,
+    ) -> dainty_module_api::BoxFuture<'a, bool> {
+        Box::pin(async { false })
+    }
+}
 pub use routes::register;
 
 /// The character-data rules' values (spec §6.1); the version crate supplies them.

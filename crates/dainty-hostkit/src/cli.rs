@@ -287,6 +287,10 @@ pub struct SetupArgs {
     /// Reads the OAuth application's client secret from stdin into secrets.env.
     #[arg(long = "oauth-client-secret")]
     pub oauth_client_secret: bool,
+    /// Reads a Ramsgate Reborn MongoDB URI (with its password) from stdin into secrets.env: players' old saves are
+    /// then copied in at their first login. An empty line turns it off.
+    #[arg(long = "legacy-mongo-uri")]
+    pub legacy_mongo_uri: bool,
     /// A Discord server (guild id) a player must be in to sign in; repeat for more. Replaces settings.toml's list.
     #[arg(long = "oauth-guild")]
     pub oauth_guilds: Vec<String>,

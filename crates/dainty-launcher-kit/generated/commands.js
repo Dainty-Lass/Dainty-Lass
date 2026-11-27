@@ -110,5 +110,6 @@ window.__RR_COMMANDS__ = {
   "leave_queue": {},
   "crash_report_send": {},
   "crash_report_dismiss": {},
+  "redeem_legacy_claim": { "code": { kind: "text", max: 64 } },
 };
 window.__RR_SETTINGS_KEYS__ = ["graphics", "windowed", "streamerMode", "hostTools", "language", "gameLanguage", "runtimeProfile", "gameEdition", "minimizeToTray", "closeToTray", "showGameConsole", "injectHelper", "crashReports"];

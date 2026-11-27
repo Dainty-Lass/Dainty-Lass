@@ -101,6 +101,8 @@ pub const SERVER_NAME_MAX: usize = 60;
 pub const PUBLIC_HOST_MAX: usize = 253;
 /// Longest "invite for" name.
 pub const INVITE_FOR_MAX: usize = 40;
+/// Longest Ramsgate Reborn claim code, dashes and spaces included.
+pub const LEGACY_CODE_MAX: usize = 64;
 /// Longest text put on the clipboard.
 pub const COPY_TEXT_MAX: usize = 4096;
 /// Longest Epic authorisation code.
@@ -627,6 +629,8 @@ pub const COMMANDS: &[CommandSpec] = &[
     cmd("leave_queue", &[], Every, true),
     cmd("crash_report_send", &[], Every, false),
     cmd("crash_report_dismiss", &[], Every, true),
+    // A Ramsgate Reborn claim code for the signed-in account (docs/legacy-ramsgate.md)
+    cmd("redeem_legacy_claim", &[text("code", LEGACY_CODE_MAX)], Every, false),
 ];
 
 /// The command named `name`.
@@ -741,8 +745,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_table_has_a_hundred_and_eleven_unique_commands() {
-        assert_eq!(COMMANDS.len(), 109);
+    fn the_table_has_a_hundred_and_ten_unique_commands() {
+        assert_eq!(COMMANDS.len(), 110);
         let mut seen = HashSet::new();
         for spec in COMMANDS {
             assert!(seen.insert(spec.name), "{} twice", spec.name);

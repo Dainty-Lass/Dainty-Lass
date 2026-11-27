@@ -26,6 +26,17 @@ import type {
 
 export type { ActionResult, HostKit, HostServerView, Settings, Snapshot, TaskProgress };
 
+/** What redeeming a Ramsgate Reborn claim code came to (the backend's `LegacyClaim` answers, or no answer). */
+export type LegacyClaimAnswer =
+  | "claimed"
+  | "invalid_code"
+  | "unknown_code"
+  | "code_used"
+  | "account_has_save"
+  | "save_taken"
+  | "already_played"
+  | "unavailable";
+
 export interface LauncherApi {
   getSnapshot(): Promise<Snapshot>;
   checkInvite(text: string): Promise<InviteCheck>;
@@ -121,6 +132,8 @@ export interface LauncherApi {
   crashReportSend(): Promise<ActionResult>;
   /** Forgets the last crash; it is not offered again. */
   crashReportDismiss(): Promise<void>;
+  /** Redeems a Ramsgate Reborn claim code for the signed-in account; the answer keys the page's message. */
+  redeemLegacyClaim(code: string): Promise<LegacyClaimAnswer>;
   onSnapshot(fn: (snapshot: Snapshot) => void): void;
   onProgress(fn: (progress: TaskProgress) => void): void;
   onHostKit(fn: (kit: HostKit) => void): void;

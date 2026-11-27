@@ -20,6 +20,7 @@ pub mod drsave;
 mod envfile;
 pub mod error;
 pub mod plugin;
+pub mod ramsgate;
 pub mod reforged;
 pub mod report;
 mod source;

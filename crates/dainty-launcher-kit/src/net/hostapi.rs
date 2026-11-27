@@ -47,6 +47,8 @@ pub const BRANDING_PATH: &str = "/content/v1/branding";
 pub const GAME_TICKET_PATH: &str = "/dainty/api/GameTicket";
 /// The key holder's online playtime (Dainty Lass's own route).
 pub const PLAYTIME_PATH: &str = "/dainty/api/Playtime";
+/// Redeems a Ramsgate Reborn claim code for the key holder (Dainty Lass's own route).
+pub const LEGACY_CLAIM_PATH: &str = "/dainty/api/LegacyClaim";
 
 const KIB: usize = 1024;
 /// Status's deadline when the caller gives none: the answer is small and polled again, so the connect's is enough.
@@ -363,6 +365,31 @@ pub async fn fetch_playtime(endpoint: &Endpoint, key: &str) -> Option<u64> {
     let options = get(USER_INFO_TIMEOUT, USER_INFO_MAX_BYTES, key_headers(endpoint, Some(key)));
     let res = request(endpoint, PLAYTIME_PATH, options).await.ok()?;
     parse::playtime_reply(res.status, &res.body)
+}
+
+/// Redeems a claim code for the account `key` holds: the server's answer code (`claimed`, `unknown_code`...), or
+/// none when it gave none it is known to give.
+pub async fn redeem_legacy_claim(endpoint: &Endpoint, key: &str, code: &str) -> Option<&'static str> {
+    let headers = key_headers(endpoint, Some(key));
+    if headers.is_empty() {
+        return None;
+    }
+    let body = serde_json::json!({ "Code": code }).to_string();
+    let options = RequestOptions {
+        method: Method::POST,
+        body: Some(body),
+        ..get(REGISTER_TIMEOUT, QUEUE_MAX_BYTES, headers)
+    };
+    match request(endpoint, LEGACY_CLAIM_PATH, options).await {
+        Ok(res) => {
+            log_status(endpoint, LEGACY_CLAIM_PATH, res.status);
+            parse::legacy_claim_reply(res.status, &res.body)
+        }
+        Err(err) => {
+            let _ = logged_failure(endpoint, LEGACY_CLAIM_PATH, &err);
+            None
+        }
+    }
 }
 
 fn queue_options(method: Method, endpoint: &Endpoint, key: &str) -> RequestOptions {

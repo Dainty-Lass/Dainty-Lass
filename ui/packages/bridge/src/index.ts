@@ -3,7 +3,7 @@ import type { LauncherApi } from "./types";
 
 export type * from "./generated/types";
 export { mockLauncher } from "./mock";
-export type { LauncherApi } from "./types";
+export type { LauncherApi, LegacyClaimAnswer } from "./types";
 
 let cached: LauncherApi | undefined;
 

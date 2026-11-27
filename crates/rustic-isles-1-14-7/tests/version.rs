@@ -413,7 +413,7 @@ fn every_isles_row_is_registered_once() {
             isles += 1;
         }
     }
-    assert_eq!(isles, 245);
+    assert_eq!(isles, 247);
     // Each area's own list is disjoint from the others' and from auth's
     let lists: Vec<(&str, Vec<(rustic_isles::Method, &str)>)> = vec![
         ("gamedata", rustic_isles_gamedata::routes().to_vec()),

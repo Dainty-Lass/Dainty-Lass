@@ -184,6 +184,7 @@ const methodArgs: Record<keyof LauncherApi, unknown[]> = {
   getPlaytime: [],
   crashReportSend: [],
   crashReportDismiss: [],
+  redeemLegacyClaim: ["7Q2KD-M4XBR-0P9TC-HV3JN"],
   onSnapshot: [noop],
   onProgress: [noop],
   onHostKit: [noop],

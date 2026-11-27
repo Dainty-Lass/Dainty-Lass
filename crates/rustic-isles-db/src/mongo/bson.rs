@@ -170,13 +170,14 @@ impl Cursor<'_> {
     }
 }
 
-/// A command's value: the scalars the reading commands send.
+/// A command's value: the scalars the reading commands send, and a filtered find's query.
 pub(crate) enum B<'a> {
     Str(&'a str),
     I32(i32),
     I64(i64),
     Bool(bool),
     Bin(&'a [u8]),
+    Json(&'a Value),
 }
 
 pub(crate) fn encode_command(fields: &[(&str, B<'_>)]) -> Result<Vec<u8>, MongoError> {
@@ -245,6 +246,7 @@ fn write_value(out: &mut Vec<u8>, name: &str, value: &B<'_>) -> Result<(), Mongo
             out.push(0);
             out.extend_from_slice(bytes);
         }
+        B::Json(v) => write_json(out, name, v)?,
     }
     Ok(())
 }

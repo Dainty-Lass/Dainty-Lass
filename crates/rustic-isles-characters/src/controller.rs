@@ -16,7 +16,7 @@ use rustic_isles_store::repo::inventory::InventoryRecord;
 use rustic_isles_store::{AccountId, AnyConnection, IslesStore, RepoError, RepoResult, Repositories, Tx, UserId};
 use serde_json::{Value, json};
 
-use crate::{CharacterData, CharactersError, EnsureError, StarterKit, data, starter};
+use crate::{CharacterData, CharactersError, EnsureError, FirstSave, StarterKit, data, starter};
 
 /// UE4's "no logged-in player" userId.
 pub(crate) const INVALID: &str = "INVALID";
@@ -159,6 +159,7 @@ pub(crate) enum Write {
 pub struct Characters {
     data: Arc<CharacterData>,
     kit: Arc<StarterKit>,
+    first_save: Option<Arc<dyn FirstSave>>,
 }
 
 impl Characters {
@@ -168,7 +169,15 @@ impl Characters {
         Self {
             data: Arc::new(data),
             kit: Arc::new(kit),
+            first_save: None,
         }
+    }
+
+    /// Asks `importer` for an old save before an empty account gets its starter character.
+    #[must_use]
+    pub fn with_first_save(mut self, importer: Arc<dyn FirstSave>) -> Self {
+        self.first_save = Some(importer);
+        self
     }
 
     /// The character-data rules this unit applies.
@@ -336,6 +345,12 @@ impl Characters {
     ) -> Result<Vec<Value>, CharactersError> {
         let account = find_or_create(store, actor, user_id).await?;
         let mut records = self.list(store, &account.id).await?;
+        if records.is_empty()
+            && let Some(importer) = &self.first_save
+            && importer.import(store, &account).await
+        {
+            records = self.list(store, &account.id).await?;
+        }
         let now = now_secs();
         if records.is_empty() {
             let name = self.username(store, &account).await;

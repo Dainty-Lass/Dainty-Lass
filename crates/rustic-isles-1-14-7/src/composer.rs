@@ -121,6 +121,34 @@ impl VersionComposer {
     }
 }
 
+/// The Ramsgate Reborn importer, when the host set the old database's URI (`docs/port/spec-legacy-ramsgate.md`).
+/// A bad URI is logged and the server starts without it: a player then starts fresh, never locked out.
+fn legacy_importer(
+    inputs: &ComposeInputs,
+    starter: Option<rustic_isles_db::LegacyStarter>,
+) -> Option<dainty_legacy::ramsgate::RamsgateImporter> {
+    use dainty_legacy::ramsgate::{RamsgateImporter, URI_SETTING};
+    let uri = inputs
+        .settings
+        .get(URI_SETTING)
+        .map(str::trim)
+        .filter(|u| !u.is_empty())?;
+    let Some(starter) = starter else {
+        tracing::warn!("[legacy] {URI_SETTING} is set but the version data has no legacyStarter: importer off");
+        return None;
+    };
+    match RamsgateImporter::new(uri, inputs.node.node.clone(), starter, None) {
+        Ok(importer) => {
+            tracing::info!("[legacy] Ramsgate Reborn saves are imported at a player's first character read");
+            Some(importer)
+        }
+        Err(e) => {
+            tracing::warn!("[legacy] importer off: {e}");
+            None
+        }
+    }
+}
+
 async fn open_store(inputs: &ComposeInputs) -> Result<Option<IslesStore>, ModuleError> {
     if !inputs.database_wanted {
         return Ok(None);
@@ -144,16 +172,23 @@ impl Composer for VersionComposer {
             let engine_is_postgres = store
                 .as_ref()
                 .is_some_and(|s| s.database().engine() == dainty_store::Engine::Postgres);
-            let (character_data, starter_kit) = match &store {
+            let (character_data, starter_kit, legacy_starter) = match &store {
                 Some(_) => {
                     let data = self.version_data(&inputs).await?;
-                    (data.character_data(), data.starter_kit())
+                    (data.character_data(), data.starter_kit(), data.legacy_starter())
                 }
-                None => empty_inputs(),
+                None => {
+                    let (data, kit) = empty_inputs();
+                    (data, kit, None)
+                }
             };
 
             // 3: per-module state, none of it process-wide
-            let characters = Arc::new(Characters::new(character_data, starter_kit));
+            let mut characters = Characters::new(character_data, starter_kit);
+            if let Some(importer) = legacy_importer(&inputs, legacy_starter) {
+                characters = characters.with_first_save(Arc::new(importer));
+            }
+            let characters = Arc::new(characters);
             let matchmaking = Arc::new(MatchmakingState::new());
             let hubs = Arc::new(HubSessions::new());
             let reforged = Arc::new(LauncherApiState::new());

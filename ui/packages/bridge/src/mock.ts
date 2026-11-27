@@ -582,6 +582,13 @@ export function mockLauncher(): LauncherApi {
     },
     gameInstallGet: async () => ({ ok: true, install }),
     getPlaytime: async () => (snapshot.account.hasKey ? 37 * 3600 + 1200 : null),
+    // A code ending in 0 is unknown, so both answers can be seen in the preview
+    redeemLegacyClaim: async (code) =>
+      !snapshot.account.hasKey
+        ? "unavailable"
+        : code.trim().endsWith("0")
+          ? "unknown_code"
+          : "claimed",
     gameInstallDiscard: async () => {
       stopInstall();
       install = { ...install, state: "not_installed", progress: null, error: null };

@@ -495,6 +495,29 @@ pub fn parse_news(raw: &Value) -> Option<Vec<NewsItem>> {
     Some(items.iter().filter_map(parse_news_item).take(MAX_NEWS_ITEMS).collect())
 }
 
+/// What `LegacyClaim` answers, as the page's catalog keys them.
+pub const LEGACY_CLAIM_ANSWERS: [&str; 7] = [
+    "claimed",
+    "invalid_code",
+    "unknown_code",
+    "code_used",
+    "account_has_save",
+    "save_taken",
+    "already_played",
+];
+
+/// The legacy claim route's reply: one of [`LEGACY_CLAIM_ANSWERS`], none for anything else.
+pub fn legacy_claim_reply(status: u16, body: &[u8]) -> Option<&'static str> {
+    let body = json_body(body)?;
+    let said = if status == 200 {
+        body.get("Status")?.as_str()?
+    } else {
+        body.get("error")?.as_str()?
+    };
+    let answer = LEGACY_CLAIM_ANSWERS.into_iter().find(|a| *a == said)?;
+    ((status == 200) == (answer == "claimed")).then_some(answer)
+}
+
 /// The playtime route's reply: whole seconds, none for anything else.
 pub fn playtime_reply(status: u16, body: &[u8]) -> Option<u64> {
     if status != 200 {
