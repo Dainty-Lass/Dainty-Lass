@@ -698,8 +698,7 @@ mod tests {
     #[test]
     fn every_seeded_file_has_a_committed_example() {
         // Else seeding writes the example into the checkout, where it shows up untracked.
-        let game_data =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../restricted/modules/rustic-isles/game-data/1.14.7");
+        let game_data = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../modules/rustic-isles/game-data/1.14.7");
         let backend = game_data.join("backend");
         let director = game_data.join("director");
         let all = BACKEND_GAME_DATA

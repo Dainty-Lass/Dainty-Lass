@@ -84,7 +84,7 @@ jobs:
               - rustfmt.toml
               - crates/**
               - fuzz/**
-              - restricted/modules/**
+              - modules/**
             ui:
               - ui/**
             launcher:
@@ -92,16 +92,14 @@ jobs:
               - ui/**
               - crates/dainty-launcher-app/**
               - crates/dainty-manager-server/**
-              - restricted/modules/rustic-isles/version-data/**
+              - crates/rustic-isles-1-14-7/data/**
             docker:
               - crates/**
               - docker/**
               - compose*.yaml
               - .env.example
               - native/**
-              - restricted/modules/**
-              - restricted/NOTICE.md
-              - restricted/ADDITIONAL_TERMS.md
+              - modules/**
             network:
               - crates/**
               - docker/**
@@ -208,16 +206,14 @@ jobs:
       - name: Tests
         run: cargo test --workspace --locked --no-fail-fast
 
-      # RD27: dainty-lass root workspace is MIT; an AGPL crate or dependency on restricted/ is forbidden
-      - name: Every package is MIT and independent of restricted/
+      # RD27: every package in the workspace is MIT
+      - name: Every package is MIT
         if: runner.os == 'Linux'
         run: |
           cargo metadata --format-version 1 --no-deps --locked | jq -r '
             .packages[] as $p
-            | (if ($p.license | IN("MIT", "Apache-2.0", "MIT OR Apache-2.0")) then empty
-               else "::error::\($p.name) is \($p.license)" end),
-              ($p.dependencies[] | select(.path != null and (.path | gsub("\\\\"; "/") | contains("/restricted/")))
-               | "::error::MIT crate \($p.name) depends on restricted path \(.path)")
+            | if ($p.license | IN("MIT", "Apache-2.0", "MIT OR Apache-2.0")) then empty
+              else "::error::\($p.name) is \($p.license)" end
           ' | tee errors.txt
           [ ! -s errors.txt ]
 
@@ -431,7 +427,7 @@ jobs:
         run: |
           set -euo pipefail
           # The manager ships the 1.14.7 version data beside its executable (RD27)
-          echo '{"bundle":{"resources":{"../../restricted/modules/rustic-isles/version-data/1.14.7/version_data.json":"data/1.14.7/version_data.json","../../crates/rustic-isles-1-14-7/data/version_facts.json":"data/1.14.7/version_facts.json"}}}' > "$RUNNER_TEMP/manager-data.json"
+          echo '{"bundle":{"resources":{"../../crates/rustic-isles-1-14-7/data/version_data.json":"data/1.14.7/version_data.json","../../crates/rustic-isles-1-14-7/data/version_facts.json":"data/1.14.7/version_facts.json"}}}' > "$RUNNER_TEMP/manager-data.json"
           # bunfig.toml's isolated linker keeps the CLI in launcher's node_modules, out of bunx's reach
           bun ../../launcher/node_modules/@tauri-apps/cli/tauri.js build --ci --bundles nsis -- --features realms
           bun ../../launcher/node_modules/@tauri-apps/cli/tauri.js build --ci --bundles nsis --config tauri.server-gui.conf.json --config "$RUNNER_TEMP/manager-data.json" \

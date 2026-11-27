@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# A host's real game data, exports and captures are never committed; only the placeholders and the pin are
+/game-data/1.14.7/**
+!/game-data/1.14.7/
+!/game-data/1.14.7/backend/
+!/game-data/1.14.7/director/
+!/game-data/1.14.7/backend/*.example.json
+!/game-data/1.14.7/director/*.example.json
+!/game-data/1.14.7/store-captures.json
+!/game-data/1.14.7/README.md

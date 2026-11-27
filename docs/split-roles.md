@@ -32,7 +32,7 @@ from any node but the configured peer is refused. `docs/security/tunnel.md` is t
 ## Setting it up
 
 1. Make the cluster CA and a node certificate for each half, as for any network
-   ([hosting.md, "A network of servers"](https://git.silentspud.com/silentspud/dainty-lass/src/branch/main/restricted/docs/hosting.md#a-network-of-servers)).
+   ([hosting.md, "A network of servers"](hosting.md#network-a-network-of-servers)).
 2. On each half, list the other in `[[network.nodes]]` and name it in `[split]`:
 
    ```toml
@@ -93,7 +93,7 @@ that admits only your players' networks if that matters to you.
 ## Docker
 
 Each half is the `server` image running `dainty-host start`, with its own `workspace` volume and `settings.toml`. A
-sketch (not yet run against the real client; the per-service `compose.yaml` in `restricted/` is unchanged):
+sketch (not yet run against the real client):
 
 ```yaml
 services:

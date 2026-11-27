@@ -2,7 +2,7 @@
 
 Every game version Dainty Lass serves (today `1.14.7`) is packaged as a **`GameModule`** on
 [`crates/dainty-module-api`](../crates/dainty-module-api). The same `GameModule` implementation runs compiled into
-`restricted/`'s server binaries (`server-minimal`, `server-console`, and the launcher's `server-gui`) or out of
+the server binaries (`dainty-server-minimal`, `dainty-server`, and the manager's `server-gui`) or out of
 process as a standalone executable speaking length-prefixed JSON frames over stdin and stdout (`module_api::child`).
 
 ## 1. Crate layout
@@ -177,8 +177,8 @@ and forwards `start`, `command`, `admin`, `chat`, `game`, `status` and `stop` ov
 
 ## 5. Loading the module in `settings.toml`
 
-- **Compiled-in modules** are enabled via Cargo features on `restricted/`'s `server-console`, `server-minimal`
-  and `launcher` ([server-modules.md](server-modules.md)) and loaded by default unless `[modules] compiled = [...]`
+- **Compiled-in modules** are enabled via Cargo features on `dainty-server`, `dainty-server-minimal`
+  and `dainty-launcher-app` ([server-modules.md](server-modules.md)) and loaded by default unless `[modules] compiled = [...]`
   restricts the list.
 - **External modules** are listed in `.workspace/config/settings.toml` with a relative path under the server root and
   their lowercase hex SHA-256:

@@ -10,7 +10,7 @@ It is off until the host sets it up. The rest of this page is the host's half, t
 
 ## Set up the Discord preset
 
-You need a Discord application. The one your [Discord bot](../restricted/docs/hosting.md#the-discord-bot) uses works,
+You need a Discord application. The one your [Discord bot](hosting.md#discord-the-discord-bot) uses works,
 or make a new one.
 
 1. Open <https://discord.com/developers/applications>, pick or make the application, and go to **OAuth2**.

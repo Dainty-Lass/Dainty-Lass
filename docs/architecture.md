@@ -1,8 +1,7 @@
 # Architecture
 
 What runs where, what each part trusts, and the few contracts everything depends on. The security checklists
-under [security/](security) go through each trust boundary line by line; the AGPL components' checklists are in
-`restricted/docs/security/`. Code paths are from the repository root; the AGPL ones start with `restricted/`.
+under [security/](security) go through each trust boundary line by line. Code paths are from the repository root.
 
 ## The parts
 
@@ -19,8 +18,8 @@ under [security/](security) go through each trust boundary line by line; the AGP
 | Chat (core plugin) | the server | `crates/dainty-chat` | XMPP over WebSocket routed through the gateway; federated server-to-server over `/__node/chat` |
 | Store & history shipping | the server | `crates/dainty-store`, `crates/dainty-history-ship` | SQLite (default) or Postgres on loopback, with a hash-chained change log shipped to S3 object lock or a peer node |
 | Game runtime | each player's PC, inside the game | `crates/rustic-isles-runtime` (`rustic-isles-runtime.dll`) with `crates/dainty-relay` | relay `127.0.0.1:61100` (or the port the launcher chose) for the game, from its own thread ([in-game-relay.md](in-game-relay.md)) |
-| Game modules | the server (in-process or child process) | `crates/rustic-isles-1-14-7` composing the `rustic-isles-*` areas (MIT), with `restricted/`'s version data | loopback ports assigned by the controller (`41000`/`41001` by default or settings.toml's `[ports]`, shifted on collision) |
-| Realms & TURN relay | the server & realm hosts' PCs | `crates/rustic-rifts-*` (`rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-realms`, `rustic-rifts-guard`, `rustic-rifts-host`, `rustic-rifts-transport`), `restricted/modules/rustic-rifts` (`ParadoxTransport.dll`) and `turn-rs` | `turn-rs` on UDP/TCP 3478, TLS 5349 and its UDP relay range (the one listener exception, DD24) |
+| Game modules | the server (in-process or child process) | `crates/rustic-isles-1-14-7` composing the `rustic-isles-*` areas, with its version data (`crates/rustic-isles-1-14-7/data/`) | loopback ports assigned by the controller (`41000`/`41001` by default or settings.toml's `[ports]`, shifted on collision) |
+| Realms & TURN relay | the server & realm hosts' PCs | `crates/rustic-rifts-*` (`rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-realms`, `rustic-rifts-guard`, `rustic-rifts-host`, `rustic-rifts-transport`) and `turn-rs` | `turn-rs` on UDP/TCP 3478, TLS 5349 and its UDP relay range (the one listener exception, DD24) |
 | Game servers | the server | the game executable, with the host's runtime | UDP 8770-8777 (down to 8766 with ten hunts), guarded by the allowlist |
 | Host kit | the server | `crates/dainty-hostkit` and `crates/dainty-host`, bin `dainty-host` | nothing; writes `.workspace/config`, manages modules, certs and history, runs `start` |
 
@@ -32,7 +31,7 @@ Every HTTP and control service binds `127.0.0.1`, and the gateway refuses the ho
 reaches an upstream. The game servers' UDP ports are opened per player address by the allowlist only after that
 player logs in. When realms are enabled on 1.14.7, `turn-rs` (or `coturn`) listens on UDP/TCP 3478 (and optional
 TLS 5349 plus its UDP relay port range) because STUN/TURN traffic cannot sit behind an HTTP gateway
-(`restricted/docs/security/turn-relay.md`).
+(`docs/security/rifts-relay-credentials.md`).
 
 ## Controller, core plugins and game modules
 
@@ -61,8 +60,8 @@ Dainty Lass separates **core plugins** from **game modules** ([`crates/dainty-mo
   `sha256`) runs as a supervised module of the controller in place of the compiled-in one
   (`controller::service_library`, `hostkit::serve::compose`); `content`, `chat` and `gateway` are known by name and
   what they serve as core plugins. The MIT core, `crates/dainty-lass`, has only the admin API and remote
-  management built in and takes every other service this way; `restricted/`'s server binaries still compile
-  them in unless `settings.toml` lists them.
+  management built in and takes every other service this way; `dainty-server` still compiles them in unless
+  `settings.toml` lists them.
 
 ## Joining a server
 

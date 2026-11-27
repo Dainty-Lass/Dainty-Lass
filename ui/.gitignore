@@ -10,5 +10,5 @@ coverage/
 !.env.example
 apps/web/data/
 .claude/
-# The launcher's generated bridge types, copied from crates/dainty-launcher-kit/generated (bun run restricted-data)
+# The launcher's generated bridge types, copied from crates/dainty-launcher-kit/generated (bun run bridge-data)
 packages/bridge/src/generated/

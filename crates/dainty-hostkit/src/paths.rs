@@ -124,9 +124,7 @@ pub fn game_port_range(max_hunts: u32) -> (u16, u16) {
 
 fn is_repo_root(dir: &Path) -> bool {
     dir.join("services").join("host").join("Cargo.toml").exists()
-        || (dir.join("Cargo.toml").exists()
-            && (dir.join("modules").join("rustic-isles").exists()
-                || dir.join("restricted").join("modules").join("rustic-isles").exists()))
+        || (dir.join("Cargo.toml").exists() && dir.join("modules").join("rustic-isles").exists())
         || dir.join("release.json").exists()
 }
 
@@ -200,7 +198,7 @@ pub struct Paths {
     pub content_dir: PathBuf,
     /// `.workspace/`: everything the server makes and keeps.
     pub workspace: PathBuf,
-    /// `modules/rustic-isles`, in this checkout or its `restricted/`.
+    /// `modules/rustic-isles`.
     pub isles: PathBuf,
     /// `modules/rustic-isles/game-data/1.14.7`: the game data, exports and store captures.
     pub game_data: PathBuf,
@@ -274,20 +272,15 @@ impl Paths {
         self.logs.with_file_name("crash-reports")
     }
 
-    /// The layout under `repo`; Rustic Isles is looked for in `restricted/` first.
+    /// The layout under `repo`.
     pub fn new(repo: impl Into<PathBuf>) -> Self {
         let repo = repo.into();
-        let restricted = if repo.join("restricted").join("modules").join("rustic-isles").exists() {
-            repo.join("restricted")
-        } else {
-            repo.clone()
-        };
         let preset = repo.join("preset");
         let host_kit = repo.join("services").join("host");
         let gateway_dir = repo.join("services").join("gateway");
         let content_dir = repo.join("services").join("content");
         let workspace = repo.join(".workspace");
-        let isles = restricted.join("modules").join("rustic-isles");
+        let isles = repo.join("modules").join("rustic-isles");
         let game_data = isles.join(GAME_DATA_DIR).join("1.14.7");
         let sdk_root = workspace.join("sdk");
         let sdk_header = sdk_root.join("SDK.hpp");

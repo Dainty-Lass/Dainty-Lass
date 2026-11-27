@@ -1,7 +1,7 @@
 {
   "name": "@dainty/bridge",
   "version": "0.1.0",
-  "description": "The launcher's Tauri bridge, its generated types taken from dainty-restricted at build time, and a browser stand-in for development",
+  "description": "The launcher's Tauri bridge, its generated types copied from dainty-launcher-kit at build time, and a browser stand-in for development",
   "type": "module",
   "private": true,
   "license": "MIT OR Apache-2.0",

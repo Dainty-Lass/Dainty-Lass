@@ -6,9 +6,9 @@
   "type": "module",
   "packageManager": "bun@1.4.4",
   "scripts": {
-    "restricted-data": "bun scripts/restricted-data.ts",
-    "test": "bun run restricted-data && bun test test/",
-    "typecheck": "bun run restricted-data && tsc --noEmit",
+    "bridge-data": "bun scripts/bridge-data.ts",
+    "test": "bun run bridge-data && bun test test/",
+    "typecheck": "bun run bridge-data && tsc --noEmit",
     "dev": "cd ../crates/dainty-launcher-app && tauri dev -- --features realms",
     "dev:manager": "cd ../crates/dainty-launcher-app && tauri dev --config tauri.server-gui.conf.json -- --no-default-features --features server-gui",
     "build:pages":"bun scripts/dashboard-page.ts build launcher && bun scripts/dashboard-page.ts build server-manager",

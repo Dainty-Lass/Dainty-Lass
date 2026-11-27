@@ -10,7 +10,7 @@ The Dainty Lass user interfaces on one theme: a **remote management dashboard** 
 | [`apps/agent`](apps/agent)           | The agent each extra controller runs, so one dashboard manages them all ([docs/fleet.md](docs/fleet.md))                                                                                                                                           |
 | [`packages/theme`](packages/theme)   | `@dainty/theme`: the Astryx theme, the CSS stack, the colour-mode provider and the brand mark                                                                                                                                                      |
 | [`packages/fleet`](packages/fleet)   | `@dainty/fleet`: the game calls and the dashboard–agent protocol, shared by both sides                                                                                                                                                             |
-| [`packages/bridge`](packages/bridge) | `@dainty/bridge`: the launcher's Tauri bridge (types from `restricted/`), a browser stand-in, and the desktop catalog                                                                                                                              |
+| [`packages/bridge`](packages/bridge) | `@dainty/bridge`: the launcher's Tauri bridge (generated types), a browser stand-in, and the desktop catalog                                                                                                                                       |
 
 ## The dashboard
 
@@ -88,7 +88,7 @@ key, the manager-operator secret, and the ingest API the backend posts chat and 
 `apps/web` built with `DAINTY_MODE=launcher` or `manager` (`bun run build:launcher`, `bun run build:manager`):
 static exports (`output: "export"`) that the MIT Tauri shell (`crates/dainty-launcher-app`) serves from its
 `frontendDist`. They talk to Rust only through the bridge in `packages/bridge`. Its value types are generated
-from dainty-launcher-kit's bridge spec, so `bun run restricted-data` copies them from
+from dainty-launcher-kit's bridge spec, so `bun run bridge-data` copies them from
 `crates/dainty-launcher-kit/generated` instead of committing them; rerun it after the spec changes. In a plain
 browser (`bun run dev:launcher`, `bun run dev:manager`) the bridge is a stand-in that walks the
 phases with sample data. Both speak English and Brazilian Portuguese, following the launcher's language

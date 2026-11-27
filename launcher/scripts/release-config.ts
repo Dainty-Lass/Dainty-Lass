@@ -4,7 +4,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import path from "node:path"
 
-import { appDir } from "./restricted-data"
+import { appDir } from "./bridge-data"
 
 export type Json = null | boolean | number | string | Json[] | { [key: string]: Json }
 type JsonObject = { [key: string]: Json }

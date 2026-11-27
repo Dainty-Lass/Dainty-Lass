@@ -1,6 +1,5 @@
 # syntax=docker/dockerfile:1
-# Dainty Lass's images (RD27): MIT binaries from the root workspace. The only AGPL bytes are the data files the
-# server image ships under data/ and the game-data folder (docs/port/spec-docker.md 2.4).
+# Dainty Lass's images (RD27): MIT binaries and data from the root workspace (docs/port/spec-docker.md 2.4).
 #   front    gateway, allowlist, content server, admin API
 #   server   the host kit, backend and Director, Wine for the game servers
 #   netem    latency for the network profile's harness (DN12)
@@ -18,9 +17,9 @@ COPY .cargo/ /src/.cargo/
 COPY crates/ /src/crates/
 # The launcher kit's build reads its version
 COPY launcher/package.json /src/launcher/package.json
-# dainty-hostkit's tests check each seeded file has its committed example (AGPL data, copied by path, Q-2)
-COPY restricted/modules/rustic-isles/game-data/1.14.7/backend/ /src/restricted/modules/rustic-isles/game-data/1.14.7/backend/
-COPY restricted/modules/rustic-isles/game-data/1.14.7/director/ /src/restricted/modules/rustic-isles/game-data/1.14.7/director/
+# dainty-hostkit's tests check each seeded file has its committed example
+COPY modules/rustic-isles/game-data/1.14.7/backend/ /src/modules/rustic-isles/game-data/1.14.7/backend/
+COPY modules/rustic-isles/game-data/1.14.7/director/ /src/modules/rustic-isles/game-data/1.14.7/director/
 
 FROM ${RUST_IMAGE} AS rust-build
 # mingw builds dainty-inject.exe, which loads the runtime into each game server inside Wine (RD9, 2026-11-13)
@@ -86,17 +85,11 @@ RUN install -d -o dainty -g dainty /opt/dainty-lass/modules /opt/dainty-lass/mod
       "$ISLES/exports" "$ISLES/captures" .workspace
 # The host kit's project-root marker: Cargo.toml beside modules/rustic-isles/, only its presence read (D-3)
 COPY --chown=dainty:dainty Cargo.toml ./
-COPY --chown=dainty:dainty restricted/modules/rustic-isles/game-data/1.14.7/backend/*.example.json $ISLES/backend/
-COPY --chown=dainty:dainty restricted/modules/rustic-isles/game-data/1.14.7/director/*.example.json $ISLES/director/
-COPY --chown=dainty:dainty restricted/modules/rustic-isles/game-data/1.14.7/store-captures.json $ISLES/
-# The 1.14.7 version facts (MIT) and Mystic Paradox's design beside them, read at start; root's and read-only,
-# never a host's file (D-10, RD27, port plan item 9)
-COPY crates/rustic-isles-1-14-7/data/version_facts.json data/1.14.7/
-COPY restricted/modules/rustic-isles/version-data/1.14.7/version_data.json data/1.14.7/
-# The AGPL data's licence and notices beside it (D-4, Q-1)
-COPY restricted/modules/rustic-isles/LICENSE restricted/modules/rustic-isles/NOTICE.md \
-     restricted/modules/rustic-isles/ADDITIONAL_TERMS.md data/
-COPY restricted/NOTICE.md restricted/ADDITIONAL_TERMS.md data/restricted/
+COPY --chown=dainty:dainty modules/rustic-isles/game-data/1.14.7/backend/*.example.json $ISLES/backend/
+COPY --chown=dainty:dainty modules/rustic-isles/game-data/1.14.7/director/*.example.json $ISLES/director/
+COPY --chown=dainty:dainty modules/rustic-isles/game-data/1.14.7/store-captures.json $ISLES/
+# The 1.14.7 version facts and design, read at start; root's and read-only, never a host's file (D-10)
+COPY crates/rustic-isles-1-14-7/data/version_facts.json crates/rustic-isles-1-14-7/data/version_data.json data/1.14.7/
 COPY LICENSE-MIT.txt LICENSE-APACHE.txt ./
 # A Windows build context marks every file executable
 RUN find data -type d -exec chmod 0755 {} + \
@@ -116,7 +109,7 @@ ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["dainty-host", "--help"]
 LABEL org.opencontainers.image.title="Dainty Lass server" \
       org.opencontainers.image.source="https://git.silentspud.com/silentspud/dainty-lass" \
-      org.opencontainers.image.licenses="(MIT OR Apache-2.0) AND AGPL-3.0-only"
+      org.opencontainers.image.licenses="MIT OR Apache-2.0"
 
 FROM ${DEBIAN_IMAGE} AS netem
 RUN apt-get update \

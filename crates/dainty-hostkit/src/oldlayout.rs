@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Silent Spud
 
 //! A host's game data moved out of the retired Node reference tree (RB15), `modules/rustic-isles/reference/1.14.7`,
-//! into `modules/rustic-isles/game-data/1.14.7`. Run by `setup`, which `update` reruns.
+//! into `modules/rustic-isles/game-data/1.14.7`; a checkout's also out of the retired `restricted/`. Run by `setup`,
+//! which `update` reruns.
 
 use std::path::{Path, PathBuf};
 
@@ -15,22 +16,53 @@ pub fn old_root(p: &Paths) -> PathBuf {
     p.isles.join("reference").join("1.14.7")
 }
 
-/// Each old folder and where it goes now.
-fn moves(p: &Paths) -> [(PathBuf, &Path); 4] {
-    let old = old_root(p);
-    [
-        (old.join("ParadoxBackend").join("game-data"), &p.backend_game_data),
-        (old.join("ParadoxDirector").join("game-data"), &p.director_game_data),
-        (old.join("Items_Analysis"), &p.exports),
-        (old.join("DauntlessEndpointDocumentation"), &p.store_captures),
-    ]
+/// Where a checkout kept Rustic Isles before `restricted/` was retired.
+fn restricted_isles(p: &Paths) -> PathBuf {
+    p.repo.join("restricted").join("modules").join("rustic-isles")
+}
+
+/// Each old folder, where it goes now, and the folder to tell the host to delete.
+fn moves(p: &Paths) -> Vec<(PathBuf, PathBuf, PathBuf)> {
+    let mut moves = Vec::new();
+    for root in [old_root(p), restricted_isles(p).join("reference").join("1.14.7")] {
+        for (from, to) in [
+            (root.join("ParadoxBackend").join("game-data"), &p.backend_game_data),
+            (root.join("ParadoxDirector").join("game-data"), &p.director_game_data),
+            (root.join("Items_Analysis"), &p.exports),
+            (root.join("DauntlessEndpointDocumentation"), &p.store_captures),
+        ] {
+            moves.push((from, to.clone(), root.clone()));
+        }
+    }
+    let game_data = restricted_isles(p).join("game-data").join("1.14.7");
+    moves.push((game_data, p.game_data.clone(), restricted_isles(p)));
+    moves
+}
+
+/// Moves what `from` holds into `to`, folder by folder, never over a file already there.
+fn merge(from: &Path, to: &Path, moved: &mut usize, kept: &mut usize) -> Result<(), HostError> {
+    for entry in std::fs::read_dir(from).map_err(|e| HostError::io(from, e))? {
+        let entry = entry.map_err(|e| HostError::io(from, e))?;
+        let target = to.join(entry.file_name());
+        if entry.path().is_dir() && target.is_dir() {
+            merge(&entry.path(), &target, moved, kept)?;
+            let _ = std::fs::remove_dir(entry.path());
+        } else if target.exists() {
+            *kept += 1;
+        } else {
+            std::fs::rename(entry.path(), &target).map_err(|e| HostError::io(entry.path(), e))?;
+            *moved += 1;
+        }
+    }
+    Ok(())
 }
 
 /// Moves what the old folders hold into the new ones, never over a file already there; returns the lines to print.
 /// Nothing to say once the old folders are gone or hold only what the new ones already have.
 pub fn move_old_game_data(p: &Paths) -> Result<Vec<String>, HostError> {
     let mut lines = Vec::new();
-    for (from, to) in moves(p) {
+    let mut retired: Vec<PathBuf> = Vec::new();
+    for (from, to, root) in moves(p) {
         if !from.is_dir() {
             continue;
         }
@@ -38,27 +70,15 @@ pub fn move_old_game_data(p: &Paths) -> Result<Vec<String>, HostError> {
             if let Some(parent) = to.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| HostError::io(parent, e))?;
             }
-            std::fs::rename(&from, to).map_err(|e| HostError::io(&from, e))?;
+            std::fs::rename(&from, &to).map_err(|e| HostError::io(&from, e))?;
             lines.push(format!("- moved {} -> {}", from.display(), to.display()));
-            continue;
-        }
-        // A checkout or a release already has the new folder, holding the examples
-        let (mut moved, mut kept) = (0, 0);
-        for entry in std::fs::read_dir(&from).map_err(|e| HostError::io(&from, e))? {
-            let entry = entry.map_err(|e| HostError::io(&from, e))?;
-            let target = to.join(entry.file_name());
-            // An empty folder setup made is no reason to leave the old one behind
-            if target.is_dir() {
-                let _ = std::fs::remove_dir(&target);
-            }
-            if target.exists() {
-                kept += 1;
+        } else {
+            // A checkout or a release already has the new folder, holding the examples
+            let (mut moved, mut kept) = (0, 0);
+            merge(&from, &to, &mut moved, &mut kept)?;
+            if moved == 0 {
                 continue;
             }
-            std::fs::rename(entry.path(), &target).map_err(|e| HostError::io(entry.path(), e))?;
-            moved += 1;
-        }
-        if moved > 0 {
             lines.push(format!(
                 "- moved {moved} file(s) from {} to {}",
                 from.display(),
@@ -71,13 +91,16 @@ pub fn move_old_game_data(p: &Paths) -> Result<Vec<String>, HostError> {
                     to.display()
                 ));
             }
+            let _ = std::fs::remove_dir(&from);
         }
-        let _ = std::fs::remove_dir(&from);
+        if !retired.contains(&root) {
+            retired.push(root);
+        }
     }
-    if !lines.is_empty() {
+    for root in retired {
         lines.push(format!(
             "- {} is no longer used: delete it once you've checked what moved",
-            old_root(p).display()
+            root.display()
         ));
     }
     Ok(lines)
@@ -139,22 +162,33 @@ mod tests {
     }
 
     #[test]
-    fn a_checkouts_old_folders_are_under_restricted() {
+    fn a_checkouts_game_data_leaves_restricted() {
         let tmp = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(tmp.path().join("restricted/modules/rustic-isles")).unwrap();
         let p = Paths::new(tmp.path());
+        let old = tmp.path().join("restricted/modules/rustic-isles");
         touch(
-            &tmp.path()
-                .join("restricted/modules/rustic-isles/reference/1.14.7/DauntlessEndpointDocumentation/a.json"),
+            &old.join("reference/1.14.7/DauntlessEndpointDocumentation/a.json"),
             "capture",
         );
+        touch(&old.join("game-data/1.14.7/backend/platinum_store.json"), "real");
+        touch(&old.join("game-data/1.14.7/backend/slayers_path.json"), "old");
+        // The checkout's committed examples, and a file already in the new place
+        touch(&p.backend_game_data.join("platinum_store.example.json"), "example");
+        touch(&p.backend_game_data.join("slayers_path.json"), "new");
+
         let lines = move_old_game_data(&p).unwrap();
-        assert_eq!(lines.len(), 2);
-        assert!(
-            tmp.path()
-                .join("restricted/modules/rustic-isles/game-data/1.14.7/captures/a.json")
-                .is_file()
+        assert!(p.store_captures.join("a.json").is_file());
+        assert_eq!(
+            std::fs::read_to_string(p.backend_game_data.join("platinum_store.json")).unwrap(),
+            "real"
         );
+        assert_eq!(
+            std::fs::read_to_string(p.backend_game_data.join("slayers_path.json")).unwrap(),
+            "new"
+        );
+        assert!(old.join("game-data/1.14.7/backend/slayers_path.json").is_file());
+        assert!(lines.iter().any(|l| l.contains("left where they were")));
+        assert_eq!(lines.iter().filter(|l| l.contains("no longer used")).count(), 2);
     }
 
     #[test]

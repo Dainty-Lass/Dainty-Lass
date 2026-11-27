@@ -2,7 +2,7 @@
 # families it changes, and the "CI ok" job sums them up for branch protection. It is the one required check. A
 # push to main or plan, a manual run and any change to the workflows run every family.
 #  - Rust (the MIT workspace at the root): fmt, clippy and tests on Linux and Windows, every package MIT and
-#    independent of restricted/, cargo-deny, a short run of every fuzz target
+#    with no AGPL dependency, cargo-deny, a short run of every fuzz target
 #  - UI (ui/, dainty-dash): bun install, typecheck, test and build in every mode
 #  - Launcher (launcher/, the Tauri shell): the bridge tests and the Windows NSIS installers
 #  - Native (native/: the runtime loader and the catalog exporter): fmt, clippy, tests and the DLLs on Windows
@@ -90,7 +90,7 @@ jobs:
               - rustfmt.toml
               - crates/**
               - fuzz/**
-              - restricted/modules/**
+              - modules/**
             ui:
               - ui/**
             launcher:
@@ -98,16 +98,14 @@ jobs:
               - ui/**
               - crates/dainty-launcher-app/**
               - crates/dainty-manager-server/**
-              - restricted/modules/rustic-isles/version-data/**
+              - crates/rustic-isles-1-14-7/data/**
             docker:
               - crates/**
               - docker/**
               - compose*.yaml
               - .env.example
               - native/**
-              - restricted/modules/**
-              - restricted/NOTICE.md
-              - restricted/ADDITIONAL_TERMS.md
+              - modules/**
             network:
               - crates/**
               - docker/**
@@ -221,8 +219,8 @@ jobs:
       - name: Tests
         run: cargo test --workspace --locked --no-fail-fast
 
-      # RD27: dainty-lass root workspace is MIT; an AGPL crate or dependency on restricted/ is forbidden
-      - name: Every package is MIT and independent of restricted/
+      # RD27: every package in the workspace is MIT
+      - name: Every package is MIT
         run: |
           cargo metadata --format-version 1 --no-deps --locked | node -e '
             const { packages } = JSON.parse(require("fs").readFileSync(0, "utf8"));
@@ -231,12 +229,6 @@ jobs:
               if (!["MIT", "Apache-2.0", "MIT OR Apache-2.0"].includes(p.license)) {
                 console.log(`::error::${p.name} is ${p.license}`);
                 failed = true;
-              }
-              for (const dep of p.dependencies) {
-                if (dep.path && dep.path.replace(/\\/g, "/").includes("/restricted/")) {
-                  console.log(`::error::MIT crate ${p.name} depends on restricted path ${dep.path}`);
-                  failed = true;
-                }
               }
             }
             process.exit(failed ? 1 : 0);
@@ -421,7 +413,7 @@ jobs:
         run: |
           set -euo pipefail
           # The manager ships the 1.14.7 version data beside its executable (RD27)
-          echo '{"bundle":{"resources":{"../../restricted/modules/rustic-isles/version-data/1.14.7/version_data.json":"data/1.14.7/version_data.json","../../crates/rustic-isles-1-14-7/data/version_facts.json":"data/1.14.7/version_facts.json"}}}' > "$RUNNER_TEMP/manager-data.json"
+          echo '{"bundle":{"resources":{"../../crates/rustic-isles-1-14-7/data/version_data.json":"data/1.14.7/version_data.json","../../crates/rustic-isles-1-14-7/data/version_facts.json":"data/1.14.7/version_facts.json"}}}' > "$RUNNER_TEMP/manager-data.json"
           # bunfig.toml's isolated linker keeps the CLI in launcher's node_modules, out of bunx's reach
           bun ../../launcher/node_modules/@tauri-apps/cli/tauri.js build --ci --bundles nsis -- --features realms
           bun ../../launcher/node_modules/@tauri-apps/cli/tauri.js build --ci --bundles nsis --config tauri.server-gui.conf.json --config "$RUNNER_TEMP/manager-data.json" \

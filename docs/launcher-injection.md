@@ -61,7 +61,7 @@ Rejected:
 - Making the director inject too: Wine under Docker would need the helper, which is a server change of its own.
 
 The rows that cite RD9 and need the integration pass to reword them:
-- AGENTS.md's Security bullet, and `restricted/AGENTS.md`'s.
+- AGENTS.md's Security bullet.
 - DD13.
 - The migration guide's `injector.ts` row, now ported clean-room as `platform/inject.rs`.
 - `spec-catalog-exporter.md`, which says "never injected".

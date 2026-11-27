@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process"
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import path from "node:path"
 
-import { appDir } from "../../scripts/restricted-data"
+import { appDir } from "../../scripts/bridge-data"
 
 // NSIS takes /D= unquoted and last, so the command line is written by hand rather than quoted per argument
 function runVerbatim(exe: string, args: string): number | null {

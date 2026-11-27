@@ -298,6 +298,23 @@ fn the_shipped_facts_hold_no_design() {
     assert_eq!(data.starter_kit().default_quick_chats.len(), 9);
 }
 
+#[test]
+fn the_shipped_pair_loads() {
+    let facts: Value = serde_json::from_str(FACTS_DOCUMENT).unwrap();
+    let design: Value = serde_json::from_str(include_str!("../data/version_data.json")).unwrap();
+    let data = VersionData::from_json(&merge(&facts, &design).unwrap()).unwrap();
+    assert!(data.generator_inputs().is_some());
+    assert!(data.legacy_starter().is_some());
+    // The design names only ids the facts already do (V-1)
+    let seeds: Vec<String> = serde_json::from_value(facts["storageTokenSeeds"].clone()).unwrap();
+    let legacy = &design["legacyStarter"];
+    let wallet = data.starter_kit().wallet.into_iter().map(|(id, _)| id);
+    let named = wallet.chain(["defaultDye", "defaultSigil"].map(|k| legacy[k].as_str().unwrap().to_owned()));
+    for id in named {
+        assert!(seeds.contains(&id), "{id} is not in the facts");
+    }
+}
+
 /// `[A-Z][A-Z0-9_-]{2,}`, the storage policy's token pattern (gamedata §6)
 fn tokens(text: &str, out: &mut std::collections::BTreeSet<String>) {
     let bytes = text.as_bytes();

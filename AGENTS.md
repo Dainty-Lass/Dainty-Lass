@@ -10,32 +10,32 @@ starting anything, and the row you were given in full.
 [`docs/port/migration-guide.md`](docs/port/migration-guide.md) is the map: where every upstream file now lives,
 what each DR name became, where the next upstream change goes and how one change is ported and recorded. Read
 it before carrying an upstream change across, and cite its section rather than re-deriving the mapping in a brief
-or a commit. Nothing outside `restricted/` is copied from Dauntless Revived or Mystic Paradox: what came from them
-was rewritten clean-room from the specs in `docs/port/` (RD27; the reviews are in `docs/port/clean-room/`).
+or a commit. Nothing here is copied from Dauntless Revived or Mystic Paradox: what came from them was rewritten
+clean-room from the specs in `docs/port/` (RD27; the reviews are in `docs/port/clean-room/`).
 
 ## Repository layout
 
-Dainty Lass is one monorepo, licence-separated (RD27): the root Cargo workspace holds only MIT code
-(`exclude = ["fuzz"]`); **`restricted/`** holds the AGPL docs and data, with no code and no Cargo workspace since RB15.
+Dainty Lass is one MIT monorepo (RD27): the root Cargo workspace (`exclude = ["fuzz"]`) and the folders beside it.
+The AGPL `restricted/` folder was retired once its docs and data were remade clean-room
+(`docs/port/clean-room/restricted.md`).
 
 | Path | What it is |
 | --- | --- |
 | root | The MIT cargo workspace, every package in `crates/<package name>`: the libraries (`dainty-controller`, `dainty-module-api`, `dainty-epic`, `dainty-history-ship`, `dainty-host` (the host kit composed with the services and the 1.14.7 module), `dainty-hostkit`, `dainty-inject`, `dainty-launcher-kit`, `dainty-plugin-host`, `dainty-protocol`, `dainty-proxy`, `dainty-remote`, `dainty-service-kit`, `dainty-service-plugin`, `dainty-store`), the services (`dainty-admin`, `dainty-gateway`, `dainty-content`), the core plugins (`dainty-network`, `dainty-chat`), the `*-plugin` libraries (`dainty-gateway-plugin`, `dainty-content-plugin`, `dainty-chat-plugin`, `rustic-isles-1-14-7-plugin`), the realms crates (`rustic-rifts-seam`, `rustic-rifts-admission`, `rustic-rifts-relay`, `rustic-rifts-realms`, `rustic-rifts-guard`, `rustic-rifts-transport`, `rustic-rifts-host`), the game module (`rustic-isles` and its areas `rustic-isles-*`, composed for 1.14.7 by `rustic-isles-1-14-7`) and `dainty-lass`, the core binary. `backend` and `director` are RR1's empty stubs, superseded by the `rustic-isles` crates |
 | `fuzz/` | `cargo fuzz` targets for the MIT crates, a workspace of its own (excluded from the main one) |
-| `ui/` | dainty-dash: the staff dashboard, the launcher and server-manager pages the Tauri shell (`crates/dainty-launcher-app`) serves, and the fleet agent. MIT; its generated bridge types come from `restricted/` at build time (`bun run restricted-data`) |
+| `ui/` | dainty-dash: the staff dashboard, the launcher and server-manager pages the Tauri shell (`crates/dainty-launcher-app`) serves, and the fleet agent. MIT; its generated bridge types are copied from `crates/dainty-launcher-kit/generated` at build time (`bun run bridge-data`) |
 | `launcher/` | The launcher's JavaScript side (RD27): the isolation hook, the scripts the Tauri shell and the release run, and their tests. The Rust shell is the MIT `crates/dainty-launcher-app` |
 | `native/` | `runtime-loader`, the `winmm.dll` the game loads, which loads the Rustic Isles runtime, and `rustic-isles-exporter`, the catalog exporter (MIT, clean-room from `docs/port/spec-runtime-loader.md` and `spec-catalog-exporter.md`). Crates of their own outside both workspaces, so workspace-wide `cargo` commands don't cover them |
 | `scripts/` | `replay-capture.mjs` |
 | `docs/` | `architecture.md`, the plans, `port/` (the migration guide, delta and catch-up lists), `security/` for the MIT components (indexed in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)) |
-| `restricted/` | AGPL-3.0-only docs and data: the hosting, player and Paradox docs, `modules/rustic-isles` (`version-data/`, `game-data/1.14.7/` and its docs) and `modules/rustic-rifts` (docs and the relay self-test). [`restricted/AGENTS.md`](restricted/AGENTS.md) covers them |
+| `modules/` | `rustic-isles/game-data/1.14.7/`: the synthetic `*.example.json` game data and the store captures' pin (`store-captures.json`), laid out as in a server tree. A checkout's real game data lands here and is ignored |
 
 **Names.** The app is Dainty Lass, and DaintyLass only where a space can't go (DD1). A crate, binary or module is
 `<prefix>-<module>`: `dainty-` for core modules (`dainty-lass` is the core run at launch, `dainty-dash` the
 dashboard) and `rustic-` for the game servers (`rustic-isles-*`) and realms (`rustic-rifts-*`, later `dainty-rifts`).
 
-**Where a change goes** follows its licence: code reaches the root only clean-room (RD27); AGPL data and docs stay
-under `restricted/`. A crate in root `crates/` is MIT and depends on nothing in `restricted/` or AGPL; CI fails a root
-package that is not MIT or Apache-2.0 or that references `restricted/`.
+**Licence.** Everything is MIT; what came from AGPL projects reaches the repository only clean-room (RD27). CI fails
+a package that is not MIT or Apache-2.0.
 `crates/dainty-host` composes the services into the controller in-process, and the MIT core
 `dainty-lass` (`crates/dainty-lass`) loads the same services as libraries named in `settings.toml`'s `[services.<name>]` (RD27 phase 2,
 `crates/dainty-plugin-host`).
@@ -72,10 +72,9 @@ dependency order, runs the checks and strikes the rows.
 - **Hands-on work isn't an agent's job:** the canary, cutovers, spikes that need a machine with the game, signing
   and publishing, the cut-off date. Write down the steps and leave them for the maintainer.
 - A backend or Director change reaches the MIT `rustic-isles-*` crates through a clean-room spec
-  (`docs/port/spec-rustic-isles-*.md`); there is no Node reference or replay against one since RB15. Game data goes
-  in `restricted/modules/rustic-isles/game-data/1.14.7/`. The route inventory
-  (`restricted/modules/rustic-isles/docs/inventory/`) and the catch-up lists (`docs/port/catchup-*.md`) are closed
-  records.
+  (`docs/port/spec-rustic-isles-*.md`); there is no Node reference or replay against one since RB15. The version data
+  is `crates/rustic-isles-1-14-7/data/` and the game-data placeholders `modules/rustic-isles/game-data/1.14.7/`.
+  The catch-up lists (`docs/port/catchup-*.md`) are closed records.
 - **An upstream change is placed before it is ported.** Section 4 of the migration guide says where each kind
   goes (a runtime change, a backend patch, game data, a Mystic Paradox update);
   section 5 is the method and section 6 the catch-up entry it leaves behind. A row that adds a Rust module
@@ -104,7 +103,7 @@ hides the ones after it). The toolchain is pinned in `rust-toolchain.toml`; `car
 
 The page talks to Rust only through the commands in `crates/dainty-launcher-kit/src/bridge/spec.rs`.
 The TS types, the isolation hook's command list and the permission set are generated from it into
-`crates/dainty-launcher-kit/generated` and checked by a test. `bun run restricted-data`, in `ui/` and in `launcher/`,
+`crates/dainty-launcher-kit/generated` and checked by a test. `bun run bridge-data`, in `ui/` and in `launcher/`,
 copies the first two to `ui/packages/bridge/src/generated/types.ts` and `launcher/isolation/commands.js`; the copies
 are never committed. Never edit them by hand: `RR_UPDATE_GENERATED=1 cargo test -p dainty-launcher-kit generated`
 rewrites them. The page's method for each command is `ui/packages/bridge/src/api.ts`;
@@ -137,7 +136,7 @@ Rules that read like overcaution:
 
 No game files, generated SDKs (`CppSDK/`, `SDK.hpp`), exported game data beyond the services' examples, or
 `.workspace/`. Lady Luck's Store and the platinum store are built on each server from
-`restricted/modules/rustic-isles/game-data/1.14.7/store-captures.json`. A server preset (`dainty-host preset`)
+`modules/rustic-isles/game-data/1.14.7/store-captures.json`. A server preset (`dainty-host preset`)
 is a host's own and is never committed.
 
 ## Configuration
@@ -166,14 +165,13 @@ It's never a one-file change:
   controller's registry filters, keeping the OS's own variables for an external module (`system_environment`).
 - **A secret goes in `secrets.env`** (`SECRET_KEYS`), made once and never logged. It is never a `settings.toml`
   field and never an option on the command line.
-- **The docs move with it.** The settings table in `restricted/docs/hosting.md`, and `hosting-linux.md`
+- **The docs move with it.** The settings table in `docs/hosting.md`, and `hosting-linux.md`
   and `hosting-docker.md` wherever a host sees the option. Delete the rows when the variable goes. A stale row is
   worse than a missing one, because it reads as supported.
 
 ### Docker
 
-Docker is `compose.yaml`, `.env.example` and `docker/` at the root (MIT, clean-room from `docs/port/spec-docker.md`),
-the only copy since RB15 deleted restricted's.
+Docker is `compose.yaml`, `.env.example` and `docker/` at the root (MIT, clean-room from `docs/port/spec-docker.md`).
 
 ## User-facing text
 
@@ -195,7 +193,7 @@ The Tauri backend's own dialogs are the launcher kit's 15-key catalog (`crates/d
 ## Tests
 
 From the root: `cargo test --workspace --locked --no-fail-fast`. In `ui/`: `bun run test` and `bun run lint`
-(biome). In `launcher/`: `bun run test`, which runs `bun run restricted-data` first. On the maintainer's PC run cargo
+(biome). In `launcher/`: `bun run test`, which runs `bun run bridge-data` first. On the maintainer's PC run cargo
 with `-j 6` or fewer.
 
 `ui/` and `launcher/` are one Bun workspace at the root: one `bun install` (from the root or either folder) fills
@@ -225,8 +223,8 @@ Not obvious from reading the suites:
 ## Native code
 
 The game runtime (`crates/rustic-isles-runtime`, built as `rustic-isles-runtime.dll`), the runtime loader
-(`native/runtime-loader`) and the catalog exporter (`native/rustic-isles-exporter`) are all MIT; nothing native is
-left in `restricted/` (R21: the AGPL C++ runtime is deleted, its last tree tagged `agpl-runtime-final`). An upstream
+(`native/runtime-loader`) and the catalog exporter (`native/rustic-isles-exporter`) are all MIT (R21: the AGPL C++
+runtime is deleted, its last tree tagged `agpl-runtime-final`). An upstream
 change to any of them reaches it through a clean-room spec (the guide's section 4), never as a patch. The launcher and
 the Director inject the runtime (`crates/dainty-inject`, and its `dainty-inject.exe` helper under Wine and Proton);
 the loader remains for Proton players who keep it, and stands down for an injected game. The realm transport is
@@ -237,7 +235,8 @@ built into the launcher (`rustic-rifts-transport`).
 `.forgejo/workflows/ci.yml` runs only the families a change touches (Rust, with `cargo deny` and the fuzz targets,
 and the UI), and `CI ok` sums them up. It runs on every pushed branch. A push to `plan` or `main`
 runs every family. Workflows belong to RR3, and a row doesn't edit them. `server-release.yml` and
-`launcher-release.yml` build from the root workspace; the server archive adds `restricted/`'s docs and data.
+`launcher-release.yml` build from the root workspace; the server archive adds `modules/`, the version data and the
+host guides.
 
 ## Branches
 
@@ -279,11 +278,9 @@ explanation goes in the commit body or the `docs/security/` checklist.
 MIT OR Apache-2.0 ([`LICENSE-MIT.txt`](LICENSE-MIT.txt), [`LICENSE-APACHE.txt`](LICENSE-APACHE.txt)); `ui/` carries
 its own copies (`ui/LICENSE-MIT`, `ui/LICENSE-APACHE`). "MIT" elsewhere in these docs is shorthand for that dual
 licence. The workspace's `license` is `"MIT OR Apache-2.0"`, every crate in `crates/` sets it itself, and a new file's
-header is `SPDX-License-Identifier: MIT OR Apache-2.0`; `cargo deny` refuses a dependency whose licence can't ship in
-the AGPL-3.0-only release built from `restricted/`.
+header is `SPDX-License-Identifier: MIT OR Apache-2.0`; `cargo deny` refuses a dependency whose licence isn't on
+`deny.toml`'s list.
 
-A crate here is MIT only while nothing in it is ported from DR, Paradox or the Reforged Revival line: no file from
-those trees, no function rewritten from one while looking at it. Since RB15 no ported code is kept anywhere;
-`restricted/` holds the AGPL data and docs and records each source in `restricted/NOTICE.md` (and the Mystic Paradox
-additional terms in `restricted/ADDITIONAL_TERMS.md`). Never copy such a function into a crate here; port the behaviour from a clean-room spec
-instead (RD27).
+The repository is MIT only while nothing in it is ported from DR, Paradox or the Reforged Revival line: no file, doc
+or data from those trees, and no function rewritten from one while looking at it. Port the behaviour from a
+clean-room spec instead (RD27).

@@ -2,8 +2,9 @@
 // Copyright (c) 2026 Silent Spud
 
 //! The version data (spec §4.3) in two files (port plan item 9, rulings V-1 to V-3): `version_facts.json`, the
-//! game's identifiers and GUIDs (MIT, `data/` beside this crate), and `version_data.json`, Paradox's design (the
-//! reward cache plan, the starter wallet, the legacy starter and the default appearance), which restricted ships.
+//! game's identifiers and GUIDs, and `version_data.json`, the design (the reward cache plan, the starter wallet, the
+//! legacy starter and the default appearance), this project's own since restricted's was retired; both MIT, in
+//! `data/` beside this crate.
 //! The host installs both in the backend game data folder; a design file that still holds everything (a release
 //! before the split) is read alone.
 
