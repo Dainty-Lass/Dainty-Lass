@@ -15,7 +15,7 @@ $env:CARGO_TARGET_DIR = "target/console"
 cargo build -p dainty-lass --features tokio-console
 ```
 
-In `restricted/`, the same with `-p dainty-server --features tokio-console`. `dainty-host`, `dainty-hostkit` and
+The server executable takes the same: `-p dainty-server --features tokio-console`. `dainty-host`, `dainty-hostkit` and
 `dainty-service-kit` take the feature too.
 
 ## Watching

@@ -39,14 +39,5 @@ native
 **/game-data/*/captures
 **/Items_Analysis
 
-# Nothing from restricted/ but the data files the server image ships (D-7, spec-docker.md 2.4)
+# A checkout's leftovers from before restricted/ was retired
 restricted
-!restricted/modules/rustic-isles/version-data/1.14.7/version_data.json
-!restricted/modules/rustic-isles/game-data/1.14.7/backend/*.example.json
-!restricted/modules/rustic-isles/game-data/1.14.7/director/*.example.json
-!restricted/modules/rustic-isles/game-data/1.14.7/store-captures.json
-!restricted/modules/rustic-isles/LICENSE
-!restricted/modules/rustic-isles/NOTICE.md
-!restricted/modules/rustic-isles/ADDITIONAL_TERMS.md
-!restricted/NOTICE.md
-!restricted/ADDITIONAL_TERMS.md

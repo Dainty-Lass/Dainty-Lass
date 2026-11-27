@@ -3,7 +3,7 @@
 #  - DaintyLass{Launcher,Manager}_<version>_x64-setup.exe   NSIS, per user, built on windows-msvc
 #  - DaintyLass{Launcher,Manager}_<version>_amd64.AppImage, .deb and _x86_64.rpm   built on Ubuntu 22.04, so the
 #                                                           packages run on its glibc and anything newer
-# with, when the signing secrets are set (restricted/docs/launcher-release.md), a .sig beside each bundle (the updater's
+# with, when the signing secrets are set (docs/launcher-release.md), a .sig beside each bundle (the updater's
 # ed25519 signature), latest.json and latest-manager.json (the two updater feeds, tauri.conf.json's endpoints) and
 # Authenticode on the Windows binaries and installers. Without the secrets the same run builds unsigned and writes
 # no feed. SHA256SUMS.txt covers every file.
@@ -114,7 +114,7 @@ jobs:
 
       # The manager ships the 1.14.7 version data beside its executable (RD27): nothing is compiled in
       - name: The manager's version data
-        run: echo '{"bundle":{"resources":{"../../restricted/modules/rustic-isles/version-data/1.14.7/version_data.json":"data/1.14.7/version_data.json","../../crates/rustic-isles-1-14-7/data/version_facts.json":"data/1.14.7/version_facts.json"}}}' > "$WORK/config/manager-data.json"
+        run: echo '{"bundle":{"resources":{"../../crates/rustic-isles-1-14-7/data/version_data.json":"data/1.14.7/version_data.json","../../crates/rustic-isles-1-14-7/data/version_facts.json":"data/1.14.7/version_facts.json"}}}' > "$WORK/config/manager-data.json"
 
       # No build cache in a release: every file is built from this commit alone. beforeBuildCommand builds ui/'s page
       - name: Build Dainty Lass Launcher and Dainty Lass Manager
@@ -231,7 +231,7 @@ jobs:
 
       # The manager ships the 1.14.7 version data beside its executable (RD27): nothing is compiled in
       - name: The manager's version data
-        run: echo '{"bundle":{"resources":{"../../restricted/modules/rustic-isles/version-data/1.14.7/version_data.json":"data/1.14.7/version_data.json","../../crates/rustic-isles-1-14-7/data/version_facts.json":"data/1.14.7/version_facts.json"}}}' > "$RUNNER_TEMP/config/manager-data.json"
+        run: echo '{"bundle":{"resources":{"../../crates/rustic-isles-1-14-7/data/version_data.json":"data/1.14.7/version_data.json","../../crates/rustic-isles-1-14-7/data/version_facts.json":"data/1.14.7/version_facts.json"}}}' > "$RUNNER_TEMP/config/manager-data.json"
 
       # The Proton inject helper (RD9, 2026-11-12): a Windows exe Wine runs in the game's place, bundled as a resource
       # of the launcher only. Built for windows-gnu here, since this job has no MSVC

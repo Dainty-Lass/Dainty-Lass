@@ -41,10 +41,10 @@ pub fn fixed_url(target: ExternalTarget) -> Option<&'static str> {
         T::ProjectLicense => project_file!("README.md#credits-and-licence"),
         T::ProjectIssues => "https://github.com/Dainty-Lass/Dainty-Lass/issues",
         T::ProjectDocsPlayers => {
-            project_file!("restricted/docs/players.md")
+            project_file!("docs/players.md")
         }
         T::ProjectDocsHosting => {
-            project_file!("restricted/docs/hosting.md")
+            project_file!("docs/hosting.md")
         }
         T::ProjectDocsSdk => {
             project_file!("docs/sdk-and-game-data.md")
@@ -254,11 +254,11 @@ mod tests {
             ("project_issues", "https://github.com/Dainty-Lass/Dainty-Lass/issues"),
             (
                 "project_docs_players",
-                "https://github.com/Dainty-Lass/Dainty-Lass/blob/main/restricted/docs/players.md",
+                "https://github.com/Dainty-Lass/Dainty-Lass/blob/main/docs/players.md",
             ),
             (
                 "project_docs_hosting",
-                "https://github.com/Dainty-Lass/Dainty-Lass/blob/main/restricted/docs/hosting.md",
+                "https://github.com/Dainty-Lass/Dainty-Lass/blob/main/docs/hosting.md",
             ),
             (
                 "project_docs_sdk",

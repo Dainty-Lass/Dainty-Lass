@@ -6,13 +6,13 @@ Project-specific guidance for AI coding agents. The README says what is here; th
 
 A Bun workspace (`bunfig.toml` pins the isolated linker: import only what a package declares).
 
-| Path              | What                                                                                                                                |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/web`        | Every page, one source, built by `DAINTY_MODE` (below): the dashboard, the launcher and the server manager                          |
-| `apps/agent`      | Deprecated (D1): `dainty-remote` replaces it. Runs on each extra controller; dials the dashboard ([docs/fleet.md](docs/fleet.md))   |
-| `packages/fleet`  | The game calls and the agent protocol, shared by the dashboard and the agent                                                        |
-| `packages/theme`  | The one theme. `bun run theme:build` compiles `src/dainty.theme.ts` to `built/`, which is committed                                 |
-| `packages/bridge` | `src/generated/` is the launcher's AGPL output, copied from `restricted/` and never committed outside it: `bun run restricted-data` |
+| Path              | What                                                                                                                              |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`        | Every page, one source, built by `DAINTY_MODE` (below): the dashboard, the launcher and the server manager                        |
+| `apps/agent`      | Deprecated (D1): `dainty-remote` replaces it. Runs on each extra controller; dials the dashboard ([docs/fleet.md](docs/fleet.md)) |
+| `packages/fleet`  | The game calls and the agent protocol, shared by the dashboard and the agent                                                      |
+| `packages/theme`  | The one theme. `bun run theme:build` compiles `src/dainty.theme.ts` to `built/`, which is committed                               |
+| `packages/bridge` | `src/generated/` is copied from `crates/dainty-launcher-kit/generated` and never committed here: `bun run bridge-data`            |
 
 ## One app, three modes
 

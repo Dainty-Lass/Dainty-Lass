@@ -47,3 +47,6 @@ structure/
 
 # AI-written notes and plans, kept on the maintainer's PC only
 /.ai-docs/
+
+# What a checkout keeps of the retired restricted/ (setup moves its game data to modules/)
+/restricted/

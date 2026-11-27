@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs"
 import os from "node:os"
 import path from "node:path"
 
-import { bundleDir } from "../scripts/restricted-data"
+import { bundleDir } from "../scripts/bridge-data"
 import { type Answer, type App, launch } from "./lib/app"
 import { install, installer, uninstall } from "./lib/nsis"
 

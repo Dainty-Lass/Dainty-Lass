@@ -1,7 +1,6 @@
 # Security Review Index
 
-Index of trust-boundary security checklists (`docs/security/*.md`, RX3/DX2) and `cargo fuzz` targets (`fuzz/fuzz_targets/*.rs`) for dainty-lass's MIT components. The AGPL components' checklists (the host
-shell, the Tauri launcher, the launcher's runtime download and the 1.4.4 importer) and their fuzz targets are in [restricted/SECURITY_REVIEW.md](restricted/SECURITY_REVIEW.md) (RD27).
+Index of trust-boundary security checklists (`docs/security/*.md`, RX3/DX2) and `cargo fuzz` targets (`fuzz/fuzz_targets/*.rs`) for dainty-lass's MIT components.
 
 ## Checklists (`docs/security/`)
 
@@ -42,5 +41,13 @@ shell, the Tauri launcher, the launcher's runtime download and the 1.4.4 importe
 | Launcher injection (`crates/dainty-inject`, launcher `platform/inject.rs`) | [docs/security/launcher-injection.md](docs/security/launcher-injection.md) | `inject_helper_args.rs` | RD9 |
 | Director injection (`rustic_isles_director::runtime`) | [docs/security/director-injection.md](docs/security/director-injection.md) | `director_runtime_manifest.rs` | RD9 |
 | Manager's embedded server (`crates/dainty-manager-server`) | [docs/security/manager-server.md](docs/security/manager-server.md) | none (T-8) | RD27 |
+| Server manager module panels (manifest-drawn views, command input, settings, admin actions: `crates/dainty-module-api`, `crates/dainty-launcher-kit` `bridge/modules.rs`, `crates/dainty-manager-server`, `ui/`) | [docs/security/module-panels.md](docs/security/module-panels.md) | none (`launcher_bridge.rs` covers the hook's shapes only) | DU3, DD11, RD27 |
+| Host kit `setup`, `settings.toml`, `secrets.env`, `start`, `serve` and `update` (`crates/dainty-hostkit`, `crates/dainty-host`) | [docs/security/host-start.md](docs/security/host-start.md) | `host_config.rs` | RD24, RD26, RD27 |
+| Host kit game data: pinned store captures, in-process generators, packs, presets, the SDK folder and `publish-runtime` (`crates/dainty-hostkit`, `crates/dainty-host`, `crates/rustic-isles-gamedata`) | [docs/security/host-gamedata.md](docs/security/host-gamedata.md) | `host_gamedata_input.rs` | RD9, RD27 |
+| Launcher key store: OS-sealed account keys (DPAPI, AES-256-GCM under a Secret Service key), the old launcher's keys, the recovery copy and the Epic session (`crates/dainty-launcher-kit` `platform/keystore`, `crates/dainty-epic`) | [docs/security/keystore.md](docs/security/keystore.md) | `launcher_files.rs` | DD22, DE2, RD27 |
+| Launcher network client: invites, pinned TLS, the HTTP client, the account key header and server answers (`crates/dainty-protocol` invites, `crates/dainty-relay` `pinned`/`endpoint`, `crates/dainty-launcher-kit` `net/http`, `net/hostapi`) | [docs/security/launcher-net.md](docs/security/launcher-net.md) | `protocol_input.rs`, `launcher_hostapi.rs`, `launcher_oauth.rs` | RS1, RD5, RD27 |
+| Launcher runtime download and verification: the manifest, acceptance, the download, the check before PLAY (`crates/dainty-launcher-kit` `net/runtime_files`, `net/verify`, `controller/runtime`, `controller/play`) | [docs/security/runtime-download.md](docs/security/runtime-download.md) | `runtime_input.rs`, `launcher_hostapi.rs`, `content_runtime_index.rs`, `inject_helper_args.rs` | RA7, RD9, RD27 |
+| Launcher Host page and its supervised `dainty-host` (`crates/dainty-launcher-kit` `controller/host`, `platform/hostkit`, `platform/hostserver`, `platform/loader_session`) | [docs/security/host-page.md](docs/security/host-page.md) | `launcher_host.rs`, `launcher_bridge.rs` | RA12, RD9, RD27 |
+| Rustic Rifts relay credentials: TURN credentials (turn-rest shared secret, lifetimes), pair keys, ICE signals and relay-only mode (`crates/rustic-rifts-relay`, `rustic-rifts-admission`) | [docs/security/rifts-relay-credentials.md](docs/security/rifts-relay-credentials.md) | `relay_signal.rs` | RD27 |
 
-Fuzz targets with no checklist row yet: `relay_signal.rs`, `runtime_input.rs`, `launcher_host.rs`.
+Fuzz targets with no checklist row yet: `content_crash_report.rs`, `discord_interaction.rs`, `host_player_host_pipes.rs`, `legacy_database_readers.rs`, `legacy_host_json.rs`, `network_election.rs`, `network_tunnel.rs`, `proxy_headers.rs`, `relay_input.rs`.

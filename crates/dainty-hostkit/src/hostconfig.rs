@@ -1656,38 +1656,32 @@ pub fn version_facts_path(paths: &Paths, config: Option<&HostConfig>) -> PathBuf
     if shipped.exists() {
         return shipped;
     }
-    // The checkout's root, from restricted/'s modules/rustic-isles
-    let root = paths.isles.join("..").join("..").join("..");
-    [paths.repo.as_path(), root.as_path()]
-        .into_iter()
-        .map(|dir| {
-            dir.join("crates")
-                .join("rustic-isles-1-14-7")
-                .join("data")
-                .join("version_facts.json")
-        })
-        .find(|file| file.is_file())
-        .unwrap_or(shipped)
+    checkout_data(paths, "version_facts.json").unwrap_or(shipped)
+}
+
+/// The MIT module's own copy of `file`, in a checkout.
+fn checkout_data(paths: &Paths, file: &str) -> Option<PathBuf> {
+    let path = paths
+        .repo
+        .join("crates")
+        .join("rustic-isles-1-14-7")
+        .join("data")
+        .join(file);
+    path.is_file().then_some(path)
 }
 
 /// The version data file the server reads: settings.toml's `version_data` (relative to the server folder), else
-/// [`DEFAULT_VERSION_DATA`]; in a checkout, which has no `data/`, restricted's own copy.
+/// [`DEFAULT_VERSION_DATA`]; in a checkout, which has no `data/`, the MIT module's own copy.
 #[must_use]
 pub fn version_data_path(paths: &Paths, config: Option<&HostConfig>) -> PathBuf {
     if let Some(named) = config.and_then(|c| c.version_data.as_deref()) {
         return paths.repo.join(named);
     }
     let shipped = paths.repo.join(DEFAULT_VERSION_DATA);
-    let checkout = paths
-        .isles
-        .join("version-data")
-        .join("1.14.7")
-        .join("version_data.json");
-    if !shipped.exists() && checkout.is_file() {
-        checkout
-    } else {
-        shipped
+    if shipped.exists() {
+        return shipped;
     }
+    checkout_data(paths, "version_data.json").unwrap_or(shipped)
 }
 
 /// The TCP port the gateway listens on.

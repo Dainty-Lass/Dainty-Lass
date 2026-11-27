@@ -4,7 +4,7 @@
 import { cpSync, existsSync, rmSync } from "node:fs"
 import path from "node:path"
 
-import { appDir, repoDir } from "./restricted-data"
+import { appDir, repoDir } from "./bridge-data"
 
 const USAGE = "usage: bun scripts/dashboard-page.ts <build|dev> <launcher|server-manager>"
 

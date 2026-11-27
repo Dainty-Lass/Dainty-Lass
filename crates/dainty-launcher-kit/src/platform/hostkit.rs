@@ -116,17 +116,11 @@ pub struct WorkspacePaths {
 }
 
 impl WorkspacePaths {
-    /// The layout under `root`, picking whichever of the module, restricted and legacy layouts is present.
+    /// The layout under `root`.
     #[must_use]
     pub fn new(root: &Path) -> Self {
         let root = root.to_path_buf();
-        let isles = if root.join("modules").join("rustic-isles").is_dir() {
-            root.join("modules").join("rustic-isles")
-        } else if root.join("restricted").join("modules").join("rustic-isles").is_dir() {
-            root.join("restricted").join("modules").join("rustic-isles")
-        } else {
-            root.join("modules").join("rustic-isles")
-        };
+        let isles = root.join("modules").join("rustic-isles");
         let has_isles = isles.is_dir();
 
         let game_data = isles.join("game-data").join("1.14.7");
@@ -363,9 +357,7 @@ pub fn find_host_binary(root: &Path) -> Option<PathBuf> {
 #[must_use]
 pub fn is_workspace(root: &Path) -> bool {
     find_host_binary(root).is_some()
-        && (root.join("modules").join("rustic-isles").is_dir()
-            || root.join("restricted").join("modules").join("rustic-isles").is_dir()
-            || root.join("paradox").is_dir())
+        && (root.join("modules").join("rustic-isles").is_dir() || root.join("paradox").is_dir())
 }
 
 /// Whether `root` is a source checkout, which builds the CatalogExporter: it holds the MIT exporter's crate, as the
@@ -960,7 +952,7 @@ mod tests {
     fn a_checkout_debug_build_is_found_and_this_profile_wins() {
         let tmp = tempfile::tempdir().unwrap();
         let root = tmp.path();
-        std::fs::create_dir_all(root.join("restricted/modules/rustic-isles")).unwrap();
+        std::fs::create_dir_all(root.join("modules/rustic-isles")).unwrap();
         let built = |profile: &str| {
             let dir = root.join("target").join(profile);
             std::fs::create_dir_all(&dir).unwrap();
@@ -1022,11 +1014,11 @@ mod tests {
         assert_eq!(newest_exports(&candidates[..1], None), Some(game));
     }
 
-    /// Today's checkout as far as recognising one goes: the root workspace, `restricted/` and the MIT exporter.
+    /// Today's checkout as far as recognising one goes: the root workspace, the game data and the MIT exporter.
     fn checkout(root: &Path) {
         std::fs::create_dir_all(root.join("native/rustic-isles-exporter")).unwrap();
         std::fs::write(root.join("native/rustic-isles-exporter/Cargo.toml"), b"[workspace]").unwrap();
-        std::fs::create_dir_all(root.join("restricted/modules/rustic-isles/game-data/1.14.7")).unwrap();
+        std::fs::create_dir_all(root.join("modules/rustic-isles/game-data/1.14.7")).unwrap();
         std::fs::write(root.join("Cargo.toml"), b"[workspace]").unwrap();
     }
 

@@ -1,0 +1,35 @@
+{
+  "format": 1,
+  "gameVersion": "1.14.7",
+  "characterData": {
+    "fill": [
+      [
+        "AppearanceData",
+        "{\"Data\":[],\"StringData\":[]}"
+      ]
+    ],
+    "defaultAppearance": {
+      "Data": [],
+      "StringData": []
+    }
+  },
+  "starterKit": {
+    "wallet": [
+      [
+        "CURRENCY_NOTES",
+        2500
+      ]
+    ]
+  },
+  "legacyStarter": {
+    "defaultDye": "DYE_BROWN07_DURABLE",
+    "defaultSigil": "BNC_SIGIL_BEGINNER_00"
+  },
+  "rewardCachePlan": {
+    "selections": [],
+    "armourFamilies": [],
+    "bannerFamilies": [],
+    "expected": {},
+    "expectedFeatured": 0
+  }
+}

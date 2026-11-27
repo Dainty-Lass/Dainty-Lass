@@ -1,6 +1,6 @@
 # GitHub Actions' copy of .forgejo/workflows/launcher-release.yml (RR3; MIGRATION_PLAN.md RA14, RD7): DaintyLass
 # Launcher and DaintyLass Manager as NSIS (Windows) and AppImage, deb and rpm (Ubuntu 22.04's glibc), with the updater
-# signatures, latest.json and latest-manager.json when the signing secrets are set (restricted/docs/launcher-release.md),
+# signatures, latest.json and latest-manager.json when the signing secrets are set (docs/launcher-release.md),
 # SHA256SUMS.txt over every file, and a CycloneDX SBOM of the launcher's dependencies as a separate artifact.
 #
 # Until DX5 it is the build only, as on Forgejo: Run workflow keeps the release files as a 14-day artifact. The
@@ -112,7 +112,7 @@ jobs:
 
       # The manager ships the 1.14.7 version data beside its executable (RD27): nothing is compiled in
       - name: The manager's version data
-        run: echo '{"bundle":{"resources":{"../../restricted/modules/rustic-isles/version-data/1.14.7/version_data.json":"data/1.14.7/version_data.json","../../crates/rustic-isles-1-14-7/data/version_facts.json":"data/1.14.7/version_facts.json"}}}' > "$WORK/config/manager-data.json"
+        run: echo '{"bundle":{"resources":{"../../crates/rustic-isles-1-14-7/data/version_data.json":"data/1.14.7/version_data.json","../../crates/rustic-isles-1-14-7/data/version_facts.json":"data/1.14.7/version_facts.json"}}}' > "$WORK/config/manager-data.json"
 
       # beforeBuildCommand builds ui/'s page
       - name: Build DaintyLass Launcher and DaintyLass Manager
@@ -214,7 +214,7 @@ jobs:
 
       # The manager ships the 1.14.7 version data beside its executable (RD27): nothing is compiled in
       - name: The manager's version data
-        run: echo '{"bundle":{"resources":{"../../restricted/modules/rustic-isles/version-data/1.14.7/version_data.json":"data/1.14.7/version_data.json","../../crates/rustic-isles-1-14-7/data/version_facts.json":"data/1.14.7/version_facts.json"}}}' > "$RUNNER_TEMP/config/manager-data.json"
+        run: echo '{"bundle":{"resources":{"../../crates/rustic-isles-1-14-7/data/version_data.json":"data/1.14.7/version_data.json","../../crates/rustic-isles-1-14-7/data/version_facts.json":"data/1.14.7/version_facts.json"}}}' > "$RUNNER_TEMP/config/manager-data.json"
 
       # The Proton inject helper (RD9, 2026-11-12): a Windows exe Wine runs in the game's place, bundled as a resource
       # of the launcher only. Built for windows-gnu here, since this job has no MSVC
@@ -351,7 +351,7 @@ jobs:
           mkdir -p sbom
           .github/scripts/trivy.sh fs --scanners vuln --format cyclonedx \
             --output "sbom/DaintyLass-launcher-$VERSION.cdx.json" \
-            --skip-dirs restricted --skip-dirs fuzz --skip-dirs native .
+            --skip-dirs fuzz --skip-dirs native .
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

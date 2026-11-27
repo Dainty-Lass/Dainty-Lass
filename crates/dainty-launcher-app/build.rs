@@ -48,7 +48,7 @@ fn unix_lines(text: &str) -> String {
     text.replace("\r\n", "\n")
 }
 
-/// Writes the hook's table unless an equal one (from this or from `bun run restricted-data`) is there.
+/// Writes the hook's table unless an equal one (from this or from `bun run bridge-data`) is there.
 fn isolation_commands() -> Result<(), Box<dyn Error>> {
     let table = unix_lines(&std::fs::read_to_string(COMMANDS)?);
     let current = unix_lines(&std::fs::read_to_string(ISOLATION_COMMANDS).unwrap_or_default());

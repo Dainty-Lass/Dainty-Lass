@@ -6,7 +6,7 @@ import path from "node:path"
 import type { Subprocess } from "bun"
 import { type Browser, chromium, type Page } from "playwright-core"
 
-import { repoDir } from "../../scripts/restricted-data"
+import { repoDir } from "../../scripts/bridge-data"
 
 const CONNECT_MS = 30_000
 const INTERNALS_MS = 16_000

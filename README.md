@@ -6,10 +6,10 @@ and one account key; hosts run the server on a Windows PC for friends over Tails
 internet, or in Docker.
 
 - **Players:** install the launcher, paste the host's invite, pick a name, point it at your own Dauntless 1.14.7,
-  press PLAY. [restricted/docs/players.md](restricted/docs/players.md)
-- **Hosts, Windows:** [restricted/docs/hosting.md](restricted/docs/hosting.md)
-- **Hosts, Linux:** the game servers run under Wine or Proton. [restricted/docs/hosting-linux.md](restricted/docs/hosting-linux.md)
-- **Hosts, Docker:** the same server as containers. [restricted/docs/hosting-docker.md](restricted/docs/hosting-docker.md)
+  press PLAY. [docs/players.md](docs/players.md)
+- **Hosts, Windows:** [docs/hosting.md](docs/hosting.md)
+- **Hosts, Linux:** the game servers run under Wine or Proton. [docs/hosting-linux.md](docs/hosting-linux.md)
+- **Hosts, Docker:** the same server as containers. [docs/hosting-docker.md](docs/hosting-docker.md)
 
 > [!IMPORTANT]
 > Nothing here contains, downloads or mirrors the game. Every player needs their own Dauntless 1.14.7, and every
@@ -29,12 +29,9 @@ the launcher runs on `127.0.0.1:61100`.
 
 ## What is in this repository
 
-Dainty Lass is a monorepo with a strict licence boundary (RD27): the root workspace and everything outside
-[`restricted/`](restricted) is **MIT OR Apache-2.0** ([LICENSE-MIT.txt](LICENSE-MIT.txt),
-[LICENSE-APACHE.txt](LICENSE-APACHE.txt)); [`restricted/`](restricted) is licensed under **GNU AGPL-3.0-only**
-([restricted/LICENSE.txt](restricted/LICENSE.txt), [restricted/NOTICE.md](restricted/NOTICE.md)) and holds no code since
-RB15: Mystic Paradox's version data and game data, and the host and player guides. No MIT crate at the root depends on
-anything in `restricted/`; the server reads its data at run time.
+Dainty Lass is one monorepo, all of it **MIT OR Apache-2.0** ([LICENSE-MIT.txt](LICENSE-MIT.txt),
+[LICENSE-APACHE.txt](LICENSE-APACHE.txt)). What came from AGPL projects was rewritten clean-room (RD27), and the
+AGPL `restricted/` folder that held the rest was retired once its docs and data were remade.
 
 | Folder | Licence | What |
 | --- | --- | --- |
@@ -42,8 +39,8 @@ anything in `restricted/`; the server reads its data at run time.
 | [`ui/`](ui) | MIT OR Apache-2.0 | dainty-dash: the staff dashboard, the launcher and server-manager pages the Tauri shell serves, and the fleet agent (Astryx on Next.js through vinext, built with Bun) |
 | [`launcher/`](launcher) | MIT OR Apache-2.0 | The launcher's JavaScript side: the isolation hook, the scripts the Tauri shell and the release run, and their tests |
 | [`scripts/`](scripts) | MIT OR Apache-2.0 | `replay-capture.mjs`, the shadow-replay wrapper |
-| [`docs/`](docs) | MIT OR Apache-2.0 | The architecture, the plans and the MIT components' security checklists ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)) |
-| [`restricted/`](restricted) | AGPL-3.0-only | Docs and data, no code: Rustic Isles' version data and game data (`restricted/modules/rustic-isles/version-data`, `game-data/1.14.7`), the Rustic Rifts docs and relay self-test, and the host and player guides ([restricted/SECURITY_REVIEW.md](restricted/SECURITY_REVIEW.md)) |
+| [`docs/`](docs) | MIT OR Apache-2.0 | The host and player guides, the architecture, the plans and the security checklists ([SECURITY_REVIEW.md](SECURITY_REVIEW.md)) |
+| [`modules/`](modules) | MIT OR Apache-2.0 | Rustic Isles' synthetic game-data placeholders and the store captures' pin, laid out as in a server tree; the version data is `crates/rustic-isles-1-14-7/data/` |
 
 What is left to do: [MIGRATION_PLAN.md](MIGRATION_PLAN.md). The design record behind it:
 [docs/dainty-lass-plan.md](docs/dainty-lass-plan.md).
@@ -59,7 +56,7 @@ cargo test --workspace --locked
 The UI (`ui/`) builds with Bun:
 
 ```bash
-cd ui && bun install --frozen-lockfile && bun run restricted-data && bun run build
+cd ui && bun install --frozen-lockfile && bun run bridge-data && bun run build
 ```
 
 The full server, from the root (the release builds the launcher from `crates/dainty-launcher-app`):
@@ -71,21 +68,17 @@ cargo build --release --locked -p dainty-server --features all-modules --bins
 ## Credits and licence
 
 Dainty Lass stands on [Mystic Paradox](https://github.com/pranav158/Mystic-Paradox) (Pranav Karande), whose Node
-backend and Director (the behaviour the Rust port follows) lived in `restricted/modules/rustic-isles` until RB15, whose
-version data and game data still do, and whose C++
-runtime the MIT runtime re-created (its source is kept by the tag `agpl-runtime-final`);
+backend, Director and C++ runtime are the behaviour the MIT crates re-created clean-room (the runtime's source is kept
+by the tag `agpl-runtime-final`);
 on [Dauntless Revived](https://github.com/mixutin/dauntless-revived)
 (mixutin and contributors), whose Rust crates the project started from and whose invite and account-key design
 the launcher follows; and on [Undaunted](https://github.com/SyST3MDeV/Undaunted) (gwog and contributors), which both
 of those build on.
 
-Everything outside [`restricted/`](restricted) is licensed under either of the MIT License
-([LICENSE-MIT.txt](LICENSE-MIT.txt)) or the Apache License, Version 2.0 ([LICENSE-APACHE.txt](LICENSE-APACHE.txt)),
-at your option; it was written or rewritten clean-room from no other project. Unless you state otherwise, any
-contribution you submit for inclusion outside `restricted/` is dual-licensed the same way, without further terms. Everything inside [`restricted/`](restricted) is licensed under the GNU
-AGPL-3.0-only ([restricted/LICENSE.txt](restricted/LICENSE.txt), [restricted/NOTICE.md](restricted/NOTICE.md)), with
-the additional terms for the Mystic Paradox
-material in [restricted/ADDITIONAL_TERMS.md](restricted/ADDITIONAL_TERMS.md).
+Everything here is licensed under either of the MIT License ([LICENSE-MIT.txt](LICENSE-MIT.txt)) or the Apache
+License, Version 2.0 ([LICENSE-APACHE.txt](LICENSE-APACHE.txt)), at your option; it was written or rewritten
+clean-room from no other project. Unless you state otherwise, any contribution you submit for inclusion is
+dual-licensed the same way, without further terms.
 
 An unofficial fan project, not affiliated with or endorsed by Phoenix Labs, Epic Games, Mystic Paradox or
 Dauntless Revived. Dauntless is a trademark of its owners.

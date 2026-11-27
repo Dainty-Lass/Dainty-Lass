@@ -70,7 +70,7 @@ The helper waits for the game and exits with its code, so the Director's readine
 unchanged. Wine starts the game as a child Unix process of the helper in the same process group, so the Director's
 SIGTERM and SIGKILL to the group still reach it.
 
-**Shipping the helper.** The root and restricted Dockerfiles build it with `gcc-mingw-w64-x86-64` into the image's
+**Shipping the helper.** The root Dockerfile builds it with `gcc-mingw-w64-x86-64` into the image's
 `bin/`. `server-release.yml` (RR3's) doesn't build it yet: the Linux server tarball needs
 `cargo build --release --locked -p dainty-inject --target x86_64-pc-windows-gnu` and the exe in `bin/`, as
 `launcher-release.yml` already does for the launcher. Until then a Linux release host's servers refuse to start, and

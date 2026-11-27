@@ -1,7 +1,7 @@
 # CI runners
 
-dainty-lass runs its checks on Forgejo Actions at `git.silentspud.com` (DX3), for both workspaces: the MIT root
-and the AGPL `restricted/` (RD27). The workflows are in the root `.forgejo/workflows/`; Forgejo reads only that
+dainty-lass runs its checks on Forgejo Actions at `git.silentspud.com` (DX3), for the root workspace and the folders
+beside it. The workflows are in the root `.forgejo/workflows/`; Forgejo reads only that
 folder and ignores `.github/workflows/` once it exists. `.github/workflows/` holds GitHub's copies of the three
 (RR3), which GitHub runs on its hosted runners and Forgejo ignores; see [GitHub Actions](#github-actions). A change
 to one copy is made to the other in the same commit.
@@ -20,7 +20,7 @@ Three labels. One Linux machine can serve the first two from one runner.
 | Workflow | Jobs | Labels |
 | --- | --- | --- |
 | `ci.yml` (every push) | The Rust workspace, cargo-deny and fuzz; the UI; Docker, the installers, the network and the native crates | `docker`, `linux-host`, `windows-msvc` |
-| `server-release.yml`, `launcher-release.yml` (Run workflow, a dry run) | Build from the root workspace; the server archive takes `restricted/`'s files | `docker`, `windows-msvc` |
+| `server-release.yml`, `launcher-release.yml` (Run workflow, a dry run) | Build from the root workspace; the server archive adds `modules/`, the version data and the host guides | `docker`, `windows-msvc` |
 
 Register the runners on the **`silentspud` account** (a user, not an organisation), not on one repository, so every
 repository reaches them: user settings, Actions, Runners, "Create new runner" shows the registration token. A job whose label
@@ -107,7 +107,7 @@ today.
 
 | Secret | Used by | When it is needed |
 | --- | --- | --- |
-| `CI_READ_TOKEN` | Nothing since `restricted/` moved in-tree (2026-11-05): restricted takes the root's crates by path and the UI job reads `restricted/` from the same checkout. Kept for a job that has to read another repository | When the job's own token can't read the other repository while the instance needs sign-in (DF1's finding). A token with read access to repositories |
+| `CI_READ_TOKEN` | Nothing since `restricted/` moved in-tree (2026-11-05), and it is gone now. Kept for a job that has to read another repository | When the job's own token can't read the other repository while the instance needs sign-in (DF1's finding). A token with read access to repositories |
 
 Actions must be on for each repository (repository settings, Units, Actions) and on the instance
 (`[actions] ENABLED = true` in `app.ini`, the default).

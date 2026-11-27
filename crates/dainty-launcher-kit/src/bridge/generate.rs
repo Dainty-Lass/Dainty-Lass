@@ -262,7 +262,7 @@ fn fixture(name: &str) -> String {
     std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()))
 }
 
-/// Where the generated files are kept (committed; the shell and `bun run restricted-data` copy them from here), or
+/// Where the generated files are kept (committed; the shell and `bun run bridge-data` copy them from here), or
 /// [`OUTPUT_DIR_VAR`]. Never under `restricted/` or `ui/`: those take copies.
 pub fn output_dir() -> PathBuf {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");

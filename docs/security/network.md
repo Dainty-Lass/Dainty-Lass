@@ -251,7 +251,7 @@ Fuzz target: `network_link` in `fuzz` (the route table, the time header, a ping 
 
 ## The Docker harness (DN12)
 
-`compose.yaml`'s `network` profile runs four nodes on one machine for tests (`restricted/docs/hosting-docker.md`,
+`compose.yaml`'s `network` profile runs four nodes on one machine for tests (`docs/hosting-docker.md`,
 `docker/network/test.sh`). It is not a deployment: its CA and every key in it are made for the test and thrown away
 with `docker compose down --volumes`. It keeps the rules above anyway, so what it proves is the real arrangement.
 
